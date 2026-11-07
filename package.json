@@ -8,7 +8,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json"
+    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
+    "smoke": "npm run build && node --disable-warning=ExperimentalWarning e2e/smoke.mts"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -21,6 +22,7 @@
     "@vitejs/plugin-react": "^6.2.1",
     "electron": "^45.2.3",
     "electron-vite": "^6.0.0",
+    "playwright": "^1.65.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.6"
   }

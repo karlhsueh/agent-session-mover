@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["electron.vite.config.ts", "src/main", "src/preload", "src/shared"],
+  "include": ["electron.vite.config.ts", "src/main", "src/preload", "src/shared", "e2e"],
   "compilerOptions": {
     "lib": ["ES2023"],
     "types": ["node"]
