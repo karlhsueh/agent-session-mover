@@ -2,6 +2,8 @@
 
 A hello world desktop app built with Electron, React, and TypeScript. The renderer sends a name to the main process over IPC, and the page shows the reply.
 
+To learn how the pieces fit together, read [How the app works](docs/how-it-works.md).
+
 ## Run
 
 Requires Node 24.
