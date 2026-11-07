@@ -38,16 +38,84 @@ flowchart LR
 
 `window.api` has exactly one function, `greet`. The preload script never gives the page `ipcRenderer` itself. If it did, the page could send any message on any channel, and the sandbox would protect much less. Each function on `window.api` is a capability you chose to grant, and the smoke test fails if a second key appears.
 
-## One call, start to finish
+## Follow the code from launch to reply
 
-Here is what happens when you type `Karl` and click **Send to main**:
+This section traces the code in the order it runs. Each step names the file and function, so you can open them side by side.
 
-1. `handleSubmit` in `App.tsx` sets the state to `waiting` and calls `window.api.greet('Karl')`.
-2. The preload script calls `ipcRenderer.invoke('greet', 'Karl')`. IPC means inter-process communication. Electron copies the arguments into a message and sends the message to main.
-3. In main, the function registered with `ipcMain.handle` calls `greet(input)`.
-4. `greet` returns a `GreetResult`. Electron copies it back as the reply.
-5. The `invoke` promise resolves in the renderer, so the `await` in `handleSubmit` finishes.
-6. `setState` stores the result. React renders again, and the page shows the message and the runtime values.
+### Startup
+
+```mermaid
+sequenceDiagram
+  participant E as Electron
+  participant M as Main (src/main/index.ts)
+  participant P as Preload (src/preload/index.ts)
+  participant R as Renderer (src/renderer)
+  E->>M: run out/main/index.js
+  M->>M: app.whenReady()
+  M->>M: ipcMain.handle('greet', ...)
+  M->>R: createWindow() starts the renderer process
+  R->>P: run the preload script first
+  P->>R: add window.api
+  R->>R: load index.html, run main.tsx, render App
+```
+
+1. `pnpm start` builds the app and starts Electron in the project folder. Electron reads `"main": "./out/main/index.js"` in `package.json`. That file is the compiled `src/main/index.ts`.
+
+2. The top level of `src/main/index.ts` only registers callbacks. Electron cannot create windows until it is ready, so the work waits for `app.whenReady()`:
+
+	```ts
+	app.whenReady().then(() => {
+	  ipcMain.handle(GREET_CHANNEL, (_event, input: unknown) => greet(input))
+	  createWindow()
+	  ...
+	})
+	```
+
+	The handler is registered before the window exists, so it is in place before any page code can call it.
+
+3. `createWindow` creates the window and names the preload script:
+
+	```ts
+	const window = new BrowserWindow({
+	  ...
+	  webPreferences: {
+	    preload: join(__dirname, '../preload/index.js'),
+	    contextIsolation: true,
+	    sandbox: true,
+	    nodeIntegration: false,
+	  },
+	})
+	```
+
+	It then loads the page. Under `pnpm dev` the page comes from the Vite dev server at `ELECTRON_RENDERER_URL`. In a built app it comes from `out/renderer/index.html` on disk.
+
+4. Chromium starts a renderer process for the window. Before any page script runs, the renderer runs `src/preload/index.ts`:
+
+	```ts
+	const api: DesktopApi = {
+	  greet: (name) => ipcRenderer.invoke(GREET_CHANNEL, name),
+	}
+
+	contextBridge.exposeInMainWorld('api', api)
+	```
+
+	After this line, `window.api.greet` exists in the page.
+
+5. The renderer loads `src/renderer/index.html`. It applies the Content Security Policy, loads `styles.css`, and runs `main.tsx`, which mounts React:
+
+	```ts
+	createRoot(document.getElementById('root')!).render(
+	  <StrictMode>
+	    <App />
+	  </StrictMode>,
+	)
+	```
+
+6. React calls the `App` function for the first time. The state is `{ status: 'idle' }`, the main side shows dashes, and the chip shows `Nothing sent yet`. Under `pnpm dev`, `StrictMode` calls `App` twice to catch side effects. That is expected and does not happen in a built app.
+
+### One call
+
+You type `Karl` and click **Send to main**.
 
 ```mermaid
 sequenceDiagram
@@ -61,6 +129,59 @@ sequenceDiagram
   P-->>R: promise resolves
   R->>R: setState, React renders
 ```
+
+1. The form submits, and `handleSubmit` in `App.tsx` runs:
+
+	```ts
+	async function handleSubmit(event: FormEvent) {
+	  event.preventDefault()
+	  setState({ status: 'waiting' })
+	  setState({ status: 'done', result: await window.api.greet(name) })
+	}
+	```
+
+	`preventDefault` stops the browser from reloading the page, which is the default for a form. `setState({ status: 'waiting' })` makes React render again with the button disabled.
+
+2. `window.api.greet('Karl')` is the function from the preload script. It calls `ipcRenderer.invoke('greet', 'Karl')`. IPC means inter-process communication. Electron copies the arguments into a message and sends it to the main process. `invoke` returns a promise right away, so `handleSubmit` pauses at `await`.
+
+3. In the main process, Electron finds the handler registered for `'greet'` and calls it with the copied argument:
+
+	```ts
+	ipcMain.handle(GREET_CHANNEL, (_event, input: unknown) => greet(input))
+	```
+
+	`_event` describes the sender, such as which window sent the message. This app does not use it.
+
+4. `greet` checks the input and builds the reply:
+
+	```ts
+	function greet(input: unknown): GreetResult {
+	  if (typeof input !== 'string' || input.trim() === '') {
+	    return { ok: false, error: 'Name must be a non-blank string.' }
+	  }
+
+	  return {
+	    ok: true,
+	    message: `Hello, ${input.trim()}!`,
+	    runtime: { pid: process.pid, platform: process.platform, ... },
+	  }
+	}
+	```
+
+	`process` here is the main process's Node `process`, so `pid` is the main process's ID.
+
+5. Electron copies the returned object back to the renderer. The `invoke` promise resolves, the `await` finishes, and `handleSubmit` calls `setState({ status: 'done', result })`.
+
+6. React calls `App` again with the new state. These lines pick out what to show:
+
+	```ts
+	const result = state.status === 'done' ? state.result : null
+	const runtime = result?.ok ? result.runtime : null
+	```
+
+	`crossingText(state)` returns `Hello, Karl!` for the chip. The main side fills in each value from `runtime`. React compares the new output with the page and changes only the text that differs.
+
+If you submit a blank name, the same path runs. `greet` returns `{ ok: false, error }` at step 4, `runtime` is `null`, and the chip shows the error with the `failed` style.
 
 Every call is asynchronous, because the reply comes from another process. Everything that crosses is copied, so only plain data works. You can send objects and arrays, but a class instance loses its methods and a function throws an error.
 
