@@ -3,13 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "description": "Hello world Electron, React, and TypeScript app.",
+  "packageManager": "pnpm@10.13.1",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
-    "smoke": "npm run build && node --disable-warning=ExperimentalWarning e2e/smoke.mts"
+    "smoke": "pnpm build && node --disable-warning=ExperimentalWarning e2e/smoke.mts"
   },
   "dependencies": {
     "react": "^19.3.1",

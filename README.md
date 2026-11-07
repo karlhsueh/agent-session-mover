@@ -9,16 +9,16 @@ To learn how the pieces fit together, read [How the app works](docs/how-it-works
 Requires Node 24.
 
 ```sh
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 ## Commands
 
-| Command             | What it does                                                      |
-| ------------------- | ----------------------------------------------------------------- |
-| `npm run dev`       | Starts the app with hot reload.                                   |
-| `npm run build`     | Builds the app into `out/`.                                       |
-| `npm start`         | Builds the app and runs the build.                                |
-| `npm run typecheck` | Type checks the Node side and the renderer separately.            |
-| `npm run smoke`     | Builds the app, tests it, and saves screenshots in `artifacts/`.  |
+| Command          | What it does                                                     |
+| ---------------- | ---------------------------------------------------------------- |
+| `pnpm dev`       | Starts the app with hot reload.                                  |
+| `pnpm build`     | Builds the app into `out/`.                                      |
+| `pnpm start`     | Builds the app and runs the build.                               |
+| `pnpm typecheck` | Type checks the Node side and the renderer separately.           |
+| `pnpm smoke`     | Builds the app, tests it, and saves screenshots in `artifacts/`. |

@@ -66,7 +66,7 @@ Every call is asynchronous, because the reply comes from another process. Everyt
 
 ## The contract lives in one file
 
-`src/shared/ipc.ts` holds the channel name and the types, and all three parts import it. If you rename a field in `GreetResult`, `npm run typecheck` fails in every file that uses the old name.
+`src/shared/ipc.ts` holds the channel name and the types, and all three parts import it. If you rename a field in `GreetResult`, `pnpm typecheck` fails in every file that uses the old name.
 
 Types do not exist at runtime, though. TypeScript removes them during the build, so `greet(name: string)` promises nothing about what actually arrives in main. That is why the handler in main takes `input: unknown` and checks it. Treat the renderer the way a server treats a browser, as a source of input that you do not trust. The smoke test calls `window.api.greet(123)` to prove that the check runs.
 
@@ -88,9 +88,9 @@ The three parts run in different places, so `electron.vite.config.ts` has three 
 | Preload | `src/preload/` | `out/preload/` | Sandboxed renderer process |
 | Renderer | `src/renderer/` | `out/renderer/` | Chromium |
 
-`npm run dev` serves the renderer from a local Vite server and sets `ELECTRON_RENDERER_URL`, so `createWindow` loads that URL. CSS and React changes then appear without a restart. The built app has no server, so `createWindow` loads `out/renderer/index.html` from disk.
+`pnpm dev` serves the renderer from a local Vite server and sets `ELECTRON_RENDERER_URL`, so `createWindow` loads that URL. CSS and React changes then appear without a restart. The built app has no server, so `createWindow` loads `out/renderer/index.html` from disk.
 
-Type checking is split the same way. `tsconfig.node.json` covers main, preload, and the smoke test, and it knows Node's types. `tsconfig.web.json` covers the renderer and knows the DOM's types but not Node's. If you write `process.env` in the renderer, `npm run typecheck` fails with `TS18046`, which matches what would happen at runtime.
+Type checking is split the same way. `tsconfig.node.json` covers main, preload, and the smoke test, and it knows Node's types. `tsconfig.web.json` covers the renderer and knows the DOM's types but not Node's. If you write `process.env` in the renderer, `pnpm typecheck` fails with `TS18046`, which matches what would happen at runtime.
 
 ## Four details in this code look odd
 
@@ -116,4 +116,4 @@ This section is a plan, and none of it exists yet. The future app moves AI codin
 
 The validation rule becomes more important at that point. A function that takes a file path from the renderer must treat that path as untrusted input, or a compromised page could read any file. A safer `window.api` offers `listSessions()` and `exportSession(id)`, with main working out the real paths itself.
 
-Packaging is also missing. `npm run build` compiles the code, but it does not make an installer for macOS, Windows, or Linux.
+Packaging is also missing. `pnpm build` compiles the code, but it does not make an installer for macOS, Windows, or Linux.
