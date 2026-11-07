@@ -50,6 +50,13 @@ try {
   const numberResult = await page.evaluate<{ ok: boolean }>('window.api.greet(123)')
   assert.equal(numberResult.ok, false, 'greet(123) returns ok:false instead of throwing')
 
+  const url = page.url()
+  assert.equal(await page.evaluate("window.open('https://example.com')"), null, 'window.open is denied')
+  await page.evaluate("location.href = 'https://example.com'")
+  await page.waitForTimeout(500)
+  assert.equal(page.url(), url, 'external navigation is blocked')
+  assert.equal(app.windows().length, 1, 'app still has one window')
+
   assert.deepEqual(problems, [], 'page logged no console errors')
   console.log('smoke passed')
 } finally {
