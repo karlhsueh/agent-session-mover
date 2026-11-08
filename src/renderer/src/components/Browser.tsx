@@ -6,10 +6,10 @@ import { MOD, plural, tildePath } from '../model/format'
 import { matchSessions, searchNeedle } from '../model/rows'
 import { ALL, countByProject, inScope, projectsOf, type Scope } from '../model/scope'
 import { focusedKey, NO_SELECTION, selectionReducer } from '../model/selection'
-import { useHomeDir, useStored, type Theme } from '../hooks'
+import { useHomeDir, usePreviews, useStored, type Theme } from '../hooks'
 import { Kbd } from './common'
 import { EmptyStore, Problems } from './EmptyStore'
-import { SessionDetail } from './SessionDetail'
+import { type DetailTab, parseDetailTab, SessionDetail } from './SessionDetail'
 import { SessionList, type ClickMode } from './SessionList'
 import { Shortcuts } from './Shortcuts'
 import { Sidebar } from './Sidebar'
@@ -36,6 +36,8 @@ function inTextField(target: EventTarget | null): boolean {
 
 const parseOpen = (raw: string | null) => raw !== 'false'
 const keepOpen = (open: boolean) => String(open)
+const keepTab = (tab: DetailTab) => tab
+const loadPreview = (key: SessionKey) => window.api.previewSession(key)
 
 export function Browser({ list, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
   const [query, setQuery] = useState<BrowseQuery>(EMPTY_QUERY)
@@ -45,6 +47,9 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
   const [singleSidebar, setSingleSidebar] = useState(false)
   const [selection, dispatch] = useReducer(selectionReducer, NO_SELECTION)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  // Conversation text stays off screen until the viewer asks for it once.
+  const [detailTab, setDetailTab] = useStored('agent-sessions.detail-tab', parseDetailTab, keepTab)
+  const [preview, requestPreview] = usePreviews(loadPreview, list.sessions)
   const home = useHomeDir()
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -235,7 +240,15 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
             </div>
           )}
         </div>
-        <SessionDetail session={focused} home={home} now={now} />
+        <SessionDetail
+          session={focused}
+          home={home}
+          now={now}
+          tab={detailTab}
+          onTab={(tab) => setDetailTab(() => tab)}
+          preview={preview}
+          onPreview={requestPreview}
+        />
       </div>
       <footer className="statusbar">
         <span className="status" aria-live="polite">

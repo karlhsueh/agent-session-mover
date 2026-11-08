@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ProgressEvent } from '../../shared/sessions'
+import type { ApiResult } from '../../shared/ipc'
+import type { ProgressEvent, SessionPreview } from '../../shared/sessions'
+import type { Loadable } from './state'
 
 /** Archive open reports once per chunk read, so events are folded into one render per frame. */
 export function useProgress(): [ProgressEvent | null, () => void] {
@@ -90,4 +92,34 @@ export function useHomeDir(): string {
     void window.api.homeDir().then(setHome)
   }, [])
   return home
+}
+
+/**
+ * Conversation previews, loaded on first request and kept until `generation` changes, such as when
+ * the session list reloads or another archive opens.
+ */
+export function usePreviews<K extends string>(load: (key: K) => Promise<ApiResult<SessionPreview>>, generation: unknown): [(key: K) => Loadable<SessionPreview> | null, (key: K) => void] {
+  const [cache, setCache] = useState<{ generation: unknown; byKey: ReadonlyMap<K, Loadable<SessionPreview>> }>({ generation, byKey: new Map() })
+  const byKey = cache.generation === generation ? cache.byKey : null
+  const asked = useRef<{ generation: unknown; keys: Set<K> }>({ generation, keys: new Set() })
+
+  const request = useCallback(
+    (key: K) => {
+      if (asked.current.generation !== generation) asked.current = { generation, keys: new Set() }
+      if (asked.current.keys.has(key)) return
+      asked.current.keys.add(key)
+      const store = (state: Loadable<SessionPreview>) =>
+        setCache((current) => {
+          const base = current.generation === generation ? current.byKey : new Map<K, Loadable<SessionPreview>>()
+          return { generation, byKey: new Map(base).set(key, state) }
+        })
+      store({ status: 'loading' })
+      void load(key).then((result) => {
+        if (!result.ok) asked.current.keys.delete(key)
+        store(result.ok ? { status: 'ready', value: result.value } : { status: 'failed', error: result.error })
+      })
+    },
+    [load, generation],
+  )
+  return [(key) => byKey?.get(key) ?? null, request]
 }

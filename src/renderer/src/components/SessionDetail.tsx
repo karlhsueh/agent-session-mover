@@ -1,7 +1,19 @@
-import type { ReactNode } from 'react'
-import type { SessionSummary } from '../../../shared/sessions'
+import { useEffect, type ReactNode } from 'react'
+import type { SessionKey, SessionPreview, SessionSummary } from '../../../shared/sessions'
 import { absoluteTime, AGENT_LABEL, CLIENT_LABEL, formatBytes, pickerNote, plural, relativeTime, sessionTitle, shortCommand, tildePath } from '../model/format'
+import type { Loadable } from '../state'
 import { AgentMark, CommandText, CopyButton, PathText } from './common'
+import { Conversation } from './Conversation'
+
+export type DetailTab = 'overview' | 'conversation'
+const TABS: { tab: DetailTab; label: string }[] = [
+  { tab: 'overview', label: 'Overview' },
+  { tab: 'conversation', label: 'Conversation' },
+]
+
+export function parseDetailTab(raw: string | null): DetailTab {
+  return raw === 'conversation' ? 'conversation' : 'overview'
+}
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -24,15 +36,23 @@ function Copyable({ shown, copy, path = false }: { shown: string; copy: string; 
   )
 }
 
-export function SessionDetail({ session, home, now }: { session: SessionSummary | null; home: string; now: number }) {
-  if (!session) return <aside className="detail detail-empty" aria-label="Session details" />
+interface Props {
+  session: SessionSummary | null
+  home: string
+  now: number
+  tab: DetailTab
+  onTab: (tab: DetailTab) => void
+  preview: (key: SessionKey) => Loadable<SessionPreview> | null
+  onPreview: (key: SessionKey) => void
+}
 
-  const otherCwds = session.cwds.filter((cwd) => cwd !== session.cwd)
-  const notes: string[] = []
-  if (session.live) notes.push('Running on this machine now. An export snapshots it up to the last complete line.')
-  if (session.hiddenFromPicker) notes.push(pickerNote(session.agent, session.clientDetail))
-  if (session.archived) notes.push(`Archived in ${AGENT_LABEL[session.agent]}.`)
-  const command = shortCommand(session.resumeCommand, home)
+export function SessionDetail({ session, home, now, tab, onTab, preview, onPreview }: Props) {
+  const key = session?.key ?? null
+  useEffect(() => {
+    if (key && tab === 'conversation') onPreview(key)
+  }, [key, tab, onPreview])
+
+  if (!session) return <aside className="detail detail-empty" aria-label="Session details" />
 
   return (
     <aside className="detail" aria-label="Session details">
@@ -43,7 +63,47 @@ export function SessionDetail({ session, home, now }: { session: SessionSummary 
           {AGENT_LABEL[session.agent]} · <span title={session.clientDetail || undefined}>{CLIENT_LABEL[session.client]}</span>
         </p>
       </header>
+      <Tabs tab={tab} onTab={onTab} />
+      <div className="detail-panel" role="tabpanel" id="detail-panel" aria-labelledby={`detail-tab-${tab}`}>
+        {tab === 'overview' ? <Overview session={session} home={home} now={now} /> : <Conversation state={preview(session.key)} onRetry={() => onPreview(session.key)} />}
+      </div>
+    </aside>
+  )
+}
 
+/** A click keeps focus in the list, so arrow keys go on moving through sessions with either tab open. */
+function Tabs({ tab, onTab }: { tab: DetailTab; onTab: (tab: DetailTab) => void }) {
+  return (
+    <div className="tabs" role="tablist" aria-label="Detail view">
+      {TABS.map((each) => (
+        <button
+          key={each.tab}
+          type="button"
+          role="tab"
+          id={`detail-tab-${each.tab}`}
+          aria-selected={tab === each.tab}
+          aria-controls="detail-panel"
+          className={tab === each.tab ? 'tab active' : 'tab'}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onTab(each.tab)}
+        >
+          {each.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function Overview({ session, home, now }: { session: SessionSummary; home: string; now: number }) {
+  const otherCwds = session.cwds.filter((cwd) => cwd !== session.cwd)
+  const notes: string[] = []
+  if (session.live) notes.push('Running on this machine now. An export snapshots it up to the last complete line.')
+  if (session.hiddenFromPicker) notes.push(pickerNote(session.agent, session.clientDetail))
+  if (session.archived) notes.push(`Archived in ${AGENT_LABEL[session.agent]}.`)
+  const command = shortCommand(session.resumeCommand, home)
+
+  return (
+    <>
       {notes.map((note) => (
         <p key={note} className="note">
           {note}
@@ -83,7 +143,7 @@ export function SessionDetail({ session, home, now }: { session: SessionSummary 
       </dl>
 
       {session.subagents.length > 0 && <Subagents session={session} now={now} />}
-    </aside>
+    </>
   )
 }
 
