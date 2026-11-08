@@ -153,7 +153,7 @@ describe('import into a populated store', () => {
   async function importOnce(): Promise<{ archive: string; mappings: ReturnType<typeof suggestMappings>; dstFile: string }> {
     const archive = await exportFrom(a, [key(S1)], 'first.agentsessions')
     const { opened, mappings } = await openIn(b, archive)
-    await runImport(b.context, opened, mappings, [key(S1)])
+    expect((await runImport(b.context, opened, mappings, [key(S1)])).backupDir, 'a run that only creates keeps no backups').toBeNull()
     const dstFile = path.join(b.root, 'projects', encodeProjectDir(path.join(b.home, 'code', 'proj')), `${S1}.jsonl`)
     return { archive, mappings, dstFile }
   }
@@ -165,8 +165,10 @@ describe('import into a populated store', () => {
 
     const { opened } = await openIn(b, await exportFrom(a, [key(S1)], 'second.agentsessions'))
     expect((await previewImport(b.context, opened, mappings)).sessions[0].action).toEqual({ kind: 'update', backup: true })
-    const [outcome] = (await runImport(b.context, opened, mappings, [key(S1)])).outcomes
+    const result = await runImport(b.context, opened, mappings, [key(S1)])
+    const [outcome] = result.outcomes
     expect(outcome.status).toBe('updated')
+    expect(result.backupDir, 'the run names its backup folder').toBe(path.dirname((outcome as { backupDir: string }).backupDir))
     const updated = await readFile(dstFile)
     expect(updated.subarray(0, old.length)).toEqual(old)
     expect(records(updated.toString()).at(-1)).toMatchObject({ cwd: path.join(b.home, 'code', 'proj'), timestamp: '2026-11-02T09:00:00.000Z' })

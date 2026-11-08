@@ -212,7 +212,8 @@ export async function runImport(
     outcomes.push(await importOne(context, opened, session, resolved, { runId, journalDir, backupDir, fault: options.fault }))
   }
   options.onProgress?.({ operation: 'import', done: sessions.length, total: sessions.length, current: null })
-  return { runId, outcomes }
+  const backedUp = outcomes.some((outcome) => 'backupDir' in outcome && outcome.backupDir !== null)
+  return { runId, outcomes, backupDir: backedUp ? backupDir : null }
 }
 
 async function importOne(

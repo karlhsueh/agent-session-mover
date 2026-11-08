@@ -210,11 +210,12 @@ Tests inject a `Fault` (`{ afterWrites, mode: 'error' | 'crash' }`). `error` exe
 | `previewImport(token, mappings)` | Returns an `ImportAction`, the target cwd, and warnings (`target-cwd-missing`, `hidden-from-picker`) for every session in the archive. |
 | `previewSession(key)` | Validates the key and previews that session's main transcript on this machine. It returns `SessionPreview`, which is `unavailable` when the session is no longer here. |
 | `previewArchiveSession(token, key)` | Validates both and previews the session's transcript from the open archive's staged blob. A key the archive does not hold is `invalid-input`. |
-| `runImport(token, mappings, keys)` | Plans again, then imports each selected session. It returns one `SessionImportOutcome` per key: `created`, `updated` (with the backup folder), `skipped`, `refused`, or `failed` (with `rolledBack`). |
+| `runImport(token, mappings, keys)` | Plans again, then imports each selected session. It returns one `SessionImportOutcome` per key: `created`, `updated` (with the backup folder), `skipped`, `refused`, or `failed` (with `rolledBack`). The result also names the run's backup folder, or `null` when nothing was replaced. |
 | `createFolder(token, target)` | Validates the token and that `target` is an absolute path, then creates the folder and any missing parents (`mkdir -p`). An existing folder is left as it is. A file in the way, a denied permission, or a read-only disk is `io` with a short message the mapping row shows. The import screen offers it as **Create folder** on a mapping whose folder does not exist yet, then plans again. |
 | `storeRoots()` | Returns the store folder each provider reads, for the empty state. |
 | `chooseFolder(startIn)` | Shows the folder picker for a path mapping and returns the chosen folder, or `null`. |
 | `revealExport()` | Reveals the last archive that main saved. It takes no path from the renderer. |
+| `revealBackups()` | Reveals the backup folder of the last import run that replaced files. Like `revealExport`, it takes no path. |
 | `copyText(text)` | Writes a string of up to 64 KB to the clipboard. |
 | `onProgress(callback)` | Subscribes to `ProgressEvent`s from listing (`scan`), export, open, and import. It returns the unsubscribe function. |
 

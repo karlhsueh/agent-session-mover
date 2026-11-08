@@ -135,6 +135,8 @@ export type SessionImportOutcome =
 export interface ImportResult {
   runId: string
   outcomes: SessionImportOutcome[]
+  /** This run's backup folder, or null when no session replaced a file. */
+  backupDir: string | null
 }
 
 export interface ExportResult {

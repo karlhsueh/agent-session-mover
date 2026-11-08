@@ -21,6 +21,7 @@ const api: DesktopApi = {
   storeRoots: () => ipcRenderer.invoke(CHANNELS.storeRoots),
   chooseFolder: (startIn) => ipcRenderer.invoke(CHANNELS.chooseFolder, startIn),
   revealExport: () => ipcRenderer.invoke(CHANNELS.revealExport),
+  revealBackups: () => ipcRenderer.invoke(CHANNELS.revealBackups),
   copyText: (text) => ipcRenderer.invoke(CHANNELS.copyText, text),
   homeDir: () => ipcRenderer.invoke(CHANNELS.homeDir),
 }

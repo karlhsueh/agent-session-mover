@@ -36,7 +36,7 @@ flowchart LR
   preload -- sends messages --> main
 ```
 
-`window.api` has a fixed set of functions. Nine move sessions, show what they hold, or prepare a folder for them, and are described in [Moving sessions between machines](transfer.md). Five more help the page: `storeRoots`, `chooseFolder`, `revealExport`, `copyText`, and `homeDir`, which lets the page show paths as `~/…`. The preload script never gives the page `ipcRenderer` itself. If it did, the page could send any message on any channel, and the sandbox would protect much less. Each function on `window.api` is a capability you chose to grant, and the smoke test fails if an undeclared key appears.
+`window.api` has a fixed set of functions. Nine move sessions, show what they hold, or prepare a folder for them, and are described in [Moving sessions between machines](transfer.md). Six more help the page: `storeRoots`, `chooseFolder`, `revealExport`, `revealBackups`, `copyText`, and `homeDir`, which lets the page show paths as `~/…`. The preload script never gives the page `ipcRenderer` itself. If it did, the page could send any message on any channel, and the sandbox would protect much less. Each function on `window.api` is a capability you chose to grant, and the smoke test fails if an undeclared key appears.
 
 ## Follow the code from launch to the first list
 
@@ -184,7 +184,7 @@ Types do not exist at runtime, though. TypeScript removes them during the build,
 
 `ApiResult<T>` is a union of a success shape and a failure shape. A busy service or a broken archive is an expected outcome, so main returns `{ ok: false, error }` and does not throw. TypeScript then refuses to let the page read `result.value` until the code has checked `result.ok`.
 
-The page never sends a file path. Main shows the save and open dialogs itself and hands back an opaque archive token. `revealExport` takes no argument for the same reason: main remembers the last file it saved and reveals only that one.
+The page never sends a file path. Main shows the save and open dialogs itself and hands back an opaque archive token. `revealExport` and `revealBackups` take no argument for the same reason: main remembers the last file it saved and the last backup folder an import made, and reveals only those.
 
 ## React draws the page from state
 

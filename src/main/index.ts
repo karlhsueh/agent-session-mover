@@ -101,6 +101,7 @@ function registerSessionHandlers(service: SessionService): void {
   }
   const owner = (event: IpcMainInvokeEvent) => BrowserWindow.fromWebContents(event.sender)
   let lastExport: string | null = null
+  let lastBackups: string | null = null
 
   ipcMain.handle(CHANNELS.listSessions, (event, agent: unknown) => service.listSessions(agent, emitter(event)))
   ipcMain.handle(CHANNELS.previewSession, (_event, key: unknown) => service.previewSession(key))
@@ -131,12 +132,17 @@ function registerSessionHandlers(service: SessionService): void {
   )
   ipcMain.handle(CHANNELS.previewImport, (_event, token: unknown, mappings: unknown) => service.previewImport(token, mappings))
   ipcMain.handle(CHANNELS.previewArchiveSession, (_event, token: unknown, key: unknown) => service.previewArchiveSession(token, key))
-  ipcMain.handle(CHANNELS.runImport, (event, token: unknown, mappings: unknown, keys: unknown) =>
-    service.runImport(token, mappings, keys, emitter(event)),
-  )
+  ipcMain.handle(CHANNELS.runImport, async (event, token: unknown, mappings: unknown, keys: unknown) => {
+    const result = await service.runImport(token, mappings, keys, emitter(event))
+    if (result.ok) lastBackups = result.value.backupDir
+    return result
+  })
   ipcMain.handle(CHANNELS.createFolder, (_event, token: unknown, target: unknown) => service.createFolder(token, target))
   ipcMain.handle(CHANNELS.revealExport, () => {
     if (lastExport) shell.showItemInFolder(lastExport)
+  })
+  ipcMain.handle(CHANNELS.revealBackups, () => {
+    if (lastBackups) shell.showItemInFolder(lastBackups)
   })
 }
 
