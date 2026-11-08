@@ -199,3 +199,20 @@
 .summary-counts {
   font-size: 12px;
 }
+
+.plan-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-conversation {
+  grid-column: 2 / -1;
+  max-height: 420px;
+  overflow-y: auto;
+  margin-top: 2px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}

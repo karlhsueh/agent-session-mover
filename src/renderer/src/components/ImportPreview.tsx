@@ -1,8 +1,11 @@
-import type { ProgressEvent, SessionImportPreview, SessionInfo, SessionKey } from '../../../shared/sessions'
+import { useCallback, useState } from 'react'
+import type { ProgressEvent, SessionImportPreview, SessionInfo, SessionKey, SessionPreview } from '../../../shared/sessions'
+import { usePreviews } from '../hooks'
 import { absoluteTime, AGENT_LABEL, folderName, plural, sessionTitle } from '../model/format'
 import { ACTIONS, describeAction, isActionable, selectedForImport, warningText } from '../model/importing'
-import { shownPreview, type PreviewScreen } from '../state'
+import { type Loadable, shownPreview, type PreviewScreen } from '../state'
 import { ErrorBanner, ProgressBar, Sheet } from './common'
+import { Conversation } from './Conversation'
 import { MappingEditor } from './MappingEditor'
 
 interface Props {
@@ -22,6 +25,17 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
   const keys = selectedForImport(preview, excluded)
   const counts = new Map<string, number>()
   for (const session of preview?.sessions ?? []) counts.set(session.action.kind, (counts.get(session.action.kind) ?? 0) + 1)
+  const token = archive.token
+  const [conversation, requestConversation] = usePreviews(useCallback((key: SessionKey) => window.api.previewArchiveSession(token, key), [token]), token)
+  const [open, setOpen] = useState<ReadonlySet<SessionKey>>(new Set())
+  const toggleOpen = (key: SessionKey) => {
+    const next = new Set(open)
+    if (!next.delete(key)) {
+      next.add(key)
+      requestConversation(key)
+    }
+    setOpen(next)
+  }
 
   return (
     <div className="import">
@@ -62,7 +76,16 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
           </header>
           <ul className={state.status === 'loading' ? 'plan stale' : 'plan'}>
             {sessions.map((session) => (
-              <PlanRow key={session.key} session={session} plan={byKey.get(session.key) ?? null} included={!excluded.has(session.key)} onToggle={onToggle} />
+              <PlanRow
+                key={session.key}
+                session={session}
+                plan={byKey.get(session.key) ?? null}
+                included={!excluded.has(session.key)}
+                onToggle={onToggle}
+                conversation={open.has(session.key) ? conversation(session.key) : undefined}
+                onConversation={() => toggleOpen(session.key)}
+                onRetry={() => requestConversation(session.key)}
+              />
             ))}
           </ul>
         </section>
@@ -83,11 +106,23 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
   )
 }
 
-function PlanRow({ session, plan, included, onToggle }: { session: SessionInfo; plan: SessionImportPreview | null; included: boolean; onToggle: (key: SessionKey) => void }) {
+interface PlanRowProps {
+  session: SessionInfo
+  plan: SessionImportPreview | null
+  included: boolean
+  onToggle: (key: SessionKey) => void
+  /** Undefined while the conversation is folded away. */
+  conversation: Loadable<SessionPreview> | null | undefined
+  onConversation: () => void
+  onRetry: () => void
+}
+
+function PlanRow({ session, plan, included, onToggle, conversation, onConversation, onRetry }: PlanRowProps) {
   const actionable = plan !== null && isActionable(plan.action)
   const id = `plan-${session.key}`
+  const shown = conversation !== undefined
   return (
-    <li className={actionable ? 'plan-row' : 'plan-row inert'}>
+    <li className={`${actionable ? 'plan-row' : 'plan-row inert'}${shown ? ' expanded' : ''}`}>
       <input id={id} type="checkbox" checked={actionable && included} disabled={!actionable} onChange={() => onToggle(session.key)} />
       <label htmlFor={id} className="plan-main">
         <span className="plan-title">
@@ -111,7 +146,24 @@ function PlanRow({ session, plan, included, onToggle }: { session: SessionInfo; 
           </span>
         ))}
       </label>
-      {plan && <span className={`badge tone-${ACTIONS[plan.action.kind].tone}`}>{ACTIONS[plan.action.kind].label}</span>}
+      <span className="plan-side">
+        {plan && <span className={`badge tone-${ACTIONS[plan.action.kind].tone}`}>{ACTIONS[plan.action.kind].label}</span>}
+        <button
+          type="button"
+          className="button ghost small"
+          aria-label={`${shown ? 'Hide' : 'Preview'} the conversation of ${sessionTitle(session)}`}
+          aria-expanded={shown}
+          aria-controls={`${id}-conversation`}
+          onClick={onConversation}
+        >
+          {shown ? 'Hide' : 'Preview'}
+        </button>
+      </span>
+      {shown && (
+        <div className="plan-conversation" id={`${id}-conversation`}>
+          <Conversation state={conversation} onRetry={onRetry} />
+        </div>
+      )}
     </li>
   )
 }
