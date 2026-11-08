@@ -80,12 +80,33 @@ export interface ImportContext {
   readBlob(sha256: Sha256): AsyncIterable<Buffer>
 }
 
+/** What a file looked like when facts were taken from it. A change in size or mtime means they are stale. */
+export interface FileStamp {
+  absPath: string
+  size: number
+  mtimeMs: number
+}
+
+/**
+ * One listing pass as a provider sees it. Facts derived from a file are kept across passes and app
+ * launches, keyed by the file's path, size, and mtime, so an unchanged file is not read again.
+ */
+export interface Scan {
+  /**
+   * `derive` reads the file, and runs only when no facts are kept for this exact stamp. `kind` names
+   * what is derived, so one file can carry several. The facts must be plain JSON.
+   */
+  facts<T>(kind: string, file: FileStamp, derive: () => Promise<T>): Promise<T>
+}
+
 export interface Provider {
   readonly agent: AgentId
+  /** Bump when what `discover` derives from a file changes, so facts kept from an older version are dropped. */
+  readonly factsVersion: number
   /** Absolute store root on this machine. The store may not exist yet. */
   storeRoot(env: ProviderEnv): string
-  /** Read-only. */
-  discover(root: string, env: ProviderEnv): Promise<SessionSummary[]>
+  /** Read-only. Without a scan, every file is read. */
+  discover(root: string, env: ProviderEnv, scan?: Scan): Promise<SessionSummary[]>
   /** Read-only. Throws when the session is missing or ambiguous. */
   collect(root: string, id: string, env: ProviderEnv): Promise<CollectedSession>
   /** Read-only. Says where each archive file would land and what the provider refuses. */

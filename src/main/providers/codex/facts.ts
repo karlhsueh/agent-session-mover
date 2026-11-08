@@ -48,6 +48,13 @@ export interface RolloutFacts {
   complete: boolean
 }
 
+/** What listing keeps from a rollout. Plain JSON, so the discovery cache can hold it. */
+export type ListedFacts = Pick<RolloutFacts, 'meta' | 'firstMs' | 'lastMs' | 'cwds' | 'latestCwd' | 'firstUserMessage' | 'task' | 'complete'>
+
+export function listedFacts({ meta, firstMs, lastMs, cwds, latestCwd, firstUserMessage, task, complete }: RolloutFacts): ListedFacts {
+  return { meta, firstMs, lastMs, cwds, latestCwd, firstUserMessage, task, complete }
+}
+
 /** Reads complete lines only. A `GAP` marks a skipped middle. */
 export async function readFacts(lines: AsyncIterable<WindowLine>): Promise<RolloutFacts> {
   const facts: RolloutFacts = {

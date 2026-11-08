@@ -2,12 +2,13 @@ import path from 'node:path'
 import { type SessionInfo, type SessionSummary, type SubagentSummary, sessionKey } from '../../../shared/sessions'
 import type { FileRole } from '../../core/manifest'
 import { joinStorePath, type StorePath } from '../../core/paths'
-import type { CollectedSession, Provider, ProviderEnv, SnapshotFile } from '../../core/provider'
+import { NO_CACHE } from '../../core/facts-cache'
+import type { CollectedSession, Provider, ProviderEnv, Scan, SnapshotFile } from '../../core/provider'
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
 import { LIST_BUDGET, readWindow, terminatedLines } from '../../core/window'
 import { resumeLine } from '../text'
 import { applyEffect, parseEffect, undoEffect } from './effects'
-import { clientOf, hiddenFromPicker, metaOfLine, readFacts, type RolloutFacts, type SessionMeta } from './facts'
+import { clientOf, hiddenFromPicker, type ListedFacts, listedFacts, metaOfLine, readFacts, type SessionMeta } from './facts'
 import { families } from './family'
 import { inspectCodexTarget } from './inspect'
 import { previewRollout } from './preview'
@@ -37,7 +38,8 @@ export const codexProvider: Provider = {
     return path.resolve(configured ? configured.normalize('NFC') : path.join(homeDir, '.codex'))
   },
 
-  discover: (root, env) => retryOnFlip(() => discover(root, env)),
+  factsVersion: 1,
+  discover: (root, env, scan = NO_CACHE) => retryOnFlip(() => discover(root, env, scan)),
   collect: (root, id, env) => retryOnFlip(() => collect(root, id, env)),
   inspectTarget: inspectCodexTarget,
   transcriptRole: 'rollout',
@@ -74,20 +76,23 @@ async function view(root: string, env: ProviderEnv): Promise<StoreView> {
 /** A thread's newest rollout and what it says. */
 interface Thread {
   main: RolloutFile
-  facts: RolloutFacts
+  facts: ListedFacts
 }
 
-async function discover(root: string, env: ProviderEnv): Promise<SessionSummary[]> {
+async function discover(root: string, env: ProviderEnv, scan: Scan): Promise<SessionSummary[]> {
   const store = await view(root, env)
   const locked = await lockedThreadIds(root)
   const threads = new Map<string, Thread>()
-  for (const main of newestByThread(store.rollouts).values()) threads.set(main.name.threadId, { main, facts: await readFacts(readWindow(rolloutSource(main), LIST_BUDGET)) })
+  for (const main of newestByThread(store.rollouts).values()) {
+    const facts = await scan.facts('rollout', main, async () => listedFacts(await readFacts(readWindow(rolloutSource(main), LIST_BUDGET))))
+    threads.set(main.name.threadId, { main, facts })
+  }
   const family = families(new Map([...threads].map(([id, thread]) => [id, thread.facts.meta?.spawn?.parent ?? null])))
   const summaries: SessionSummary[] = []
   for (const [id, thread] of threads) {
     if (family.rootOf(id) !== id) continue
     const subagents = family.descendants(id).map((child) => threads.get(child)!)
-    const parts = await sessionParts(root, thread, subagents, store)
+    const parts = await sessionParts(root, thread, subagents, store, scan)
     const session = info(thread.main, thread.facts, store, parts.files.map((part) => part.size))
     summaries.push({
       ...session,
@@ -116,7 +121,7 @@ async function collect(root: string, id: string, env: ProviderEnv): Promise<Coll
   const thread = await read(main)
   const subagents: Thread[] = []
   for (const child of family.descendants(id)) subagents.push(await read(mains.get(child)!))
-  const parts = await sessionParts(root, thread, subagents, store)
+  const parts = await sessionParts(root, thread, subagents, store, NO_CACHE)
   if (parts.missing.length > 0) throw new Error(`Codex session ${id} continues from rollout ${parts.missing[0]}, which is missing`)
   const files: SnapshotFile[] = []
   for (const part of parts.files) files.push(await snapshot(part))
@@ -135,13 +140,13 @@ function roleOf(meta: SessionMeta | null): string | null {
 }
 
 /** The thread's own parts, then each subagent's. A file two members share is listed once. */
-async function sessionParts(root: string, thread: Thread, subagents: readonly Thread[], store: StoreView): Promise<{ files: Part[]; missing: string[] }> {
+async function sessionParts(root: string, thread: Thread, subagents: readonly Thread[], store: StoreView, scan: Scan): Promise<{ files: Part[]; missing: string[] }> {
   const files: Part[] = []
   const missing: string[] = []
   const seen = new Set<string>()
   const members = [{ thread, role: 'rollout' as const }, ...subagents.map((sub) => ({ thread: sub, role: 'subagent-rollout' as const }))]
   for (const { thread: member, role } of members) {
-    const parts = await partsOf(root, member.main, member.facts, store, role)
+    const parts = await partsOf(root, member.main, member.facts, store, role, scan)
     missing.push(...parts.missing)
     for (const part of parts.files) {
       if (!seen.has(part.rel)) files.push(part)
@@ -167,7 +172,14 @@ interface Part {
  * session's own thread also brings its name entry. A subagent's is left out, since the archive holds
  * one index entry per session and only `codex resume <name>` reads it.
  */
-async function partsOf(root: string, main: RolloutFile, facts: RolloutFacts, store: StoreView, role: 'rollout' | 'subagent-rollout'): Promise<{ files: Part[]; missing: string[] }> {
+async function partsOf(
+  root: string,
+  main: RolloutFile,
+  facts: ListedFacts,
+  store: StoreView,
+  role: 'rollout' | 'subagent-rollout',
+  scan: Scan,
+): Promise<{ files: Part[]; missing: string[] }> {
   const rollout = (file: RolloutFile, role: FileRole): Part => ({
     role,
     rel: file.rel,
@@ -188,7 +200,7 @@ async function partsOf(root: string, main: RolloutFile, facts: RolloutFacts, sto
       break
     }
     files.push(rollout(prefix, 'linked-rollout'))
-    base = metaOfLine(await readFirstLine(prefix))?.historyBase ?? null
+    base = await scan.facts('history-base', prefix, async () => metaOfLine(await readFirstLine(prefix))?.historyBase ?? null)
   }
   const id = main.name.threadId
   for (const image of await generatedImages(root, id)) {
@@ -205,7 +217,7 @@ async function snapshot(part: Part): Promise<SnapshotFile> {
   return { role: part.role, path: part.rel, absPath: part.absPath, start: part.start, size, sha256, mtimeMs: part.mtimeMs }
 }
 
-function info(main: RolloutFile, facts: RolloutFacts, store: StoreView, sizes: number[]): SessionInfo {
+function info(main: RolloutFile, facts: ListedFacts, store: StoreView, sizes: number[]): SessionInfo {
   const id = main.name.threadId
   const row = store.rows.get(id)
   const meta = facts.meta

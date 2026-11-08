@@ -1,5 +1,5 @@
 import path from 'node:path'
-import type { AgentId, ExportResult, ProgressEvent, SessionKey, SessionList } from '../../shared/sessions'
+import type { AgentId, ExportResult, ProgressEvent, SessionKey } from '../../shared/sessions'
 import { parseSessionKey } from '../../shared/sessions'
 import { type BlobSource, writeArchive } from '../archive/archive'
 import { MANIFEST_FORMAT, MANIFEST_VERSION, type Manifest, type ManifestSession, type Sha256 } from './manifest'
@@ -11,19 +11,6 @@ export interface CoreContext {
   /** Holds journals, backups, and staged archives. Electron passes `app.getPath('userData')`. */
   appDataDir: string
   appVersion: string
-}
-
-export async function listSessions(context: CoreContext): Promise<SessionList> {
-  const list: SessionList = { sessions: [], problems: [] }
-  for (const provider of Object.values(context.providers)) {
-    try {
-      list.sessions.push(...(await provider.discover(provider.storeRoot(context.env), context.env)))
-    } catch (error) {
-      list.problems.push({ agent: provider.agent, message: error instanceof Error ? error.message : String(error) })
-    }
-  }
-  list.sessions.sort((a, b) => b.lastActivity.localeCompare(a.lastActivity))
-  return list
 }
 
 /** Reads each session's snapshot and writes one archive. Source stores are only read. */

@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { listSessions } from '../src/main/core/export'
+import { listSessions } from '../src/main/core/discovery'
 import { claudeCodeProvider } from '../src/main/providers/claude-code'
 import { DEAD_PID, removeTempDir, writeLiveEntry, writeNeverExportFiles, writeSession } from './fixtures/claude-store'
 import { type Machine, makeMachine } from './fixtures/machine'

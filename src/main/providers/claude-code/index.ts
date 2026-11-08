@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { type ImportWarning, type SessionInfo, type SessionSummary, sessionKey } from '../../../shared/sessions'
 import type { FileRole, ManifestSession, Sha256 } from '../../core/manifest'
+import { NO_CACHE } from '../../core/facts-cache'
 import { joinStorePath, mapPath } from '../../core/paths'
 import type { CollectedSession, ImportContext, Provider, RefusedAction, SnapshotFile, TargetFile, TargetInspection } from '../../core/provider'
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
@@ -25,20 +26,22 @@ export const claudeCodeProvider: Provider = {
     return path.resolve(configured ? configured.normalize('NFC') : path.join(homeDir, '.claude'))
   },
 
-  async discover(root) {
+  factsVersion: 1,
+
+  async discover(root, _env, scan = NO_CACHE) {
     const live = await liveSessionIds(root)
     const summaries: SessionSummary[] = []
     for (const transcript of newestPerId(await findTranscripts(root))) {
       // Hashes are for export. Listing needs only what the records say and the sizes stat reports.
       const sidecars = await findSidecars(transcript)
-      const facts = await readFacts(readWindow({ kind: 'file', absPath: transcript.absPath }, LIST_BUDGET))
+      const facts = await scan.facts('transcript', transcript, () => readFacts(readWindow({ kind: 'file', absPath: transcript.absPath }, LIST_BUDGET)))
       summaries.push({
         ...info(transcript, facts, [transcript.size, ...sidecars.map((sidecar) => sidecar.size)]),
         cwdsComplete: facts.complete,
         live: live.has(transcript.id),
         archived: false,
         hiddenFromPicker: isHiddenEntrypoint(facts.entrypoint ?? ''),
-        subagents: await readSubagents(sidecars),
+        subagents: await readSubagents(sidecars, scan),
         resumeCommand: claudeCodeProvider.resumeCommand(transcript.id, primaryCwd(facts, transcript.projectDir)),
       })
     }

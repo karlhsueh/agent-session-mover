@@ -1,6 +1,7 @@
 import { ArchiveError } from './archive/archive'
 import { TarError } from './archive/tar'
-import { exportSessions, listSessions, type CoreContext } from './core/export'
+import { createDiscovery, listSessions } from './core/discovery'
+import { exportSessions, type CoreContext } from './core/export'
 import {
   closeArchive,
   defaultExists,
@@ -41,6 +42,8 @@ export function createSessionService(
   // One archive is open at a time. Opening another closes the previous one and its token stops working.
   let current: OpenedArchive | null = null
   let busy = false
+  // Kept for the app's lifetime, so a refresh reads only files that changed since the last pass.
+  const discovery = createDiscovery(context)
 
   // Previews only read, so they run beside an export or import instead of waiting for the lock.
   async function attempt<T>(work: () => Promise<T>): Promise<ApiResult<T>> {
@@ -70,7 +73,7 @@ export function createSessionService(
 
   return {
     listSessions() {
-      return attempt(() => listSessions(context))
+      return attempt(() => listSessions(context, discovery))
     },
 
     previewSession(keyInput) {

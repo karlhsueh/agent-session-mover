@@ -1,7 +1,7 @@
 import { mkdir, rename } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { listSessions } from '../src/main/core/export'
+import { listSessions } from '../src/main/core/discovery'
 import { codexProvider } from '../src/main/providers/codex'
 import { removeTempDir, treeHash } from './fixtures/claude-store'
 import { buildCodexStore, type CodexStore, CX, writeNeverExportFiles } from './fixtures/codex-store'

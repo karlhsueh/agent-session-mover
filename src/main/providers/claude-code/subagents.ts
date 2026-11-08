@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import type { Scan } from '../../core/provider'
 import type { SubagentSummary } from '../../../shared/sessions'
 import { GAP, LIST_BUDGET, readWindow } from '../../core/window'
 import { cleanTitle } from '../text'
@@ -12,7 +13,7 @@ const AGENT_FILE = /^agent-(.+)\.(jsonl|meta\.json)$/
  * parent gave in `agent-<id>.meta.json`, else the agent's first prompt. Unreadable or malformed
  * files leave the fields they would have filled empty.
  */
-export async function readSubagents(sidecars: readonly SidecarFile[]): Promise<SubagentSummary[]> {
+export async function readSubagents(sidecars: readonly SidecarFile[], scan: Scan): Promise<SubagentSummary[]> {
   const byId = new Map<string, { transcript?: SidecarFile; meta?: SidecarFile }>()
   for (const file of sidecars) {
     const match = file.folder === 'subagents' ? AGENT_FILE.exec(file.name) : null
@@ -25,16 +26,15 @@ export async function readSubagents(sidecars: readonly SidecarFile[]): Promise<S
   const summaries: SubagentSummary[] = []
   for (const [id, { transcript, meta }] of byId) {
     if (!transcript) continue
-    const { agentType, description } = await readMeta(meta)
-    const facts = await readAgentTranscript(transcript, description === null)
+    const { agentType, description } = meta ? await scan.facts('subagent-meta', meta, () => readMeta(meta)) : { agentType: null, description: null }
+    const facts = await scan.facts('subagent', transcript, () => readAgentTranscript(transcript))
     summaries.push({ id, title: description ?? facts.prompt, role: agentType, lastActivity: facts.lastActivity })
   }
   return summaries.sort((a, b) => (b.lastActivity ?? '').localeCompare(a.lastActivity ?? ''))
 }
 
-async function readMeta(file: SidecarFile | undefined): Promise<{ agentType: string | null; description: string | null }> {
+async function readMeta(file: SidecarFile): Promise<{ agentType: string | null; description: string | null }> {
   const none = { agentType: null, description: null }
-  if (!file) return none
   try {
     const value: unknown = JSON.parse(await readFile(file.absPath, 'utf8'))
     if (typeof value !== 'object' || value === null) return none
@@ -48,7 +48,7 @@ async function readMeta(file: SidecarFile | undefined): Promise<{ agentType: str
   }
 }
 
-async function readAgentTranscript(file: SidecarFile, wantPrompt: boolean): Promise<{ prompt: string | null; lastActivity: string | null }> {
+async function readAgentTranscript(file: SidecarFile): Promise<{ prompt: string | null; lastActivity: string | null }> {
   let prompt: string | null = null
   let lastMs: number | null = null
   try {
@@ -64,7 +64,7 @@ async function readAgentTranscript(file: SidecarFile, wantPrompt: boolean): Prom
       const { timestamp, type, message } = record as Record<string, unknown>
       const ms = typeof timestamp === 'string' ? Date.parse(timestamp) : NaN
       if (!Number.isNaN(ms)) lastMs = Math.max(lastMs ?? ms, ms)
-      if (wantPrompt && prompt === null && type === 'user') {
+      if (prompt === null && type === 'user') {
         const text = promptText(message)
         if (text) prompt = cleanTitle(text)
       }

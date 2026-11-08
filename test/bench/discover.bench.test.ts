@@ -4,6 +4,7 @@ import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { monitorEventLoopDelay } from 'node:perf_hooks'
 import { expect, it } from 'vitest'
+import { createDiscovery } from '../../src/main/core/discovery'
 import { providers } from '../../src/main/providers/registry'
 import type { ProviderEnv } from '../../src/main/core/provider'
 import { AGENT_IDS, type AgentId } from '../../src/shared/sessions'
@@ -20,7 +21,8 @@ interface Sample {
 }
 
 /** One app launch: the scanner holds whatever the app would keep between scans. */
-function launch(env: ProviderEnv, _appDataDir: string) {
+function launch(env: ProviderEnv, appDataDir: string) {
+  const discovery = createDiscovery({ providers, env, appDataDir, appVersion: 'bench' })
   return {
     async scan(): Promise<Sample> {
       const ms = {} as Record<AgentId, number>
@@ -28,11 +30,11 @@ function launch(env: ProviderEnv, _appDataDir: string) {
       const delay = monitorEventLoopDelay({ resolution: 5 })
       delay.enable()
       for (const agent of AGENT_IDS) {
-        const provider = providers[agent]
         const started = performance.now()
-        const found = await provider.discover(provider.storeRoot(env), env)
+        const found = await discovery.list(agent)
         ms[agent] = performance.now() - started
-        sessions[agent] = found.length
+        expect(found.problems).toEqual([])
+        sessions[agent] = found.sessions.length
       }
       delay.disable()
       return { ms, sessions, stallMs: delay.max / 1e6 }
