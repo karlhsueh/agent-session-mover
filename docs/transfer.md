@@ -1,7 +1,7 @@
 ---
 summary: The archive format, the import planner and executor, the provider contract, and the IPC calls that move sessions between machines.
 read_when:
-  - Adding a provider (Codex) or changing what a provider exports or writes
+  - Adding a provider or changing what a provider exports or writes
   - Changing the archive format or its limits
   - Building UI on top of the session IPC calls
   - Debugging an import that failed, rolled back, or was refused
@@ -54,34 +54,33 @@ Export writes to a hidden temp file next to the destination, fsyncs it, and rena
 
 ## Providers
 
-A provider owns one agent's store. Core never branches on the agent. The registry in `src/main/providers/registry.ts` maps each `AgentId` to its provider. An agent with no provider yet (Codex today) is listed by no one, and its archived sessions import as `blocked: unsupported-agent`.
+A provider owns one agent's store. Core never branches on the agent. The registry in `src/main/providers/registry.ts` is a full `Record<AgentId, Provider>`: `claude-code` in `src/main/providers/claude-code/` and `codex` in `src/main/providers/codex/`. An archive that names any other agent fails `parseManifest`, so core has no unsupported-agent path. The `unsupported-agent` member of `BlockedReason` in `src/shared/sessions.ts` is no longer produced.
 
 ```ts
 export interface Provider {
   readonly agent: AgentId
   storeRoot(env: ProviderEnv): string
-  discover(root: string): Promise<SessionSummary[]>
-  collect(root: string, id: string): Promise<CollectedSession>
+  discover(root: string, env: ProviderEnv): Promise<SessionSummary[]>
+  collect(root: string, id: string, env: ProviderEnv): Promise<CollectedSession>
   inspectTarget(root: string, session: ManifestSession, context: ImportContext): Promise<TargetInspection>
   applyEffect(root: string, effect: ProviderEffect): Promise<void>
   undoEffect(root: string, effect: ProviderEffect): Promise<void>
 }
 ```
 
-- `discover` and `collect` are read-only. `collect` returns snapshot files. For an append-only file, the snapshot stops at the last newline.
-- `inspectTarget` is read-only too. It returns either a refusal, or the list of `TargetFile`s with the store path each one lands at, an optional `ContentTransform`, and the mtime to set. The provider computes every target path from parts it has validated. A name from the archive is used only after it matches a whitelist.
+- `discover` and `collect` are read-only. They get the environment because a store can span folders (Codex reads `CODEX_SQLITE_HOME`). `collect` returns snapshot files. For an append-only file, the snapshot stops at the last newline. A snapshot can also be a byte range (`start`), for a blob that is one line of a shared file such as Codex's `session_index.jsonl`.
+- `inspectTarget` is read-only too. It returns either a refusal, or the list of `TargetFile`s with the store path each one lands at, an optional `ContentTransform`, and the mtime to set. The provider computes every target path from parts it has validated. A name from the archive is used only after it matches a whitelist. `ImportContext.readBlob` streams a verified archive blob, for a provider that derives an effect from file content (the Codex `threads` row).
+- A `TargetFile` can name `supersedes`: a file at another path that holds the current copy in another form, with a `decode` transform. Codex uses it when this machine holds a rollout as `.jsonl.zst` and import writes the plain `.jsonl`.
 - A `ContentTransform` must be deterministic, because preview hashes its output and import checks that the bytes it writes hash the same.
-- `ProviderEffect` is for writes that are not files, such as the Codex `threads` row. An effect is plain JSON. The journal records it before `applyEffect` runs, so `undoEffect` must work from the JSON alone, must be safe if the effect never ran, and must be safe to run twice.
-
-To add Codex, add `src/main/providers/codex/`, implement the interface, and add it to the registry. When every agent has a provider, change `ProviderRegistry` from `Partial<Record<…>>` to `Record<…>` and delete the two `unsupported-agent` branches.
+- `ProviderEffect` is for writes that are not files, such as the Codex `threads` row. An effect is plain JSON. The journal records it before `applyEffect` runs, so `undoEffect` must work from the JSON alone, must be safe if the effect never ran, and must be safe to run twice. A provider parses the effect again in `undoEffect`, because recovery reads it back from disk.
 
 ## Planning an import
 
 Planning has no side effects. `previewImport` runs it for display, and `runImport` runs it again on the current state just before it writes.
 
 1. Core resolves each mapping target that exists to its real path (macOS `/tmp` becomes `/private/tmp`).
-2. The provider inspects the target store. The Claude provider refuses a session whose layout is not what export writes (`invalid-session`), whose start cwd has no mapping (`unmapped-cwd`), or whose id appears in two project folders (`multiple-copies`). If the id is in one folder, that folder is the target, even when the mapping points elsewhere, because a second copy would break `claude --resume <id>`.
-3. For each target file, core checks that the path resolves inside the store root after symlinks (`unsafe-path` otherwise). It hashes the bytes import would write and the existing file, and `relate` classifies them as `absent`, `identical`, `target-is-prefix`, `target-is-longer`, or `different`.
+2. The provider inspects the target store. The Claude provider refuses a session whose layout is not what export writes (`invalid-session`), whose start cwd has no mapping (`unmapped-cwd`), or whose id appears in two project folders (`multiple-copies`). If the id is in one folder, that folder is the target, even when the mapping points elsewhere, because a second copy would break `claude --resume <id>`. The Codex provider refuses the same three cases, with `multiple-copies` meaning one rollout id in two places. It also refuses `diverged` when this machine holds a newer rollout of the thread than the archive. A rollout that exists here is updated where it is, in either form.
+3. For each target file, core checks that the path resolves inside the store root after symlinks (`unsafe-path` otherwise). It hashes the bytes import would write and the existing file, and `relate` classifies them as `absent`, `identical`, `target-is-prefix`, `target-is-longer`, or `different`. When the path is absent and the file names `supersedes`, the existing file is the superseded one, read through its `decode`.
 4. `planSession` in `planner.ts` is pure. A live session is `blocked`. Any `different` file is `conflict: diverged`, and any `target-is-longer` file is `conflict: target-newer`. If every file is identical, the plan is `skip-identical`. If every file is absent, it is `create`. Otherwise it is `update`, which replaces prefix files and adds missing ones.
 
 The UI renders `ImportAction` from `src/shared/sessions.ts` directly.
@@ -94,7 +93,7 @@ For each write:
 
 1. Create missing folders one by one, journaling each before it is made.
 2. Stream the blob through the transform into `.<name>.<runId>.tmp` in the target folder. Then fsync it, check its hash against the plan, and set its mtime.
-3. For an update, re-hash the existing file, journal the backup, and move the file to `<userData>/backups/<runId>/<agent>/<store path>`. The move is a rename, or a copy and delete across volumes. Then re-hash the backup.
+3. For an update, re-hash the existing file, journal the backup, and move the file to `<userData>/backups/<runId>/<agent>/<store path>`. The move is a rename, or a copy and delete across volumes. Then re-hash the backup. When the update replaces a superseded file, that file is the one backed up, under its own store path.
 4. Journal the publish, `link(temp, final)` (atomic, never overwrites), unlink the temp, and fsync the folder.
 
 Provider effects run after the files. Deleting the journal is the commit point.
@@ -131,3 +130,5 @@ Only one export, open, preview, or import runs at a time. Another call returns `
 ## Tests
 
 `pnpm test` runs vitest on `test/`. `test/fixtures/claude-store.ts` builds synthetic Claude stores in temp folders: several projects, a path longer than 200 characters, subagents, tool results, an `sdk-cli` session, a half-written last line, a live registry entry, set-aside copies, and every never-export file carrying a marker string. `treeHash` hashes a whole folder, so a test can prove a store is byte-identical after a rollback or an export.
+
+`test/fixtures/codex-store.ts` builds a synthetic Codex store: dated and archived rollouts, a `.jsonl.zst` rollout, a reverted thread with a `_<rolloutId>` file, a fork child and its `history_base` parent, a subagent thread, generated images, `session_index.jsonl`, a writer lock, and the never-export files. `test/fixtures/codex-db.ts` creates `state_5.sqlite` with the real `threads` table and triggers. Codex rollback tests wrap the real provider so a fault fires right before or after a real effect.
