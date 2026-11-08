@@ -126,8 +126,17 @@
   border-color: var(--bad);
 }
 
-.mapping-status {
+.mapping-note {
   grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 15px;
+}
+
+.mapping-status {
+  flex: 1;
+  min-width: 0;
   font-size: 11px;
   color: var(--faint);
   min-height: 15px;

@@ -4,6 +4,8 @@ A desktop app that moves Claude Code and Codex sessions from one computer to ano
 
 A sidebar lists your project folders. Pick one to see only its sessions, or pick All sessions to see every session with its project beside it. Your selection carries across projects, and the sidebar shows how many sessions you picked in each. A session that started subagents shows how many, and the detail panel lists them. They are always exported with their parent. Press `?` for keyboard shortcuts.
 
+On import, each project folder from the other machine maps to a folder on this one. When that folder does not exist yet, **Create folder** on its row makes it, so you can resume the sessions there.
+
 The archive holds full transcripts, unredacted: the account email, system prompts, and the contents of every file and command output the agent read. Credentials and settings are never included. After an import, the app reports that the files are in place and shows the resume command. It does not check that the agent opens them.
 
 Built with Electron, React, and TypeScript.

@@ -55,9 +55,11 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
         {state.status === 'failed' && <ErrorBanner error={state.error} />}
 
         <MappingEditor
+          token={token}
           mappings={screen.mappings}
           sessions={archive.summary.sessions}
           preview={preview}
+          checking={state.status === 'loading'}
           sourceHome={archive.summary.source.homeDir}
           onChange={onMappingChange}
         />
