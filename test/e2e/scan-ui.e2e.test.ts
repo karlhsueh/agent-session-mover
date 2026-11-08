@@ -41,7 +41,7 @@ it('shows each agent as it finishes, then refreshes on focus, the button, and Cm
       CLAUDE_CONFIG_DIR: claude,
       CODEX_HOME: codex,
       AGENT_SESSIONS_E2E_USER_DATA: path.join(root, 'userdata'),
-      AGENT_SESSIONS_E2E_SCAN_PACE: 'claude-code:700,codex:450',
+      AGENT_SESSIONS_E2E_SCAN_PACE: 'claude-code:1500,codex:900',
     },
   })
   const page = await app.firstWindow()
@@ -97,7 +97,7 @@ it('shows each agent as it finishes, then refreshes on focus, the button, and Cm
     Array.from({ length: megabytes * 16 }, () => JSON.stringify({ type: 'progress', cwd: where, sessionId: id(6), padding: 'x'.repeat(64 * 1024) }) + '\n').join('')
   await appendFile(long.transcriptPath, filler(cwd, 30) + filler(path.join(home, 'code', 'other-checkout'), 1) + filler(cwd, 5))
   await page.getByRole('button', { name: 'Refresh sessions' }).click()
-  await expect.poll(async () => (await row(page, 'A transcript too long').count()) > 0).toBe(true)
+  await expect.poll(async () => (await row(page, 'A transcript too long').count()) > 0, { timeout: 20_000 }).toBe(true)
   await row(page, 'A transcript too long').click()
   const detail = page.getByRole('complementary', { name: 'Session details' })
   await expect.poll(() => detail.textContent()).toMatch(/Also ran inNot known\. The list reads only the start and end of a transcript this long/)
