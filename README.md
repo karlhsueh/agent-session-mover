@@ -1,46 +1,55 @@
-# Agent Sessions
+<p align="center"><img src="build/icon.png" width="96" alt="" /></p>
 
-A desktop app that moves Claude Code and Codex sessions from one computer to another. It lists the sessions on this machine, exports the ones you pick into one `.agentsessions` file, and imports that file on another machine so you can resume the sessions there.
+<h1 align="center">Agent Sessions</h1>
 
-A sidebar lists your project folders. Pick one to see only its sessions, or pick All sessions to see every session with its project beside it. Your selection carries across projects, and the sidebar shows how many sessions you picked in each. A session that started subagents shows how many, and the detail panel lists them. They are always exported with their parent. Press `?` for keyboard shortcuts.
+<p align="center">Move your Claude Code and Codex sessions to another computer, and pick up where you left off.</p>
 
-On import, each project folder from the other machine maps to a folder on this one. When that folder does not exist yet, **Create folder** on its row makes it, so you can resume the sessions there.
+<p align="center"><a href="https://github.com/karlhsueh/agent-sessions/releases/latest"><strong>Download for macOS, Windows, or Linux</strong></a></p>
 
-The archive holds full transcripts, unredacted: the account email, system prompts, and the contents of every file and command output the agent read. Credentials and settings are never included. After an import, the app reports that the files are in place and shows the resume command. It does not check that the agent opens them.
+<p align="center"><img src="docs/assets/screenshot.png" width="900" alt="Agent Sessions listing sessions by project, with one session's resume command in the detail panel" /></p>
 
-Built with Electron, React, and TypeScript.
+## What it does
 
-To learn how the pieces fit together, read [How the app works](docs/how-it-works.md). For export and import, read [Moving sessions between machines](docs/transfer.md) and the storage spec in [Session storage and transfer rules](docs/session-storage.md).
+Coding agents keep each session on the machine where it ran. Agent Sessions lists the Claude Code and Codex sessions on this computer, exports the ones you pick into one `.agentsessions` file, and imports that file on another computer. After the import, `claude --resume` or `codex resume` continues the conversation there, with its full history.
 
-## Download
+- **Browse by project.** A sidebar lists your project folders. Search titles, folders, and session ids. Preview the conversation before you export it.
+- **Map folders.** Your code may live at a different path on the other computer. Import asks where each project lives there, and can create a folder that is missing.
+- **Safe import.** Nothing is written until you start the import. An import that fails partway rolls back, and replacing an existing session keeps a backup of the old copy.
+- **Subagents included.** Sessions that started subagents carry them along.
+- **Local only.** The app makes no network requests. You move the file however you like.
 
-Get the installer for your system from the [latest release](https://github.com/karlhsueh/agent-sessions/releases/latest). There are builds for macOS (Apple silicon and Intel), Windows x64, and Linux x64 as an AppImage or a deb. Each release lists the SHA-256 of every file in `SHA256SUMS`. The Windows and Linux builds are not code-signed, so Windows SmartScreen asks you to confirm the first launch.
+## Before you share an archive
 
-To cut a release, read [Releasing](docs/RELEASING.md).
+An archive holds each full transcript, unredacted: the account email recorded in the session, system prompts, every message, and the contents of files and command output the agent read. Credentials, auth tokens, and settings are never included. Treat the file like the code it quotes. [SECURITY.md](SECURITY.md) has more.
 
-## Run
+After an import, the app shows the resume command for each session. It checks that the files are where the agent looks for them, but it cannot start the agent to confirm that the session opens.
 
-`pnpm dev` runs inside Electron's own app, so the macOS menu bar shows "Electron" there. The packaged app from `pnpm package` shows "Agent Sessions".
+## Install
 
-Requires Node 24 or newer and pnpm 10. On Node 25 or newer, install pnpm with `npm install -g pnpm@10.13.1`, because Node no longer ships Corepack.
+Get the installer for your system from the [latest release](https://github.com/karlhsueh/agent-sessions/releases/latest):
 
-```sh
-pnpm install
-pnpm dev
-```
+| System | File |
+| --- | --- |
+| macOS, Apple silicon | `agent-sessions-<version>-mac-arm64.dmg` |
+| macOS, Intel | `agent-sessions-<version>-mac-x64.dmg` |
+| Windows x64 | `agent-sessions-<version>-win-x64.exe` |
+| Linux x64 | `.AppImage`, or `.deb` for Debian and Ubuntu |
 
-## Commands
+Each release lists the SHA-256 of every file in `SHA256SUMS`. The macOS app is signed and notarized. The Windows and Linux builds are not code-signed, so Windows SmartScreen asks you to confirm the first launch.
 
-| Command          | What it does                                                     |
-| ---------------- | ---------------------------------------------------------------- |
-| `pnpm dev`       | Starts the app with hot reload.                                  |
-| `pnpm build`     | Builds the app into `out/`.                                      |
-| `pnpm start`     | Builds the app and runs the build.                               |
-| `pnpm typecheck` | Type checks the Node side and the renderer separately.           |
-| `pnpm test`      | Runs the unit and behavior tests in `test/` with vitest.         |
-| `pnpm package` | Builds `dist/mac-arm64/Agent Sessions.app` (or the Windows or Linux folder on those systems) with the app name and icon. It is not code-signed. |
-| `pnpm dist` | Builds the installers for this OS into `dist/`, named `agent-sessions-<version>-<os>-<arch>`. On a Mac without the signing certificate, run it as `CSC_IDENTITY_AUTO_DISCOVERY=false pnpm dist`. |
-| `pnpm smoke`     | Builds the app, drives listing progress, refresh, export, and import for Claude Code and Codex on temp stores, and saves screenshots in `artifacts/`. |
-| `pnpm screens [prefix]` | Builds the app, opens it on a synthetic store of 52 sessions in 26 folders, and saves each browse state to `artifacts/compare/<prefix>-<state>.png`. The prefix defaults to `after`. It prints how many rows each state shows without scrolling. |
-| `pnpm bench:discover` | Builds a synthetic 1.09 GB store once in the temp folder and times listing it cold, after a relaunch, and after one change. `AGENT_SESSIONS_BENCH_REAL=1` also times your real stores, read-only. Results go to `artifacts/bench/`. |
-| `pnpm verify:real` | Uses the real `claude` and `codex` CLIs to create a throwaway session, export it, import it under another folder, and resume it. It spends a few model tokens. Claude Code writes to your real store and the test removes what it made. Codex runs in temporary `CODEX_HOME` folders that hold a copy of your `~/.codex/auth.json` for the length of the run. The test refuses to run when the access token expires within 2 hours, so Codex does not refresh the token inside a copy, and it deletes the copies afterwards. |
+## Supported agents
+
+| Agent | Where sessions live | Resume after import |
+| --- | --- | --- |
+| Claude Code | `~/.claude/projects`, or `CLAUDE_CONFIG_DIR` | `claude --resume <id>` from the mapped folder |
+| Codex | `~/.codex/sessions`, or `CODEX_HOME` | `codex resume <id>` |
+
+The app works with what each CLI writes to disk. A new CLI version can change that format, so if a session does not list or resume, please [open an issue](https://github.com/karlhsueh/agent-sessions/issues) with both CLI versions.
+
+## Contributing
+
+Built with Electron, React, and TypeScript. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, the docs to read first, and the test commands.
+
+## License
+
+[MIT](LICENSE). Agent Sessions is an independent project and is not affiliated with Anthropic or OpenAI.

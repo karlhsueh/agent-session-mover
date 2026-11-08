@@ -1,9 +1,10 @@
 {
   "name": "agent-sessions",
   "productName": "Agent Sessions",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Export and import Claude Code and Codex sessions between computers.",
+  "license": "MIT",
   "author": {
     "name": "karlhsueh",
     "email": "7528921+karlhsueh@users.noreply.github.com"
