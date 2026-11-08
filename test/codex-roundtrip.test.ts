@@ -10,7 +10,7 @@ import { readArchiveEntries } from './fixtures/archive'
 import { listTree, NEVER_EXPORT, removeTempDir, treeHash } from './fixtures/claude-store'
 import { createStateDb, threadRow, threadRows } from './fixtures/codex-db'
 import { appendRecord, buildCodexStore, type CodexStore, CX, writeLock, writeNeverExportFiles } from './fixtures/codex-store'
-import { type Machine, makeMachine } from './fixtures/machine'
+import { type Machine, makeMachine, shellQuoted } from './fixtures/machine'
 
 const key = (id: string) => sessionKey('codex', id)
 let a: Machine
@@ -155,7 +155,7 @@ describe('Codex import into a store with a database', () => {
     expect(threadRow(targetDb(), CX.decoy)).toEqual(decoyBefore)
 
     const listed = (await listSessions(b.context)).sessions.find((s) => s.id === CX.plain)
-    expect(listed).toMatchObject({ cwd: dstProj, resumeCommand: `cd '${dstProj}' && codex resume ${CX.plain}` })
+    expect(listed).toMatchObject({ cwd: dstProj, resumeCommand: `cd ${shellQuoted(dstProj)} && codex resume ${CX.plain}` })
   })
 
   it('gives a fork parent its row when the child brings the parent rollout first', async () => {

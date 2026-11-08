@@ -8,7 +8,7 @@ import { encodeProjectDir } from '../src/main/providers/claude-code/encode'
 import { sessionKey, type SessionKey } from '../src/shared/sessions'
 import { readArchiveEntries } from './fixtures/archive'
 import { NEVER_EXPORT, removeTempDir, treeHash, writeLiveEntry, writeNeverExportFiles, writeSession, type BuiltSession } from './fixtures/claude-store'
-import { type Machine, makeMachine } from './fixtures/machine'
+import { type Machine, makeMachine, shellQuoted } from './fixtures/machine'
 
 const S1 = '2a000000-0000-4000-8000-000000000001'
 const S2 = '2b000000-0000-4000-8000-000000000002'
@@ -94,7 +94,7 @@ describe('import into an empty store', () => {
 
     const result = await runImport(b.context, opened, mappings, [key(S1), key(S2), key(S3)])
     expect(result.outcomes.map((o) => o.status)).toEqual(['created', 'created', 'created'])
-    expect(result.outcomes[0], 'the result carries the resume command for the folder it landed in').toMatchObject({ resumeCommand: `cd '${dstProj}' && claude --resume ${S1}` })
+    expect(result.outcomes[0], 'the result carries the resume command for the folder it landed in').toMatchObject({ resumeCommand: `cd ${shellQuoted(dstProj)} && claude --resume ${S1}` })
 
     const dstDir = path.join(b.root, 'projects', encodeProjectDir(dstProj))
     const imported = await readFile(path.join(dstDir, `${S1}.jsonl`), 'utf8')
@@ -128,7 +128,7 @@ describe('import into an empty store', () => {
     expect(encodeProjectDir(dstLong).length).toBeGreaterThan(200)
 
     const listed = await listSessions(b.context)
-    expect(listed.sessions.find((s) => s.id === S1)).toMatchObject({ cwd: dstProj, resumeCommand: `cd '${dstProj}' && claude --resume ${S1}` })
+    expect(listed.sessions.find((s) => s.id === S1)).toMatchObject({ cwd: dstProj, resumeCommand: `cd ${shellQuoted(dstProj)} && claude --resume ${S1}` })
     await closeArchive(opened)
   })
 
