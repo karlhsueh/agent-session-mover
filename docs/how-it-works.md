@@ -36,7 +36,7 @@ flowchart LR
   preload -- sends messages --> main
 ```
 
-`window.api` has exactly one function, `greet`. The preload script never gives the page `ipcRenderer` itself. If it did, the page could send any message on any channel, and the sandbox would protect much less. Each function on `window.api` is a capability you chose to grant, and the smoke test fails if a second key appears.
+`window.api` has a fixed set of functions: `greet` from the hello world, plus the session functions described in [Moving sessions between machines](transfer.md). The preload script never gives the page `ipcRenderer` itself. If it did, the page could send any message on any channel, and the sandbox would protect much less. Each function on `window.api` is a capability you chose to grant, and the smoke test fails if an undeclared key appears.
 
 ## Follow the code from launch to reply
 
@@ -233,8 +233,6 @@ To add a capability, change these files in order:
 
 ## How session export fits this structure
 
-This section is a plan, and none of it exists yet. The future app moves AI coding agent sessions between computers. Session files live on disk, so reading and writing them belongs in main. The renderer asks for a list, shows it, and sends back the user's choice.
-
-The validation rule becomes more important at that point. A function that takes a file path from the renderer must treat that path as untrusted input, or a compromised page could read any file. A safer `window.api` offers `listSessions()` and `exportSession(id)`, with main working out the real paths itself.
+Session files live on disk, so reading and writing them happens in main. The renderer asks for a list, shows it, and sends back session keys and folder choices. It never sends a file path. Main shows the save and open dialogs itself and hands the page an opaque archive token. [Moving sessions between machines](transfer.md) covers the archive format, the import rules, and the IPC contract.
 
 Packaging is also missing. `pnpm build` compiles the code, but it does not make an installer for macOS, Windows, or Linux.
