@@ -12,6 +12,12 @@ Built with Electron, React, and TypeScript.
 
 To learn how the pieces fit together, read [How the app works](docs/how-it-works.md). For export and import, read [Moving sessions between machines](docs/transfer.md) and the storage spec in [Session storage and transfer rules](docs/session-storage.md).
 
+## Download
+
+Get the installer for your system from the [latest release](https://github.com/karlhsueh/agent-sessions/releases/latest). There are builds for macOS (Apple silicon and Intel), Windows x64, and Linux x64 as an AppImage or a deb. Each release lists the SHA-256 of every file in `SHA256SUMS`. The Windows and Linux builds are not code-signed, so Windows SmartScreen asks you to confirm the first launch.
+
+To cut a release, read [Releasing](docs/RELEASING.md).
+
 ## Run
 
 `pnpm dev` runs inside Electron's own app, so the macOS menu bar shows "Electron" there. The packaged app from `pnpm package` shows "Agent Sessions".
@@ -33,6 +39,7 @@ pnpm dev
 | `pnpm typecheck` | Type checks the Node side and the renderer separately.           |
 | `pnpm test`      | Runs the unit and behavior tests in `test/` with vitest.         |
 | `pnpm package` | Builds `dist/mac-arm64/Agent Sessions.app` (or the Windows or Linux folder on those systems) with the app name and icon. It is not code-signed. |
+| `pnpm dist` | Builds the installers for this OS into `dist/`, named `agent-sessions-<version>-<os>-<arch>`. On a Mac without the signing certificate, run it as `CSC_IDENTITY_AUTO_DISCOVERY=false pnpm dist`. |
 | `pnpm smoke`     | Builds the app, drives listing progress, refresh, export, and import for Claude Code and Codex on temp stores, and saves screenshots in `artifacts/`. |
 | `pnpm screens [prefix]` | Builds the app, opens it on a synthetic store of 52 sessions in 26 folders, and saves each browse state to `artifacts/compare/<prefix>-<state>.png`. The prefix defaults to `after`. It prints how many rows each state shows without scrolling. |
 | `pnpm bench:discover` | Builds a synthetic 1.09 GB store once in the temp folder and times listing it cold, after a relaunch, and after one change. `AGENT_SESSIONS_BENCH_REAL=1` also times your real stores, read-only. Results go to `artifacts/bench/`. |
