@@ -11,6 +11,7 @@
     "start": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
     "smoke": "pnpm build && node --disable-warning=ExperimentalWarning e2e/smoke.mts && AGENT_SESSIONS_E2E=1 vitest run",
+    "screens": "pnpm build && node --disable-warning=ExperimentalWarning e2e/screens.mts",
     "test": "vitest run",
     "verify:real": "AGENT_SESSIONS_REAL=1 vitest run"
   },
