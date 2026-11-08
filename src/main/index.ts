@@ -59,6 +59,7 @@ function registerSessionHandlers(service: SessionService): void {
   let lastExport: string | null = null
 
   ipcMain.handle(CHANNELS.listSessions, () => service.listSessions())
+  ipcMain.handle(CHANNELS.previewSession, (_event, key: unknown) => service.previewSession(key))
   ipcMain.handle(CHANNELS.exportSessions, async (event, keys: unknown) => {
     const result = await service.exportSessions(
       keys,
@@ -85,6 +86,7 @@ function registerSessionHandlers(service: SessionService): void {
     }, emitter(event)),
   )
   ipcMain.handle(CHANNELS.previewImport, (_event, token: unknown, mappings: unknown) => service.previewImport(token, mappings))
+  ipcMain.handle(CHANNELS.previewArchiveSession, (_event, token: unknown, key: unknown) => service.previewArchiveSession(token, key))
   ipcMain.handle(CHANNELS.runImport, (event, token: unknown, mappings: unknown, keys: unknown) =>
     service.runImport(token, mappings, keys, emitter(event)),
   )

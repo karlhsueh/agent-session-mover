@@ -9,13 +9,16 @@ import type {
   ProgressEvent,
   SessionKey,
   SessionList,
+  SessionPreview,
 } from './sessions'
 
 export const CHANNELS = {
   listSessions: 'sessions:list',
+  previewSession: 'sessions:preview',
   exportSessions: 'sessions:export',
   openArchive: 'archive:open',
   previewImport: 'import:preview',
+  previewArchiveSession: 'archive:preview-session',
   runImport: 'import:run',
   progress: 'progress',
   storeRoots: 'stores:roots',
@@ -54,9 +57,13 @@ export type OpenArchiveOutcome =
  */
 export interface DesktopApi {
   listSessions(): Promise<ApiResult<SessionList>>
+  /** The Conversation preview of a session on this machine. */
+  previewSession(key: SessionKey): Promise<ApiResult<SessionPreview>>
   exportSessions(keys: SessionKey[]): Promise<ApiResult<ExportOutcome>>
   openArchive(): Promise<ApiResult<OpenArchiveOutcome>>
   previewImport(token: ArchiveToken, mappings: PathMapping[]): Promise<ApiResult<ImportPreview>>
+  /** The Conversation preview of a session in the open archive. */
+  previewArchiveSession(token: ArchiveToken, key: SessionKey): Promise<ApiResult<SessionPreview>>
   runImport(token: ArchiveToken, mappings: PathMapping[], keys: SessionKey[]): Promise<ApiResult<ImportResult>>
   /** Returns the unsubscribe function. */
   onProgress(callback: (event: ProgressEvent) => void): () => void

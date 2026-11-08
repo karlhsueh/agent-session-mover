@@ -13,10 +13,11 @@ import {
   summarizeArchive,
 } from './core/import'
 import { ManifestError } from './core/manifest'
+import { previewArchivedSession, previewStoredSession } from './core/preview-session'
 import type { ArchiveLimits } from './archive/archive'
-import { InputError, parseKeys, parseMappings, parseToken } from './ipc-input'
+import { InputError, parseKey, parseKeys, parseMappings, parseToken } from './ipc-input'
 import type { ApiError, ApiResult, ExportOutcome, OpenArchiveOutcome } from '../shared/ipc'
-import type { ArchiveToken, ImportPreview, ImportResult, ProgressEvent, SessionList } from '../shared/sessions'
+import type { ArchiveToken, ImportPreview, ImportResult, ProgressEvent, SessionList, SessionPreview } from '../shared/sessions'
 import path from 'node:path'
 
 export type Emit = (event: ProgressEvent) => void
@@ -24,6 +25,8 @@ export type Emit = (event: ProgressEvent) => void
 /** What the IPC handlers call. Takes untrusted input, and dialogs as functions so tests can drive it without Electron. */
 export interface SessionService {
   listSessions(): Promise<ApiResult<SessionList>>
+  previewSession(key: unknown): Promise<ApiResult<SessionPreview>>
+  previewArchiveSession(token: unknown, key: unknown): Promise<ApiResult<SessionPreview>>
   exportSessions(keys: unknown, chooseDestination: () => Promise<string | null>, emit: Emit): Promise<ApiResult<ExportOutcome>>
   openArchive(chooseArchive: () => Promise<string | null>, emit: Emit): Promise<ApiResult<OpenArchiveOutcome>>
   previewImport(token: unknown, mappings: unknown): Promise<ApiResult<ImportPreview>>
@@ -38,6 +41,15 @@ export function createSessionService(
   // One archive is open at a time. Opening another closes the previous one and its token stops working.
   let current: OpenedArchive | null = null
   let busy = false
+
+  // Previews only read, so they run beside an export or import instead of waiting for the lock.
+  async function attempt<T>(work: () => Promise<T>): Promise<ApiResult<T>> {
+    try {
+      return { ok: true, value: await work() }
+    } catch (error) {
+      return { ok: false, error: toApiError(error) }
+    }
+  }
 
   async function exclusive<T>(work: () => Promise<T>): Promise<ApiResult<T>> {
     if (busy) return { ok: false, error: { code: 'busy', message: 'Another export or import is still running.' } }
@@ -57,12 +69,25 @@ export function createSessionService(
   }
 
   return {
-    async listSessions() {
-      try {
-        return { ok: true, value: await listSessions(context) }
-      } catch (error) {
-        return { ok: false, error: toApiError(error) }
-      }
+    listSessions() {
+      return attempt(() => listSessions(context))
+    },
+
+    previewSession(keyInput) {
+      return attempt(() => {
+        const { agent, id } = parseKey(keyInput)
+        return previewStoredSession(context, agent, id)
+      })
+    },
+
+    previewArchiveSession(tokenInput, keyInput) {
+      return attempt(async () => {
+        const opened = archiveFor(parseToken(tokenInput))
+        const { key } = parseKey(keyInput)
+        const preview = await previewArchivedSession(context, opened, key)
+        if (!preview) throw new InputError(`The archive has no session ${key}.`)
+        return preview
+      })
     },
 
     exportSessions(keysInput, chooseDestination, emit) {

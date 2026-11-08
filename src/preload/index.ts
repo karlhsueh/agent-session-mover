@@ -4,9 +4,11 @@ import type { ProgressEvent } from '../shared/sessions'
 
 const api: DesktopApi = {
   listSessions: () => ipcRenderer.invoke(CHANNELS.listSessions),
+  previewSession: (key) => ipcRenderer.invoke(CHANNELS.previewSession, key),
   exportSessions: (keys) => ipcRenderer.invoke(CHANNELS.exportSessions, keys),
   openArchive: () => ipcRenderer.invoke(CHANNELS.openArchive),
   previewImport: (token, mappings) => ipcRenderer.invoke(CHANNELS.previewImport, token, mappings),
+  previewArchiveSession: (token, key) => ipcRenderer.invoke(CHANNELS.previewArchiveSession, token, key),
   runImport: (token, mappings, keys) => ipcRenderer.invoke(CHANNELS.runImport, token, mappings, keys),
   onProgress: (callback) => {
     const listener = (_event: IpcRendererEvent, progress: ProgressEvent) => callback(progress)

@@ -8,6 +8,7 @@ import type { CollectedSession, ImportContext, Provider, RefusedAction, Snapshot
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
 import { resumeLine } from '../text'
 import { encodeProjectDir } from './encode'
+import { previewClaudeTranscript } from './preview'
 import { findSidecars, findTranscripts, isSidecarName, liveSessionIds, SIDECAR_FOLDERS, type SidecarFile, type SidecarFolder, type TranscriptLocation } from './store'
 import { readSubagents } from './subagents'
 import { clientFromEntrypoint, isHiddenEntrypoint, readFacts, rewriteTranscript, titleOf, type TranscriptFacts } from './transcript'
@@ -52,6 +53,15 @@ export const claudeCodeProvider: Provider = {
   async inspectTarget(root, session, context) {
     return inspect(root, session, context)
   },
+
+  transcriptRole: 'transcript',
+
+  async findTranscript(root, id) {
+    const [transcript] = newestPerId((await findTranscripts(root)).filter((each) => each.id === id))
+    return transcript ? { absPath: transcript.absPath, path: joinStorePath('projects', transcript.projectDir, `${transcript.id}.jsonl`) } : null
+  },
+
+  previewTranscript: previewClaudeTranscript,
 
   async applyEffect() {
     throw new Error('Claude Code imports have no side effects')

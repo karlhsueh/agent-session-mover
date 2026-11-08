@@ -9,6 +9,7 @@ import { applyEffect, parseEffect, undoEffect } from './effects'
 import { clientOf, hiddenFromPicker, metaOfLine, readFacts, type RolloutFacts, type SessionMeta } from './facts'
 import { families } from './family'
 import { inspectCodexTarget } from './inspect'
+import { previewRollout } from './preview'
 import { INDEX_FILE, type IndexLine, readIndex } from './session-index'
 import { dbPath, readThreadSummaries, type ThreadSummary, withSnapshot } from './state-db'
 import {
@@ -37,6 +38,12 @@ export const codexProvider: Provider = {
   discover: (root, env) => retryOnFlip(() => discover(root, env)),
   collect: (root, id, env) => retryOnFlip(() => collect(root, id, env)),
   inspectTarget: inspectCodexTarget,
+  transcriptRole: 'rollout',
+  async findTranscript(root, id) {
+    const main = newestByThread(await findRollouts(root)).get(id)
+    return main ? { absPath: main.absPath, path: main.rel } : null
+  },
+  previewTranscript: previewRollout,
   async applyEffect(root, effect) {
     await applyEffect(root, parseEffect(effect))
   },

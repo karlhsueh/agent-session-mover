@@ -19,6 +19,12 @@ export function parseKeys(input: unknown): SessionKey[] {
   return [...keys]
 }
 
+export function parseKey(input: unknown): NonNullable<ReturnType<typeof parseSessionKey>> {
+  const parsed = parseSessionKey(input)
+  if (!parsed) throw new InputError('Not a session key.')
+  return parsed
+}
+
 /** Targets are folders on this machine and must be absolute. Sources are matched as text against the archive. */
 export function parseMappings(input: unknown, isAbsolute: (target: string) => boolean = path.isAbsolute): PathMapping[] {
   if (!Array.isArray(input) || input.length > MAX_MAPPINGS) throw new InputError('Expected a list of path mappings.')
