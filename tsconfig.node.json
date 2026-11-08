@@ -3,6 +3,7 @@
   "include": ["electron.vite.config.ts", "vitest.config.mts", "src/main", "src/preload", "src/shared", "e2e", "test"],
   "compilerOptions": {
     "lib": ["ES2023"],
-    "types": ["node"]
+    "types": ["node"],
+    "allowImportingTsExtensions": true
   }
 }

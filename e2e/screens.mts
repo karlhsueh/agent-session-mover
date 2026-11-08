@@ -26,17 +26,14 @@ const sidebarScope = (page: Page, name: string) => page.getByRole('listbox', { n
 
 /** Rows whose box lies fully inside their scroll container, so a reader sees them without scrolling. */
 async function visibleRows(page: Page, container: string, rowSelector: string): Promise<number> {
-  return page.evaluate(
-    ([container, rowSelector]) => {
-      const box = document.querySelector(container)?.getBoundingClientRect()
-      if (!box) return 0
-      return [...document.querySelectorAll(`${container} ${rowSelector}`)].filter((el) => {
-        const r = el.getBoundingClientRect()
-        return r.height > 0 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1
-      }).length
-    },
-    [container, rowSelector] as const,
-  )
+  return page.evaluate<number>(`(() => {
+    const box = document.querySelector(${JSON.stringify(container)})?.getBoundingClientRect()
+    if (!box) return 0
+    return [...document.querySelectorAll(${JSON.stringify(`${container} :is(${rowSelector})`)})].filter((el) => {
+      const r = el.getBoundingClientRect()
+      return r.height > 0 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1
+    }).length
+  })()`)
 }
 
 async function selectAcrossProjects(page: Page) {
