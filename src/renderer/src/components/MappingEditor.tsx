@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ArchiveToken, ImportPreview, PathMapping, SessionInfo } from '../../../shared/sessions'
-import { folderName, plural, tildePath } from '../model/format'
+import { useHomeDir } from '../hooks'
+import { expandTilde, folderName, plural, tildePath } from '../model/format'
 
 interface Props {
   token: ArchiveToken
@@ -34,6 +35,7 @@ type Creation = { kind: 'idle' } | { kind: 'creating' } | { kind: 'failed'; mess
 const IDLE: Creation = { kind: 'idle' }
 
 export function MappingEditor({ token, mappings, sessions, preview, checking, sourceHome, onChange }: Props) {
+  const home = useHomeDir()
   return (
     <section className="panel" aria-labelledby="mapping-heading">
       <header className="panel-head">
@@ -47,6 +49,7 @@ export function MappingEditor({ token, mappings, sessions, preview, checking, so
             token={token}
             mapping={mapping}
             sourceHome={sourceHome}
+            home={home}
             uses={sessions.filter((session) => session.cwds.includes(mapping.source)).length}
             status={folderStatus(mapping, sessions, preview)}
             checking={checking}
@@ -62,6 +65,7 @@ function MappingRow({
   token,
   mapping,
   sourceHome,
+  home,
   uses,
   status,
   checking,
@@ -70,25 +74,28 @@ function MappingRow({
   token: ArchiveToken
   mapping: PathMapping
   sourceHome: string
+  /** This machine's home folder. The field shows it as ~ and expands ~ back before sending a path to main. */
+  home: string
   uses: number
   status: FolderStatus
   checking: boolean
   onChange: Props['onChange']
 }) {
-  const [draft, setDraft] = useState(mapping.target)
+  const shown = tildePath(mapping.target, home)
+  const [draft, setDraft] = useState(shown)
   const [creation, setCreation] = useState<Creation>(IDLE)
   const input = useRef<HTMLInputElement>(null)
   useEffect(() => {
-    setDraft(mapping.target)
+    setDraft(shown)
     setCreation(IDLE)
-  }, [mapping.target])
+  }, [shown])
   useLayoutEffect(() => {
     // The end of a path names the folder, so a long one shows its tail.
     if (input.current && document.activeElement !== input.current) input.current.scrollLeft = input.current.scrollWidth
   }, [draft])
-  const invalid = draft.trim() !== '' && !ABSOLUTE.test(draft.trim())
+  const next = expandTilde(draft.trim(), home)
+  const invalid = next !== '' && !ABSOLUTE.test(next)
   const commit = () => {
-    const next = draft.trim()
     if (next !== mapping.target && next !== '' && !invalid) onChange(mapping.source, next)
   }
   const inputId = `target-${mapping.source}`
@@ -100,7 +107,8 @@ function MappingRow({
     onChange(mapping.source, mapping.target)
   }
   const failed = creation.kind === 'failed' ? creation.message : null
-  const offerCreate = status === 'missing' && !invalid && draft.trim() === mapping.target
+  const offerCreate = status === 'missing' && !invalid && next === mapping.target
+  const warn = invalid || failed !== null || status === 'missing'
 
   return (
     <li className="mapping">
@@ -122,13 +130,14 @@ function MappingRow({
           id={inputId}
           className={invalid ? 'mono invalid' : 'mono'}
           value={draft}
+          title={mapping.target}
           spellCheck={false}
           autoComplete="off"
           onChange={(event) => setDraft(event.target.value)}
           onBlur={commit}
           onKeyDown={(event) => {
             if (event.key === 'Enter') commit()
-            if (event.key === 'Escape') setDraft(mapping.target)
+            if (event.key === 'Escape') setDraft(shown)
           }}
           aria-invalid={invalid}
         />
@@ -142,8 +151,8 @@ function MappingRow({
         >
           Choose…
         </button>
-        <div className="mapping-note">
-          <span className={invalid || failed || status === 'missing' ? 'mapping-status warn' : 'mapping-status'} aria-live="polite">
+        <div className={warn ? 'mapping-note warn' : 'mapping-note'}>
+          <span className="mapping-status" aria-live="polite">
             {invalid ? 'Use a full path' : (failed ?? STATUS_TEXT[status])}
           </span>
           {offerCreate && (

@@ -269,6 +269,7 @@ try {
 
   await page.getByRole('button', { name: /Import archive/ }).click()
   await page.getByRole('heading', { name: 'Import handoff.agentsessions' }).waitFor()
+  assert.match((await page.locator('.import-head p').textContent()) ?? '', /^10 sessions · exported from (macOS|Windows|Linux) on \w{3} \d+, \d+:\d\d/, 'the subtitle names the platform and date, not the source home path')
   const plan = page.locator('.plan')
   await page.locator('.plan:not(.stale) .badge').first().waitFor()
   assert.equal(await plan.locator('.badge', { hasText: 'Create' }).count(), fixtures.length, 'preview plans a create for every session')
@@ -276,14 +277,18 @@ try {
 
   const webSource = join(source.home, 'code', 'web')
   const webTarget = page.getByLabel(`Folder on this machine for ${webSource}`)
-  assert.equal(await webTarget.inputValue(), join(target.home, 'code', 'web'), 'mapping suggests the same folder under this home')
+  assert.equal(await webTarget.inputValue(), '~/code/web', 'mapping suggests the same folder under this home, shown relative to it')
+  assert.equal(await webTarget.getAttribute('title'), join(target.home, 'code', 'web'), 'the field keeps the absolute folder in its tooltip')
   const webRow = page.locator('.mapping', { has: webTarget })
   assert.equal(await webRow.locator('.mapping-status').textContent(), 'Folder does not exist yet', 'mapping flags a missing folder')
   await webRow.getByRole('button', { name: 'Choose…' }).click()
   await page.locator(`.plan:not(.stale) .plan-target[title="${chosenWebFolder}"]`).first().waitFor()
-  assert.equal(await webTarget.inputValue(), chosenWebFolder, 'folder picker fills the mapping')
+  assert.equal(await webTarget.inputValue(), '~/checkouts/web-main', 'folder picker fills the mapping')
   assert.equal(await webRow.locator('.mapping-status').textContent(), 'Folder exists', 'preview re-runs with the chosen folder')
   await shot(page, 'import-preview-dark')
+  await page.getByRole('button', { name: 'Use light theme' }).click()
+  await shot(page, 'import-preview-light')
+  await page.getByRole('button', { name: 'Use dark theme' }).click()
 
   const fanoutRow = page.locator('.plan-row', { hasText: fanout.title })
   await fanoutRow.getByRole('button', { name: /^Preview the conversation/ }).click()

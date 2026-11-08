@@ -27,6 +27,13 @@ export function tildePath(path: string, home: string): string {
   return path.startsWith(prefix) && /[\\/]/.test(path.charAt(prefix.length)) ? `~${path.slice(prefix.length)}` : path
 }
 
+/** Reverses `tildePath`, so a field can show `~/x` and still hand main an absolute path. */
+export function expandTilde(path: string, home: string): string {
+  const prefix = home.replace(/[\\/]+$/, '')
+  if (!prefix || !/^~([\\/]|$)/.test(path)) return path
+  return `${prefix}${path.slice(1)}`
+}
+
 /**
  * Shows `cd '/home/me/x' && …` as `cd ~/'x' && …`. Both run the same in POSIX shells, so the
  * shorter form is also what Copy puts on the clipboard.
@@ -57,6 +64,21 @@ export function absoluteTime(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
   return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+/** `Nov 8, 10:29 AM`, with the year only when it is not this year. */
+export function shortDateTime(iso: string, now = Date.now()): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  const year = date.getFullYear() === new Date(now).getFullYear() ? undefined : 'numeric'
+  return date.toLocaleString(undefined, { year, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
+const PLATFORM_LABEL: Record<string, string> = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }
+
+/** Names a Node `process.platform` value the way people say it. */
+export function platformLabel(platform: string): string {
+  return PLATFORM_LABEL[platform] ?? platform
 }
 
 export function formatBytes(bytes: number): string {

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { ProgressEvent, SessionImportPreview, SessionInfo, SessionKey, SessionPreview } from '../../../shared/sessions'
 import { usePreviews } from '../hooks'
-import { absoluteTime, AGENT_LABEL, folderName, plural, sessionTitle } from '../model/format'
+import { AGENT_LABEL, folderName, platformLabel, plural, sessionTitle, shortDateTime } from '../model/format'
 import { ACTIONS, describeAction, isActionable, selectedForImport, warningText } from '../model/importing'
 import { type Loadable, shownPreview, type PreviewScreen } from '../state'
 import { ErrorBanner, ProgressBar, Sheet } from './common'
@@ -45,9 +45,9 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
             ← Sessions
           </button>
           <h1>Import {archive.summary.fileName}</h1>
-          <p className="dim">
-            {plural(archive.summary.sessions.length, 'session')} from {archive.summary.source.homeDir} ({archive.summary.source.platform}), exported{' '}
-            {absoluteTime(archive.summary.createdAt)}
+          <p className="dim" title={`Home folder on that machine: ${archive.summary.source.homeDir}`}>
+            {plural(archive.summary.sessions.length, 'session')} · exported from {platformLabel(archive.summary.source.platform)} on{' '}
+            {shortDateTime(archive.summary.createdAt)}
           </p>
         </header>
 
