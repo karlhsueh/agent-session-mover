@@ -47,7 +47,7 @@ export function describeOutcome(outcome: SessionImportOutcome): string | null {
     case 'created':
       return null
     case 'updated':
-      return outcome.backupDir ? `Files replaced. The old copy is in ${outcome.backupDir}.` : 'Files replaced.'
+      return outcome.backupDir ? 'Files replaced. The old copy is in the backup folder.' : 'Files replaced.'
     case 'skipped':
       return 'Already identical on this machine.'
     case 'refused':

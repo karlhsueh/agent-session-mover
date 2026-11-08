@@ -29,7 +29,8 @@ export function ErrorBanner({ error, onDismiss }: { error: ApiError; onDismiss?:
   )
 }
 
-export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+/** `label` names the button for a screen reader too when given, so a long `text` is not read aloud. */
+export function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return
@@ -40,13 +41,13 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
     <button
       type="button"
       className="button ghost small"
-      aria-label={copied ? 'Copied' : `${label}: ${text}`}
+      aria-label={copied ? 'Copied' : (label ?? `Copy: ${text}`)}
       onClick={async () => {
         await window.api.copyText(text)
         setCopied(true)
       }}
     >
-      {copied ? 'Copied' : label}
+      {copied ? 'Copied' : (label ?? 'Copy')}
     </button>
   )
 }

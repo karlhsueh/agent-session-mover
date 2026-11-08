@@ -1,8 +1,8 @@
-import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _electron as electron, type Page } from 'playwright'
-import { writeClaudeSession } from './claude-fixture.mts'
+import { encode, writeClaudeSession } from './claude-fixture.mts'
 import { FANOUT_TITLE, LIVE_TITLE, SCREEN_FIXTURES, SELECTED_TITLES, SINGLE_PROJECT_FIXTURES } from './screens-fixture.mts'
 
 /** `pnpm screens [prefix]` writes artifacts/compare/<prefix>-<state>.png for whichever layout the build has. */
@@ -135,6 +135,16 @@ try {
   await page.getByRole('list', { name: 'Conversation' }).waitFor()
   await page.locator('.plan-row', { hasText: FANOUT_TITLE }).scrollIntoViewIfNeeded()
   await shoot(page, 'import-preview-conversation')
+
+  const trimmed = SCREEN_FIXTURES.find((fixture) => fixture.title === SELECTED_TITLES[0])!
+  const transcript = join(home, '.claude', 'projects', encode(join(home, trimmed.project)), `${trimmed.id}.jsonl`)
+  await writeFile(transcript, (await readFile(transcript, 'utf8')).replace(/[^\n]*\n$/, ''))
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  await page.keyboard.press('ControlOrMeta+O')
+  await page.locator('.plan:not(.stale) .badge', { hasText: 'Update' }).waitFor()
+  await page.getByRole('button', { name: /^Import \d+ sessions?$/ }).click()
+  await page.locator('.statusbar', { hasText: 'Backups of replaced copies' }).waitFor()
+  await shoot(page, 'import-result-backups')
 } finally {
   await app.close()
 }

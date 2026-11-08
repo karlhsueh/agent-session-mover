@@ -262,7 +262,7 @@ try {
 
 const desktop = await launch(target, { AGENT_SESSIONS_E2E_OPEN_PATH: archivePath, AGENT_SESSIONS_E2E_FOLDER_PATH: chosenWebFolder })
 try {
-  const { page, problems } = desktop
+  const { app, page, problems } = desktop
   await page.getByRole('heading', { name: 'No sessions on this machine' }).waitFor()
   assert.match((await page.locator('.roots').textContent()) ?? '', new RegExp(target.claude.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'empty state names the store folder it searched')
   await shot(page, 'empty-dark')
@@ -307,7 +307,20 @@ try {
   assert.equal(await page.locator('.outcome .badge', { hasText: 'Placed' }).count(), fixtures.length - 1, 'every chosen session was placed')
   assert.equal(await page.locator('.outcome .command').count(), fixtures.length - 1, 'each placed session shows its resume command')
   assert.match((await page.locator('.outcome').first().textContent()) ?? '', /claude --resume/, 'resume command is a claude resume line')
+  assert.doesNotMatch((await page.locator('.statusbar').textContent()) ?? '', /Run |Backups/, 'a run with no backups leaves the run id out of the footer')
   await shot(page, 'import-result-dark')
+  await page.getByRole('button', { name: 'Use light theme' }).click()
+  await shot(page, 'import-result-light')
+  await page.getByRole('button', { name: 'Use dark theme' }).click()
+  const clipboardBefore = await app.evaluate(({ clipboard }) => clipboard.readText())
+  try {
+    await page.getByRole('button', { name: 'Copy all commands' }).click()
+    await page.locator('.panel-head').getByRole('button', { name: 'Copied' }).waitFor()
+    const commands = await page.locator('.outcome .command code').allTextContents()
+    assert.equal(await app.evaluate(({ clipboard }) => clipboard.readText()), commands.join('\n'), 'Copy all commands copies every resume command, one per line')
+  } finally {
+    await app.evaluate(({ clipboard }, text) => clipboard.writeText(text), clipboardBefore)
+  }
 
   await page.getByRole('button', { name: 'Back to sessions' }).click()
   await rows(page).first().waitFor()

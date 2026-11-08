@@ -77,7 +77,8 @@
 }
 
 .mapping + .mapping,
-.plan-row + .plan-row {
+.plan-row + .plan-row,
+.outcome + .outcome {
   border-top: 1px solid var(--line);
 }
 
@@ -175,10 +176,6 @@
   padding: 10px 16px;
 }
 
-.plan-row.outcome {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
 .plan-row input {
   margin: 2px 0 0;
   accent-color: var(--accent);
@@ -217,8 +214,44 @@
   user-select: text;
 }
 
-.plan-main .command {
-  margin-top: 6px;
+.outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 16px 12px;
+}
+
+.outcome-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.outcome-head .badge {
+  min-width: 58px;
+  justify-content: center;
+}
+
+.outcome .plan-message {
+  padding-left: 68px;
+}
+
+.outcome .command {
+  align-items: center;
+  padding: 4px 4px 4px 10px;
+  border-color: transparent;
+}
+
+.outcome .command code {
+  padding-top: 0;
+}
+
+.statusbar-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .summary-counts {
