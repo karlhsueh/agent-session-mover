@@ -3,3 +3,4 @@ out/
 artifacts/
 .DS_Store
 dist/
+.claude/

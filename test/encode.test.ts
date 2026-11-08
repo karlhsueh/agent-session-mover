@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { encodeProjectDir } from '../src/main/providers/claude-code/encode'
 
-// Expected values were computed by a separate Python port of the algorithm in
-// docs/archive/research/claude-code-2026-11.md section 2, not by this code.
+// Expected values were computed by a separate Python port of Claude Code's algorithm, not by this code.
 describe('encodeProjectDir', () => {
   it('replaces every non-alphanumeric character with a dash', () => {
     expect(encodeProjectDir('/Users/alice/Code/agent-sessions')).toBe('-Users-alice-Code-agent-sessions')
