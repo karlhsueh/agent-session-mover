@@ -59,7 +59,8 @@ describe('Claude Code discovery', () => {
     })
 
     expect(byId.get(ID.resumed)).toMatchObject({ cwd: proj, cwds: [proj, other], title: 'Tokenizer test', createdAt: '2026-11-01T11:40:00.000Z' })
-    expect(byId.get(ID.sdk)).toMatchObject({ client: 'sdk', clientDetail: 'sdk-cli' })
+    expect(byId.get(ID.sdk)).toMatchObject({ client: 'sdk', clientDetail: 'sdk-cli', hiddenFromPicker: true })
+    expect(byId.get(ID.plain)?.hiddenFromPicker, 'a cli session shows in the picker').toBe(false)
     expect(byId.get(ID.live)).toMatchObject({ client: 'desktop', live: true })
     expect(byId.get(ID.dead)).toMatchObject({ live: false })
     expect(byId.get(ID.long)).toMatchObject({ client: 'ide', cwd: longCwd })

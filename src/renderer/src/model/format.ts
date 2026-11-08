@@ -74,9 +74,13 @@ export function sessionTitle(session: Pick<SessionInfo, 'title' | 'id'>): string
   return session.title?.trim() || `Untitled ${session.id.slice(0, 8)}`
 }
 
-/** Claude Code's /resume picker and --continue skip sessions started by `claude -p` and the SDKs. */
-export function hiddenFromPicker(session: Pick<SessionInfo, 'agent' | 'client'>): boolean {
-  return session.agent === 'claude-code' && session.client === 'sdk'
+const PICKER_NOTE: Record<AgentId, string> = {
+  'claude-code': "Claude Code's /resume picker and --continue skip sessions started like this one.",
+  codex: "Codex's resume picker and resume --last skip sessions started like this one.",
+}
+
+export function pickerNote(agent: AgentId, clientDetail: string): string {
+  return `Started with ${clientDetail || 'an unknown client'}. ${PICKER_NOTE[agent]} The resume command still finds it.`
 }
 
 export const IS_MAC = navigator.userAgent.includes('Macintosh')

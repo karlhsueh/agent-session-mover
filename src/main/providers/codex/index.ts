@@ -6,7 +6,7 @@ import type { CollectedSession, Provider, ProviderEnv, SnapshotFile } from '../.
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
 import { resumeLine } from '../text'
 import { applyEffect, parseEffect, undoEffect } from './effects'
-import { clientOf, metaOfLine, readFacts, type RolloutFacts } from './facts'
+import { clientOf, hiddenFromPicker, metaOfLine, readFacts, type RolloutFacts } from './facts'
 import { inspectCodexTarget } from './inspect'
 import { INDEX_FILE, type IndexLine, readIndex } from './session-index'
 import { dbPath, readThreadSummaries, type ThreadSummary, withSnapshot } from './state-db'
@@ -73,6 +73,7 @@ async function discover(root: string, env: ProviderEnv): Promise<SessionSummary[
       ...session,
       live: locked.has(id),
       archived: main.archived || store.rows.get(id)?.archived === true,
+      hiddenFromPicker: facts.meta ? hiddenFromPicker(facts.meta) : false,
       resumeCommand: resumeLine(`codex resume ${id}`, session.cwd),
     })
   }

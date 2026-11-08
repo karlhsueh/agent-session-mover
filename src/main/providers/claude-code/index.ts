@@ -31,6 +31,7 @@ export const claudeCodeProvider: Provider = {
         ...info(transcript, files.facts, files.files),
         live: live.has(transcript.id),
         archived: false,
+        hiddenFromPicker: isHiddenEntrypoint(files.facts.entrypoint ?? ''),
         resumeCommand: resumeLine(`claude --resume ${transcript.id}`, primaryCwd(files.facts, transcript.projectDir)),
       })
     }

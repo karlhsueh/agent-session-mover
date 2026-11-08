@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { SessionSummary } from '../../../shared/sessions'
-import { absoluteTime, AGENT_LABEL, CLIENT_LABEL, formatBytes, hiddenFromPicker, plural, sessionTitle } from '../model/format'
+import { absoluteTime, AGENT_LABEL, CLIENT_LABEL, formatBytes, pickerNote, plural, sessionTitle } from '../model/format'
 import { CommandLine, CopyButton } from './common'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -27,8 +27,7 @@ export function SessionDetail({ session }: { session: SessionSummary | null }) {
   const otherCwds = session.cwds.filter((cwd) => cwd !== session.cwd)
   const notes: string[] = []
   if (session.live) notes.push('Running on this machine now. An export snapshots it up to the last complete line.')
-  if (hiddenFromPicker(session))
-    notes.push(`Started with ${session.clientDetail || 'the SDK'}. Claude Code's /resume picker and --continue hide these sessions. The resume command below still finds it.`)
+  if (session.hiddenFromPicker) notes.push(pickerNote(session.agent, session.clientDetail))
   if (session.archived) notes.push(`Archived in ${AGENT_LABEL[session.agent]}.`)
 
   return (

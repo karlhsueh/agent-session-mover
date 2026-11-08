@@ -55,6 +55,8 @@ export interface SessionSummary extends SessionInfo {
   /** A process that is still writing this session is running on this machine. */
   live: boolean
   archived: boolean
+  /** The agent's own resume picker skips this session. The resume command still finds it. */
+  hiddenFromPicker: boolean
   /** Shell line that resumes the session on this machine, `cd` included when the cwd is known. */
   resumeCommand: string
 }
@@ -83,7 +85,7 @@ export interface PathMapping {
 }
 
 export type ConflictReason = 'diverged' | 'target-newer' | 'multiple-copies'
-export type BlockedReason = 'live' | 'unmapped-cwd' | 'unsupported-agent' | 'invalid-session' | 'unsafe-path'
+export type BlockedReason = 'live' | 'unmapped-cwd' | 'invalid-session' | 'unsafe-path'
 
 export type ImportAction =
   | { kind: 'create' }

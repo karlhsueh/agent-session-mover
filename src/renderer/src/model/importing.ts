@@ -1,4 +1,5 @@
-import type { ImportAction, ImportPreview, ImportWarning, SessionImportOutcome, SessionKey } from '../../../shared/sessions'
+import type { AgentId, ImportAction, ImportPreview, ImportWarning, SessionImportOutcome, SessionKey } from '../../../shared/sessions'
+import { pickerNote } from './format'
 
 export type Tone = 'good' | 'info' | 'neutral' | 'warn' | 'bad'
 
@@ -23,12 +24,12 @@ export function selectedForImport(preview: ImportPreview | null, excluded: Reado
   return preview.sessions.filter((session) => isActionable(session.action) && !excluded.has(session.key)).map((session) => session.key)
 }
 
-export function warningText(warning: ImportWarning): string {
+export function warningText(warning: ImportWarning, agent: AgentId): string {
   switch (warning.code) {
     case 'target-cwd-missing':
       return `${warning.path} does not exist on this machine. The files import, but you need that folder to resume from it.`
     case 'hidden-from-picker':
-      return `Started with ${warning.clientDetail}. Claude Code's /resume picker hides these. claude --resume <id> still finds it.`
+      return pickerNote(agent, warning.clientDetail)
   }
 }
 

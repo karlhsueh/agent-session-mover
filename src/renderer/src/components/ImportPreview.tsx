@@ -107,7 +107,7 @@ function PlanRow({ session, plan, included, onToggle }: { session: SessionInfo; 
         {plan && plan.action.kind !== 'create' && <span className="plan-message">{describeAction(plan.action)}</span>}
         {plan?.warnings.map((warning) => (
           <span key={warning.code} className="plan-warning">
-            {warningText(warning)}
+            {warningText(warning, session.agent)}
           </span>
         ))}
       </label>

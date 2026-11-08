@@ -43,7 +43,9 @@ describe('Codex discovery', () => {
       resumeCommand: `cd '${cwd}' && codex resume ${CX.plain}`,
     })
     expect(byId.get(CX.archived)).toMatchObject({ archived: true, client: 'desktop', clientDetail: 'Codex Desktop', title: 'Database title for archived' })
-    expect(byId.get(CX.compressed)).toMatchObject({ client: 'exec', title: 'Run the exec job', fileCount: 1, lastActivity: store.rollouts[CX.compressed].lastTimestamp })
+    expect(byId.get(CX.plain)?.hiddenFromPicker, 'a cli session shows in the picker').toBe(false)
+    expect(byId.get(CX.subagent)?.hiddenFromPicker, 'a subagent session is skipped by the picker').toBe(true)
+    expect(byId.get(CX.compressed)).toMatchObject({ hiddenFromPicker: true, client: 'exec', title: 'Run the exec job', fileCount: 1, lastActivity: store.rollouts[CX.compressed].lastTimestamp })
     expect(byId.get(CX.reverted)).toMatchObject({ title: 'After the revert', fileCount: 2 })
     expect(byId.get(CX.child)).toMatchObject({ title: 'Forked child', fileCount: 2 })
     expect(byId.get(CX.parent)).toMatchObject({ title: 'Parent by name' })
