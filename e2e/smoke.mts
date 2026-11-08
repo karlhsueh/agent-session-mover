@@ -203,7 +203,7 @@ try {
   await conversationTab.click()
   await conversation.waitFor()
   assert.equal(await conversation.locator('.turn').first().textContent(), fixtures[6]!.title, 'the Conversation tab starts with the first prompt')
-  assert.deepEqual(await conversation.locator('.turn-tool').allTextContents(), ['Read src/index.ts', 'Ran pnpm test'], 'each tool call is one line')
+  assert.deepEqual(await conversation.locator('.turn-tool').allTextContents(), [`Read ${join('src', 'index.ts')}`, 'Ran pnpm test'], 'each tool call is one line')
   assert.equal(await focusedPane(page), 'Sessions', 'clicking a tab leaves focus in the list')
   await page.reload()
   await row(page, fixtures[2]!.title).click()
@@ -296,7 +296,7 @@ try {
   const archived = fanoutRow.getByRole('list', { name: 'Conversation' })
   await archived.waitFor()
   assert.equal(await archived.locator('.turn').first().textContent(), fanout.title, 'import preview shows an archived session’s conversation')
-  assert.match((await archived.locator('.turn-tool').first().textContent()) ?? '', /^Read src\/index\.ts$/, 'the archived conversation lists its tool calls')
+  assert.equal(await archived.locator('.turn-tool').first().textContent(), `Read ${join('src', 'index.ts')}`, 'the archived conversation lists its tool calls')
   await fanoutRow.getByRole('button', { name: /^Hide the conversation/ }).click()
   assert.equal(await archived.count(), 0, 'Hide folds the conversation away')
 
