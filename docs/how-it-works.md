@@ -36,7 +36,7 @@ flowchart LR
   preload -- sends messages --> main
 ```
 
-`window.api` has a fixed set of functions. Six move sessions and are described in [Moving sessions between machines](transfer.md). Four more help the page: `storeRoots`, `chooseFolder`, `revealExport`, and `copyText`. The preload script never gives the page `ipcRenderer` itself. If it did, the page could send any message on any channel, and the sandbox would protect much less. Each function on `window.api` is a capability you chose to grant, and the smoke test fails if an undeclared key appears.
+`window.api` has a fixed set of functions. Six move sessions and are described in [Moving sessions between machines](transfer.md). Five more help the page: `storeRoots`, `chooseFolder`, `revealExport`, `copyText`, and `homeDir`, which lets the page show paths as `~/…`. The preload script never gives the page `ipcRenderer` itself. If it did, the page could send any message on any channel, and the sandbox would protect much less. Each function on `window.api` is a capability you chose to grant, and the smoke test fails if an undeclared key appears.
 
 ## Follow the code from launch to the first list
 
@@ -166,7 +166,7 @@ sequenceDiagram
 
 5. Electron copies the returned object back to the renderer. The `invoke` promise resolves, the `await` finishes, and `loadSessions` calls `setSessions({ status: 'ready', value })`.
 
-6. React calls `App` again. The state is now `ready`, so `App` renders `Browser` with the list. `Browser` filters and sorts the sessions with `visibleSessions` from `model/browse.ts`, and `SessionList` draws one row per session. React compares the new output with the page and changes only what differs.
+6. React calls `App` again. The state is now `ready`, so `App` renders `Browser` with the list. `Browser` turns the sessions into display rows with `buildView` from `model/rows.ts`, and `SessionList` draws one row per entry. React compares the new output with the page and changes only what differs.
 
 If the call fails, the same path runs. The service returns `{ ok: false, error }` at step 4, the state becomes `failed`, and the page shows the error with a **Try again** button.
 
@@ -188,7 +188,9 @@ A React component is a function that returns what the page looks like for the cu
 
 `App` keeps the session list as a `Loadable`, which is `loading`, `ready`, or `failed`. It keeps everything else in one `Screen` union in `src/renderer/src/state.ts`: `browse`, `export-confirm`, `exporting`, `export-done`, `opening`, `import-preview`, `importing`, and `import-done`. Each value carries only the data that screen needs. `import-done` holds the import result, and `browse` holds nothing but an optional error. One union is better here than separate `isExporting` and `showPreview` booleans, because booleans allow combinations that mean nothing, such as an export and an import running at once.
 
-The selection follows the same idea. `model/selection.ts` is a reducer that turns clicks and key presses into a new `{ keys, anchor, focus }`, so the range and toggle rules live in one pure function rather than in event handlers.
+The list follows the same idea. `buildView` in `model/rows.ts` takes the sessions, the search and filters, the grouping mode, the collapsed projects, and the sessions the user folded or unfolded, and returns a flat array of `DisplayRow`s. Each row is a `group` header, a `session`, or a `subagent` under its parent. Projects are keyed by the session's starting folder. A search also matches subagent titles, opens every project, and unfolds a parent to the subagents it matched. Components only draw rows, so the grouping rules live in one function that `test/view-rows.test.ts` checks without a browser.
+
+The selection is a reducer in `model/selection.ts` that turns clicks and key presses into a new `{ keys, anchor, focus }`. `keys` holds session keys only, because subagents travel with their parent. `focus` can be any row, so arrow keys walk headers, sessions, and subagent rows. Space on a header toggles every session in that project, and a shift range takes only the session rows between its ends. Collapsed projects and the Flat or Projects choice are kept in `localStorage`, since they are one viewer's preference and the app works the same without them.
 
 ## electron-vite builds three separate bundles
 
