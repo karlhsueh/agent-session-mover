@@ -10,15 +10,20 @@ export function searchNeedle(query: BrowseQuery): string {
 export function matchSessions(sessions: readonly SessionSummary[], query: BrowseQuery): SessionSummary[] {
   const needle = searchNeedle(query)
   const has = (value: string | null) => value !== null && value.toLowerCase().includes(needle)
+  // Either slash finds a folder, so `code/web` matches a Windows path too.
+  const folderNeedle = slashes(needle)
+  const hasFolder = (cwd: string) => slashes(cwd.toLowerCase()).includes(folderNeedle)
   return sessions
     .filter(
       (session) =>
         (query.agent === null || session.agent === query.agent) &&
         (query.client === null || session.client === query.client) &&
-        (needle === '' || [sessionTitle(session), session.id, ...session.cwds].some(has) || session.subagents.some((subagent) => has(subagent.title))),
+        (needle === '' || has(sessionTitle(session)) || has(session.id) || session.cwds.some(hasFolder) || session.subagents.some((subagent) => has(subagent.title))),
     )
     .sort(SORTS[query.sort].compare)
 }
+
+const slashes = (text: string) => text.replace(/\\/g, '/')
 
 /** Splits text around case-insensitive matches of the needle, for highlighting. */
 export function matchParts(text: string, needle: string): { text: string; match: boolean }[] {

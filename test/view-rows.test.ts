@@ -48,6 +48,7 @@ describe('matching sessions', () => {
   it('finds a parent through a subagent title, and matches folders and ids', () => {
     expect(titles({ text: 'MIGRATION' })).toEqual(['Add pagination'])
     expect(titles({ text: 'code/web' })).toEqual(['Hydration warning'])
+    expect(matchSessions([session('w1', 'C:\\u\\code\\web', 'Windows web', 3)], { ...EMPTY_QUERY, text: 'code/web' }).map((found) => found.title), 'either slash finds a Windows folder').toEqual(['Windows web'])
     expect(titles({ text: 's4' })).toEqual(['Scratch notes'])
     expect(titles({ agent: 'codex' })).toEqual([])
   })
