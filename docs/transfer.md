@@ -5,6 +5,7 @@ read_when:
   - Changing the archive format or its limits
   - Building UI on top of the session IPC calls
   - Debugging an import that failed, rolled back, or was refused
+  - Changing what the Conversation preview reads or shows
 ---
 
 # Moving sessions between machines
@@ -63,6 +64,9 @@ export interface Provider {
   discover(root: string, env: ProviderEnv): Promise<SessionSummary[]>
   collect(root: string, id: string, env: ProviderEnv): Promise<CollectedSession>
   inspectTarget(root: string, session: ManifestSession, context: ImportContext): Promise<TargetInspection>
+  readonly transcriptRole: FileRole
+  findTranscript(root: string, id: string, env: ProviderEnv): Promise<TranscriptFile | null>
+  previewTranscript(file: TranscriptFile, budget?: PreviewBudget): Promise<TranscriptPreview>
   applyEffect(root: string, effect: ProviderEffect): Promise<void>
   undoEffect(root: string, effect: ProviderEffect): Promise<void>
 }
@@ -72,7 +76,19 @@ export interface Provider {
 - `inspectTarget` is read-only too. It returns either a refusal, or the list of `TargetFile`s with the store path each one lands at, an optional `ContentTransform`, and the mtime to set. The provider computes every target path from parts it has validated. A name from the archive is used only after it matches a whitelist. `ImportContext.readBlob` streams a verified archive blob, for a provider that derives an effect from file content (the Codex `threads` row).
 - A `TargetFile` can name `supersedes`: a file at another path that holds the current copy in another form, with a `decode` transform. Codex uses it when this machine holds a rollout as `.jsonl.zst` and import writes the plain `.jsonl`.
 - A `ContentTransform` must be deterministic, because preview hashes its output and import checks that the bytes it writes hash the same.
+- `transcriptRole`, `findTranscript`, and `previewTranscript` serve the Conversation preview. See [Previewing a conversation](#previewing-a-conversation).
 - `ProviderEffect` is for writes that are not files, such as the Codex `threads` row. An effect is plain JSON. The journal records it before `applyEffect` runs, so `undoEffect` must work from the JSON alone, must be safe if the effect never ran, and must be safe to run twice. A provider parses the effect again in `undoEffect`, because recovery reads it back from disk.
+
+## Previewing a conversation
+
+The Conversation tab and the import preview show what a session said: its first entry, how many entries are left out, and its newest 24. `SessionPreview` in `src/shared/sessions.ts` is that shape, or `unavailable` with a plain reason. Text is plain and whitespace-collapsed, and a message is capped at 600 characters. A tool call is one line, such as `Read src/main/index.ts` or `Ran pnpm test`. Subagent conversations are not previewed.
+
+One parser per agent serves both sources. For a session on this machine, `findTranscript` names its main transcript, the same file `discover` reads. For a session in an open archive, core picks the session's one file whose role is `transcriptRole` (`transcript` or `rollout`) and hands its verified staged blob to the same `previewTranscript`, with the store path from the manifest so the provider can tell a `.jsonl.zst` from a plain file.
+
+`readPreview` in `src/main/core/preview.ts` feeds the provider's line reader within `PREVIEW_BUDGET`. A transcript up to 64 MB is read whole, so its counts are exact. Parsing every line of a 36 MB real rollout took about 76 ms. A longer plain file is read as its first 60 MB and its last 4 MB, by range. A `.jsonl.zst` rollout has no random access, so it streams through zstd and only the same window reaches the parser. When the middle is skipped, `complete` is false and the counts are lower bounds. A half-written last line and the cut lines at either edge of a window are left out. A line the reader cannot use gives no entries, and a reader that throws on a line is treated the same way, so a transcript of garbage is `unavailable`, never an error. A damaged `.zst` is `unavailable` too.
+
+- **Claude Code** (`providers/claude-code/preview.ts`). `user` and `assistant` records only. Meta, sidechain, and compact-summary records are skipped, and so are user records that hold tool results or start with a tag (slash commands, hook output, reminders). An assistant record gives its text blocks as one reply and each `tool_use` as a line built from the tool's most telling input: `file_path` (relative to the record's `cwd`), the first line of `command`, `pattern`, `url`, `query`, or `description`.
+- **Codex** (`providers/codex/preview.ts`). `response_item` records only, since `event_msg` repeats them. User `input_text` parts that start with a tag are injected context and are skipped. Developer messages and reasoning are skipped. `function_call`, `custom_tool_call`, `local_shell_call`, and `web_search_call` each give one line: the shell command, the files an `apply_patch` touches, the first `cmd` in a code-mode `exec` script, or the search. A subagent rollout starts with a copy of its parent's history, so records below `subagent_history_start_ordinal` are skipped.
 
 ## Planning an import
 
@@ -122,6 +138,8 @@ Tests inject a `Fault` (`{ afterWrites, mode: 'error' | 'crash' }`). `error` exe
 | `exportSessions(keys)` | Validates the keys, shows the save dialog, and writes the archive. It returns `cancelled`, or `saved` with counts and `liveKeys`. The UI should warn about live sessions and private content. |
 | `openArchive()` | Shows the open dialog, verifies and stages the archive, and returns a token, an `ArchiveSummary`, and suggested `PathMapping`s. Only one archive is open at a time, so opening another closes the previous one. |
 | `previewImport(token, mappings)` | Returns an `ImportAction`, the target cwd, and warnings (`target-cwd-missing`, `hidden-from-picker`) for every session in the archive. |
+| `previewSession(key)` | Validates the key and previews that session's main transcript on this machine. It returns `SessionPreview`, which is `unavailable` when the session is no longer here. |
+| `previewArchiveSession(token, key)` | Validates both and previews the session's transcript from the open archive's staged blob. A key the archive does not hold is `invalid-input`. |
 | `runImport(token, mappings, keys)` | Plans again, then imports each selected session. It returns one `SessionImportOutcome` per key: `created`, `updated` (with the backup folder), `skipped`, `refused`, or `failed` (with `rolledBack`). |
 | `storeRoots()` | Returns the store folder each provider reads, for the empty state. |
 | `chooseFolder(startIn)` | Shows the folder picker for a path mapping and returns the chosen folder, or `null`. |
@@ -129,10 +147,12 @@ Tests inject a `Fault` (`{ afterWrites, mode: 'error' | 'crash' }`). `error` exe
 | `copyText(text)` | Writes a string of up to 64 KB to the clipboard. |
 | `onProgress(callback)` | Subscribes to `ProgressEvent`s from export, open, and import. It returns the unsubscribe function. |
 
-Only one export, open, preview, or import runs at a time. Another call returns `busy`. A suggested mapping keeps a path that exists on this machine. Otherwise it swaps the source home folder for this machine's home folder and converts separators. Mapping targets must be absolute paths. The renderer chooses targets, but they only become folder names through `encodeProjectDir` and values written into the rewritten fields. Main never uses them to read or write a file.
+Only one export, open, preview, or import runs at a time. Another call returns `busy`. The two conversation previews only read, so they skip that lock and run beside an export or import. A suggested mapping keeps a path that exists on this machine. Otherwise it swaps the source home folder for this machine's home folder and converts separators. Mapping targets must be absolute paths. The renderer chooses targets, but they only become folder names through `encodeProjectDir` and values written into the rewritten fields. Main never uses them to read or write a file.
 
 ## Tests
 
 `pnpm test` runs vitest on `test/`. `test/fixtures/claude-store.ts` builds synthetic Claude stores in temp folders: several projects, a path longer than 200 characters, subagents, tool results, an `sdk-cli` session, a half-written last line, a live registry entry, set-aside copies, and every never-export file carrying a marker string. `treeHash` hashes a whole folder, so a test can prove a store is byte-identical after a rollback or an export.
+
+`test/claude-preview.test.ts` and `test/codex-preview.test.ts` check each preview parser on synthetic transcripts, including a transcript over a reduced budget, where the skipped middle must not be counted. `test/preview-service.test.ts` checks the two IPC calls, their input validation, and that a preview runs while an export holds the lock.
 
 `test/fixtures/codex-store.ts` builds a synthetic Codex store: dated and archived rollouts, a `.jsonl.zst` rollout, a reverted thread with a `_<rolloutId>` file, a fork child and its `history_base` parent, a parent with two subagents (one with its own subagent) whose rollouts repeat the parent's history, an orphan subagent, generated images, `session_index.jsonl`, a writer lock, and the never-export files. `test/fixtures/codex-db.ts` creates `state_5.sqlite` with the real `threads` table, its triggers, and `thread_spawn_edges`. Codex rollback tests wrap the real provider so a fault fires right before or after a real effect.
