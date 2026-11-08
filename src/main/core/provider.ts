@@ -18,6 +18,8 @@ export interface ProviderEnv {
 /** One file as export read it. `size` and `sha256` describe the snapshot, which may stop short of the file's end. */
 export interface SnapshotFile extends ManifestFile {
   absPath: string
+  /** Byte offset of the snapshot inside `absPath`, for a blob that is one record of a shared file. Defaults to 0. */
+  start?: number
 }
 
 export interface CollectedSession {
@@ -37,6 +39,12 @@ export interface TargetFile {
   sha256: Sha256
   transform: ContentTransform | null
   mtimeMs: number
+  /**
+   * Where the existing copy lives when `path` is absent because the agent stores it in another form
+   * (Codex compresses idle rollouts). `decode` turns that file into the bytes `path` would hold.
+   * Import compares against the decoded bytes, and an update moves that file to the backup folder.
+   */
+  supersedes?: { path: StorePath; decode: ContentTransform }
 }
 
 /** Serializable and journaled before it runs, so a crash can undo it from the journal alone. */
@@ -60,11 +68,14 @@ export type TargetInspection =
   | { kind: 'refused'; targetCwd: string | null; warnings: ImportWarning[]; action: RefusedAction }
 
 export interface ImportContext {
+  env: ProviderEnv
   source: ManifestSource
   /** Already validated, with each existing target resolved to its real path. */
   mappings: readonly PathMapping[]
   /** Path separator of this machine. */
   sep: string
+  /** Streams a verified archive blob, for a provider that derives non-file effects from file content. */
+  readBlob(sha256: Sha256): AsyncIterable<Buffer>
 }
 
 export interface Provider {
@@ -72,9 +83,9 @@ export interface Provider {
   /** Absolute store root on this machine. The store may not exist yet. */
   storeRoot(env: ProviderEnv): string
   /** Read-only. */
-  discover(root: string): Promise<SessionSummary[]>
+  discover(root: string, env: ProviderEnv): Promise<SessionSummary[]>
   /** Read-only. Throws when the session is missing or ambiguous. */
-  collect(root: string, id: string): Promise<CollectedSession>
+  collect(root: string, id: string, env: ProviderEnv): Promise<CollectedSession>
   /** Read-only. Says where each archive file would land and what the provider refuses. */
   inspectTarget(root: string, session: ManifestSession, context: ImportContext): Promise<TargetInspection>
   applyEffect(root: string, effect: ProviderEffect): Promise<void>
@@ -82,5 +93,4 @@ export interface Provider {
   undoEffect(root: string, effect: ProviderEffect): Promise<void>
 }
 
-/** Codex fills its slot when its provider lands. Core treats a missing slot as an unsupported agent. */
-export type ProviderRegistry = Partial<Record<AgentId, Provider>>
+export type ProviderRegistry = Record<AgentId, Provider>

@@ -17,7 +17,7 @@ export async function listSessions(context: CoreContext): Promise<SessionList> {
   const list: SessionList = { sessions: [], problems: [] }
   for (const provider of Object.values(context.providers)) {
     try {
-      list.sessions.push(...(await provider.discover(provider.storeRoot(context.env))))
+      list.sessions.push(...(await provider.discover(provider.storeRoot(context.env), context.env)))
     } catch (error) {
       list.problems.push({ agent: provider.agent, message: error instanceof Error ? error.message : String(error) })
     }
@@ -41,14 +41,13 @@ export async function exportSessions(
     const parsed = parseSessionKey(key)
     if (!parsed) throw new Error(`Not a session key: ${key}`)
     const provider = context.providers[parsed.agent]
-    if (!provider) throw new Error(`No provider for ${parsed.agent}`)
     const root = provider.storeRoot(context.env)
     storeRoots[parsed.agent] = root
-    const collected = await provider.collect(root, parsed.id)
+    const collected = await provider.collect(root, parsed.id, context.env)
     if (collected.live) liveKeys.push(parsed.key)
     sessions.push({
       ...collected.session,
-      files: collected.files.map(({ absPath: _absPath, ...file }) => file),
+      files: collected.files.map(({ absPath: _absPath, start: _start, ...file }) => file),
     })
     for (const file of collected.files) {
       if (!blobs.has(file.sha256)) blobs.set(file.sha256, file)

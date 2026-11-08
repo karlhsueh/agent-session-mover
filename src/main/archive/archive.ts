@@ -17,6 +17,7 @@ export class ArchiveError extends Error {}
 
 export interface BlobSource {
   absPath: string
+  start?: number
   size: number
   sha256: Sha256
   mtimeMs: number
@@ -54,7 +55,7 @@ async function* once(bytes: Buffer): AsyncGenerator<Buffer> {
 
 async function* verified(blob: BlobSource): AsyncGenerator<Buffer> {
   const hash = createHash('sha256')
-  for await (const chunk of readRange(blob.absPath, blob.size)) {
+  for await (const chunk of readRange(blob.absPath, blob.size, blob.start)) {
     hash.update(chunk)
     yield chunk
   }
