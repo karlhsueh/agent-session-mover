@@ -145,3 +145,31 @@ export type ProgressEvent =
   | { operation: 'export'; done: number; total: number }
   | { operation: 'open'; bytesRead: number; bytesTotal: number }
   | { operation: 'import'; done: number; total: number; current: SessionKey | null }
+
+/** One entry in the Conversation tab. Text is plain, whitespace-collapsed, and capped. Never HTML. */
+export type PreviewMessage =
+  | { kind: 'user'; text: string; at: string | null }
+  | { kind: 'assistant'; text: string; at: string | null }
+  /** One line, such as `Read src/main/index.ts` or `Ran pnpm test`. `name` is the agent's tool name. */
+  | { kind: 'tool'; name: string; summary: string; at: string | null }
+
+export interface PreviewCounts {
+  /** User and assistant messages. */
+  messages: number
+  toolCalls: number
+}
+
+export type SessionPreview =
+  | {
+      kind: 'ok'
+      /** The conversation's first entry, usually the prompt that started it. */
+      first: PreviewMessage
+      /** The newest entries, oldest first. Never repeats `first`. */
+      recent: PreviewMessage[]
+      /** Entries between `first` and `recent`. */
+      omitted: PreviewCounts
+      counts: PreviewCounts
+      /** False when the transcript was too long to read whole. `counts` and `omitted` are then lower bounds. */
+      complete: boolean
+    }
+  | { kind: 'unavailable'; reason: string }
