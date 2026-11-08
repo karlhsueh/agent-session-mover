@@ -1,0 +1,111 @@
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  flex: none;
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid var(--line);
+  -webkit-app-region: drag;
+}
+
+.titlebar.mac {
+  padding-left: 84px;
+}
+
+.titlebar button,
+.titlebar .search,
+.titlebar select {
+  -webkit-app-region: no-drag;
+}
+
+.app-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.filters {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 180px;
+  height: 30px;
+  padding: 0 8px 0 10px;
+  color: var(--faint);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.search:focus-within {
+  border-color: var(--selected-line);
+  outline: 2px solid var(--selected);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.picker select {
+  appearance: none;
+  height: 30px;
+  max-width: 190px;
+  padding: 0 24px 0 10px;
+  font: inherit;
+  color: var(--muted);
+  background: var(--surface) linear-gradient(transparent, transparent);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.picker {
+  position: relative;
+}
+
+.picker::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 12px;
+  width: 5px;
+  height: 5px;
+  border-right: 1.4px solid var(--faint);
+  border-bottom: 1.4px solid var(--faint);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.picker.active select {
+  color: var(--text);
+  border-color: var(--selected-line);
+  background: var(--selected);
+}

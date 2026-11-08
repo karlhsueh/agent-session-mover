@@ -107,6 +107,7 @@ function registerShellHandlers(context: CoreContext): void {
     const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
     return result.canceled ? null : (result.filePaths[0] ?? null)
   })
+  ipcMain.handle(CHANNELS.homeDir, () => context.env.homeDir)
   ipcMain.handle(CHANNELS.copyText, (_event, text: unknown) => {
     if (typeof text === 'string' && text.length <= 64 * 1024) clipboard.writeText(text)
   })

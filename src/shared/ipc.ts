@@ -22,6 +22,7 @@ export const CHANNELS = {
   chooseFolder: 'dialog:folder',
   revealExport: 'export:reveal',
   copyText: 'clipboard:write',
+  homeDir: 'env:home',
 } as const
 
 export type ApiErrorCode =
@@ -66,6 +67,8 @@ export interface DesktopApi {
   /** Shows the archive this window saved last in Finder or Explorer. */
   revealExport(): Promise<void>
   copyText(text: string): Promise<void>
+  /** This machine's home folder, so paths can show as `~/…`. */
+  homeDir(): Promise<string>
 }
 
 export interface StoreRoot {

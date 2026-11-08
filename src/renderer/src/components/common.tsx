@@ -1,5 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import type { ApiError } from '../../../shared/ipc'
+import type { AgentId } from '../../../shared/sessions'
+import { AGENT_LABEL } from '../model/format'
+import { matchParts } from '../model/rows'
 
 const ERROR_LEAD: Record<ApiError['code'], string> = {
   busy: 'Another export or import is still running.',
@@ -48,10 +51,38 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
   )
 }
 
+/** Wraps only at spaces. Browsers also break after hyphens, which would split a UUID or `--resume`. */
+export function CommandText({ command }: { command: string }) {
+  return (
+    <code>
+      {command.split(' ').map((word, index) => (
+        <Fragment key={index}>
+          {index > 0 && ' '}
+          <span className="nowrap">{word}</span>
+        </Fragment>
+      ))}
+    </code>
+  )
+}
+
+/** A path that wraps only after a separator, never inside a folder name. */
+export function PathText({ path }: { path: string }) {
+  return (
+    <>
+      {path.split(/(?<=[\\/])/).map((part, index) => (
+        <Fragment key={index}>
+          {index > 0 && <wbr />}
+          <span className="nowrap">{part}</span>
+        </Fragment>
+      ))}
+    </>
+  )
+}
+
 export function CommandLine({ command }: { command: string }) {
   return (
     <div className="command">
-      <code>{command}</code>
+      <CommandText command={command} />
       <CopyButton text={command} />
     </div>
   )
@@ -96,5 +127,18 @@ export function Sheet({ label, children, onClose }: { label: string; children: R
         {children}
       </div>
     </div>
+  )
+}
+
+/** A circle for Claude Code and a square for Codex, so the two differ without color too. */
+export function AgentMark({ agent }: { agent: AgentId }) {
+  return <span className={`mark mark-${agent}`} role="img" aria-label={AGENT_LABEL[agent]} title={AGENT_LABEL[agent]} />
+}
+
+export function Highlight({ text, needle }: { text: string; needle: string }) {
+  return (
+    <>
+      {matchParts(text, needle).map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : part.text))}
+    </>
   )
 }

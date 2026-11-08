@@ -20,6 +20,9 @@
   --info: #62bfe0;
   --warn: #e3b25c;
   --bad: #f07a7a;
+  --agent-claude-code: #e08a5f;
+  --agent-codex: #6fb3e8;
+  --match: rgb(227 178 92 / 0.32);
   --scrim: rgb(5 5 7 / 0.6);
   --shadow: 0 24px 64px rgb(0 0 0 / 0.5), 0 0 0 1px var(--line-strong);
 
@@ -45,6 +48,9 @@
   --info: #1f7ea3;
   --warn: #a8700f;
   --bad: #c63d3d;
+  --agent-claude-code: #c4622f;
+  --agent-codex: #2b7fc4;
+  --match: rgb(227 160 40 / 0.3);
   --scrim: rgb(30 30 34 / 0.28);
   --shadow: 0 24px 64px rgb(0 0 0 / 0.14), 0 0 0 1px var(--line-strong);
 
@@ -113,6 +119,10 @@ code {
 
 .dim {
   color: var(--muted);
+}
+
+.nowrap {
+  white-space: nowrap;
 }
 
 .block {

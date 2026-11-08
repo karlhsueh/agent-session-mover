@@ -20,15 +20,20 @@ export function folderName(path: string | null): string {
   return path.split(/[\\/]+/).filter(Boolean).at(-1) ?? path
 }
 
-export function parentFolder(path: string): string {
-  return path.split(/[\\/]+/).filter(Boolean).at(-2) ?? ''
-}
-
 export function tildePath(path: string, home: string): string {
   const prefix = home.replace(/[\\/]+$/, '')
   if (!prefix) return path
   if (path === prefix) return '~'
   return path.startsWith(prefix) && /[\\/]/.test(path.charAt(prefix.length)) ? `~${path.slice(prefix.length)}` : path
+}
+
+/**
+ * Shows `cd '/home/me/x' && …` as `cd ~/'x' && …`. Both run the same in POSIX shells, so the
+ * shorter form is also what Copy puts on the clipboard.
+ */
+export function shortCommand(command: string, home: string): string {
+  const prefix = `cd '${home.replace(/[\\/]+$/, '')}/`
+  return home && !home.includes("'") && command.startsWith(prefix) ? `cd ~/'${command.slice(prefix.length)}` : command
 }
 
 const MINUTE = 60_000
