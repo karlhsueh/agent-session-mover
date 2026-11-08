@@ -4,6 +4,7 @@ import path from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright'
 import { afterAll, expect, it } from 'vitest'
 import { writeSession } from '../fixtures/claude-store'
+import { homeEnv } from '../../e2e/home.mts'
 import { buildCodexStore } from '../fixtures/codex-store'
 
 let root = ''
@@ -36,8 +37,7 @@ it('shows each agent as it finishes, then refreshes on focus, the button, and Cm
     args: ['.'],
     env: {
       ...process.env,
-      HOME: home,
-      USERPROFILE: home,
+      ...(await homeEnv(home)),
       CLAUDE_CONFIG_DIR: claude,
       CODEX_HOME: codex,
       AGENT_SESSIONS_E2E_USER_DATA: path.join(root, 'userdata'),

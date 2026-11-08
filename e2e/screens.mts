@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _electron as electron, type Page } from 'playwright'
 import { encode, writeClaudeSession } from './claude-fixture.mts'
+import { homeEnv } from './home.mts'
 import { FANOUT_TITLE, LIVE_TITLE, SCREEN_FIXTURES, SELECTED_TITLES, SINGLE_PROJECT_FIXTURES } from './screens-fixture.mts'
 
 /** `pnpm screens [prefix]` writes artifacts/compare/<prefix>-<state>.png for whichever layout the build has. */
@@ -16,10 +17,10 @@ for (const fixture of SCREEN_FIXTURES) await writeClaudeSession(join(home, '.cla
 await mkdir(join(home, '.codex'), { recursive: true })
 
 const archive = join(root, 'screens.agentsessions')
-const launch = (at: string, extra: Record<string, string> = {}) =>
+const launch = async (at: string, extra: Record<string, string> = {}) =>
   electron.launch({
     args: ['.'],
-    env: { ...process.env, HOME: at, USERPROFILE: at, CLAUDE_CONFIG_DIR: join(at, '.claude'), CODEX_HOME: join(at, '.codex'), AGENT_SESSIONS_E2E_USER_DATA: join(at, 'userdata'), ...extra },
+    env: { ...process.env, ...(await homeEnv(at)), CLAUDE_CONFIG_DIR: join(at, '.claude'), CODEX_HOME: join(at, '.codex'), AGENT_SESSIONS_E2E_USER_DATA: join(at, 'userdata'), ...extra },
   })
 const app = await launch(home, { AGENT_SESSIONS_E2E_SAVE_PATH: archive, AGENT_SESSIONS_E2E_OPEN_PATH: archive })
 

@@ -5,6 +5,7 @@ import path from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright'
 import { afterAll, expect, it } from 'vitest'
 import { createStateDb, threadRows } from '../fixtures/codex-db'
+import { homeEnv } from '../../e2e/home.mts'
 import { buildCodexStore } from '../fixtures/codex-store'
 
 interface Machine {
@@ -33,7 +34,7 @@ async function machine(name: string): Promise<Machine> {
 async function launch(on: Machine, extra: Record<string, string>): Promise<{ page: Page; problems: string[] }> {
   const app = await electron.launch({
     args: ['.'],
-    env: { ...process.env, HOME: on.home, USERPROFILE: on.home, CLAUDE_CONFIG_DIR: on.claude, CODEX_HOME: on.codex, AGENT_SESSIONS_E2E_USER_DATA: on.userData, ...extra },
+    env: { ...process.env, ...(await homeEnv(on.home)), CLAUDE_CONFIG_DIR: on.claude, CODEX_HOME: on.codex, AGENT_SESSIONS_E2E_USER_DATA: on.userData, ...extra },
   })
   apps.push(app)
   const page = await app.firstWindow()
