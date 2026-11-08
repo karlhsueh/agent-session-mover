@@ -6,6 +6,7 @@ import { joinStorePath, mapPath } from '../../core/paths'
 import { digest } from '../../core/streams'
 import type { ImportContext, ProviderEffect, RefusedAction, TargetFile, TargetInspection } from '../../core/provider'
 import type { CodexEffect } from './effects'
+import { terminatedLines } from '../../core/window'
 import { hiddenFromPicker, readFacts, type RolloutFacts, type SessionMeta } from './facts'
 import { isNewer, parseRolloutName, type RolloutName } from './rollout-name'
 import { hasLine, INDEX_FILE, parseIndexBlob } from './session-index'
@@ -111,8 +112,8 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
   const { main } = layout
   const plainBlob = (entry: ArchivedRollout) => (entry.name.compressed ? unzstd(context.readBlob(entry.file.sha256)) : context.readBlob(entry.file.sha256))
   const unreadable = await firstUnreadable(layout.linked.filter((entry) => entry.name.compressed).map((entry) => () => digest(plainBlob(entry))))
-  const facts = await readFacts(plainBlob(main)).catch(() => null)
-  const subagentFacts = await Promise.all(layout.subagents.map((entry) => readFacts(plainBlob(entry)).catch(() => null)))
+  const facts = await readFacts(terminatedLines(plainBlob(main))).catch(() => null)
+  const subagentFacts = await Promise.all(layout.subagents.map((entry) => readFacts(terminatedLines(plainBlob(entry))).catch(() => null)))
   if (!facts || unreadable || subagentFacts.includes(null)) return invalid('A compressed rollout in the archive cannot be decompressed.')
   const { meta } = facts
   if (!meta || meta.id !== session.id) return invalid('The rollout does not start with this session’s metadata.')
@@ -198,7 +199,7 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
     for (const [index, entry] of [...others.values()].entries()) {
       const at = index + 1 + subagents.length
       if (!target.rows[at] || target.rows[at].current) continue
-      const other = await readFacts(plainBlob(entry))
+      const other = await readFacts(terminatedLines(plainBlob(entry)))
       if (other.meta?.id !== entry.name.threadId) continue
       const thread = { entry, facts: other, meta: other.meta }
       write(at, thread, { cwd: ownCwd(thread), title: null, name: null })

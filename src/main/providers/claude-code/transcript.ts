@@ -1,5 +1,6 @@
 import type { ClientKind } from '../../../shared/sessions'
 import { type Line, splitLines } from '../../core/streams'
+import { GAP, type WindowLine } from '../../core/window'
 import { cleanTitle } from '../text'
 
 export interface TranscriptFacts {
@@ -11,6 +12,11 @@ export interface TranscriptFacts {
   firstPrompt: string | null
   entrypoint: string | null
   version: string | null
+  /**
+   * False when the transcript was too long to read whole and its middle was skipped. `cwds` then
+   * holds only the folders in the parts read, and a title set only in the middle is missed.
+   */
+  complete: boolean
 }
 
 const CLIENT_BY_ENTRYPOINT: Record<string, ClientKind> = {
@@ -31,7 +37,8 @@ export function isHiddenEntrypoint(entrypoint: string): boolean {
   return entrypoint.startsWith('sdk-')
 }
 
-export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<TranscriptFacts> {
+/** Reads complete lines only, so a half-written last line, which belongs to a writer still at work, never counts. */
+export async function readFacts(lines: AsyncIterable<WindowLine>): Promise<TranscriptFacts> {
   const facts: TranscriptFacts = {
     cwds: [],
     firstMs: null,
@@ -41,10 +48,14 @@ export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<Transcri
     firstPrompt: null,
     entrypoint: null,
     version: null,
+    complete: true,
   }
-  for await (const line of splitLines(chunks)) {
-    // A half-written last line belongs to a writer still at work, as in an export snapshot.
-    const record = line.terminated ? parseRecord(line.bytes) : null
+  for await (const line of lines) {
+    if (line === GAP) {
+      facts.complete = false
+      continue
+    }
+    const record = parseRecord(line)
     if (record) absorb(facts, record)
   }
   return facts

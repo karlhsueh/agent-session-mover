@@ -6,6 +6,7 @@ import type { FileRole, ManifestSession, Sha256 } from '../../core/manifest'
 import { joinStorePath, mapPath } from '../../core/paths'
 import type { CollectedSession, ImportContext, Provider, RefusedAction, SnapshotFile, TargetFile, TargetInspection } from '../../core/provider'
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
+import { LIST_BUDGET, readWindow, terminatedLines } from '../../core/window'
 import { resumeLine } from '../text'
 import { encodeProjectDir } from './encode'
 import { previewClaudeTranscript } from './preview'
@@ -30,9 +31,10 @@ export const claudeCodeProvider: Provider = {
     for (const transcript of newestPerId(await findTranscripts(root))) {
       // Hashes are for export. Listing needs only what the records say and the sizes stat reports.
       const sidecars = await findSidecars(transcript)
-      const facts = await readFacts(readRange(transcript.absPath, transcript.size))
+      const facts = await readFacts(readWindow({ kind: 'file', absPath: transcript.absPath }, LIST_BUDGET))
       summaries.push({
         ...info(transcript, facts, [transcript.size, ...sidecars.map((sidecar) => sidecar.size)]),
+        cwdsComplete: facts.complete,
         live: live.has(transcript.id),
         archived: false,
         hiddenFromPicker: isHiddenEntrypoint(facts.entrypoint ?? ''),
@@ -86,7 +88,7 @@ async function snapshot(transcript: TranscriptLocation): Promise<{ facts: Transc
   const base = ['projects', transcript.projectDir]
   const size = await lengthToLastNewline(transcript.absPath, transcript.size)
   const hash = createHash('sha256')
-  const facts = await readFacts(tap(readRange(transcript.absPath, size), (chunk) => hash.update(chunk)))
+  const facts = await readFacts(terminatedLines(tap(readRange(transcript.absPath, size), (chunk) => hash.update(chunk))))
   const files: SnapshotFile[] = [
     {
       role: 'transcript',

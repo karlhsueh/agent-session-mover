@@ -16,6 +16,7 @@ function session(id: string, cwd: string | null, title: string, day: number, sub
     title,
     cwd,
     cwds: cwd ? [cwd] : [],
+    cwdsComplete: true,
     createdAt: lastActivity,
     lastActivity,
     cliVersion: null,

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import type { SubagentSummary } from '../../../shared/sessions'
-import { readRange, splitLines } from '../../core/streams'
+import { GAP, LIST_BUDGET, readWindow } from '../../core/window'
 import { cleanTitle } from '../text'
 import type { SidecarFile } from './store'
 import { promptText } from './transcript'
@@ -52,10 +52,11 @@ async function readAgentTranscript(file: SidecarFile, wantPrompt: boolean): Prom
   let prompt: string | null = null
   let lastMs: number | null = null
   try {
-    for await (const line of splitLines(readRange(file.absPath, file.size))) {
+    for await (const line of readWindow({ kind: 'file', absPath: file.absPath }, LIST_BUDGET)) {
+      if (line === GAP) continue
       let record: unknown
       try {
-        record = JSON.parse(line.bytes.toString('utf8'))
+        record = JSON.parse(line.toString('utf8'))
       } catch {
         continue
       }

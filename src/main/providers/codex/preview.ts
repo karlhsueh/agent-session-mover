@@ -1,11 +1,12 @@
 import { createReadStream } from 'node:fs'
 import type { PreviewMessage } from '../../../shared/sessions'
-import { type EntryReader, type PreviewBudget, previewText, readPreview, relativeTo, toolEntry, type TranscriptFile, type TranscriptPreview } from '../../core/preview'
+import { type EntryReader, previewText, readPreview, relativeTo, toolEntry, type TranscriptFile, type TranscriptPreview } from '../../core/preview'
+import type { ReadBudget } from '../../core/window'
 import { isObject, parseObject, sessionMeta, str } from './facts'
 import { unzstd } from './store'
 
 /** A compressed rollout has no random access, so it streams through zstd and only its window is parsed. */
-export async function previewRollout(file: TranscriptFile, budget?: PreviewBudget): Promise<TranscriptPreview> {
+export async function previewRollout(file: TranscriptFile, budget?: ReadBudget): Promise<TranscriptPreview> {
   if (!file.path.endsWith('.zst')) return readPreview({ kind: 'file', absPath: file.absPath }, codexEntries(), budget)
   try {
     return await readPreview({ kind: 'stream', chunks: unzstd(createReadStream(file.absPath) as AsyncIterable<Buffer>) }, codexEntries(), budget)

@@ -6,6 +6,7 @@ import { createZstdDecompress } from 'node:zlib'
 import { isNotFound, joinStorePath, parseStorePath, type StorePath } from '../../core/paths'
 import type { ContentTransform } from '../../core/provider'
 import { splitLines } from '../../core/streams'
+import type { TranscriptSource } from '../../core/window'
 import { isNewer, parseRolloutName, type RolloutName } from './rollout-name'
 
 export const SESSIONS_DIR = 'sessions'
@@ -115,6 +116,11 @@ export const unzstd: ContentTransform = (input) => {
 export function readRollout(file: RolloutFile): AsyncIterable<Buffer> {
   const raw = createReadStream(file.absPath) as AsyncIterable<Buffer>
   return file.name.compressed ? unzstd(raw) : raw
+}
+
+/** A plain rollout is read by range. A compressed one has no random access, so it streams through zstd. */
+export function rolloutSource(file: RolloutFile): TranscriptSource {
+  return file.name.compressed ? { kind: 'stream', chunks: readRollout(file) } : { kind: 'file', absPath: file.absPath }
 }
 
 export async function readFirstLine(file: RolloutFile): Promise<Buffer | null> {

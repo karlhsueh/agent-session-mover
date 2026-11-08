@@ -1,5 +1,6 @@
 import type { PreviewMessage } from '../../../shared/sessions'
-import { type PreviewBudget, previewText, readPreview, relativeTo, toolEntry, type TranscriptFile, type TranscriptPreview } from '../../core/preview'
+import { previewText, readPreview, relativeTo, toolEntry, type TranscriptFile, type TranscriptPreview } from '../../core/preview'
+import type { ReadBudget } from '../../core/window'
 import { isObject, parseRecord } from './transcript'
 
 type Input = Record<string, unknown>
@@ -25,7 +26,7 @@ const TOOLS: Record<string, { verb: string; field?: string }> = {
 const TELLING_FIELDS = ['file_path', 'path', 'command', 'pattern', 'url', 'query', 'description', 'prompt']
 const PATH_FIELDS = new Set(['file_path', 'notebook_path', 'path'])
 
-export function previewClaudeTranscript(file: TranscriptFile, budget?: PreviewBudget): Promise<TranscriptPreview> {
+export function previewClaudeTranscript(file: TranscriptFile, budget?: ReadBudget): Promise<TranscriptPreview> {
   return readPreview({ kind: 'file', absPath: file.absPath }, claudeEntries, budget)
 }
 

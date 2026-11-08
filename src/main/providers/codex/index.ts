@@ -4,6 +4,7 @@ import type { FileRole } from '../../core/manifest'
 import { joinStorePath, type StorePath } from '../../core/paths'
 import type { CollectedSession, Provider, ProviderEnv, SnapshotFile } from '../../core/provider'
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
+import { LIST_BUDGET, readWindow, terminatedLines } from '../../core/window'
 import { resumeLine } from '../text'
 import { applyEffect, parseEffect, undoEffect } from './effects'
 import { clientOf, hiddenFromPicker, metaOfLine, readFacts, type RolloutFacts, type SessionMeta } from './facts'
@@ -22,6 +23,7 @@ import {
   readFirstLine,
   readRollout,
   retryOnFlip,
+  rolloutSource,
   type RolloutFile,
 } from './store'
 
@@ -79,7 +81,7 @@ async function discover(root: string, env: ProviderEnv): Promise<SessionSummary[
   const store = await view(root, env)
   const locked = await lockedThreadIds(root)
   const threads = new Map<string, Thread>()
-  for (const main of newestByThread(store.rollouts).values()) threads.set(main.name.threadId, { main, facts: await readFacts(readRollout(main)) })
+  for (const main of newestByThread(store.rollouts).values()) threads.set(main.name.threadId, { main, facts: await readFacts(readWindow(rolloutSource(main), LIST_BUDGET)) })
   const family = families(new Map([...threads].map(([id, thread]) => [id, thread.facts.meta?.spawn?.parent ?? null])))
   const summaries: SessionSummary[] = []
   for (const [id, thread] of threads) {
@@ -89,6 +91,7 @@ async function discover(root: string, env: ProviderEnv): Promise<SessionSummary[
     const session = info(thread.main, thread.facts, store, parts.files.map((part) => part.size))
     summaries.push({
       ...session,
+      cwdsComplete: thread.facts.complete,
       live: [thread, ...subagents].some((member) => locked.has(member.main.name.threadId)),
       archived: thread.main.archived || store.rows.get(id)?.archived === true,
       hiddenFromPicker: thread.facts.meta ? hiddenFromPicker(thread.facts.meta) : false,
@@ -109,7 +112,7 @@ async function collect(root: string, id: string, env: ProviderEnv): Promise<Coll
   const family = families(parents)
   const owner = family.rootOf(id)
   if (owner !== id) throw new Error(`Codex session ${id} is a subagent of ${parents.get(id)}. Export session ${owner}, which includes it.`)
-  const read = async (file: RolloutFile): Promise<Thread> => ({ main: file, facts: await readFacts(readRollout(file)) })
+  const read = async (file: RolloutFile): Promise<Thread> => ({ main: file, facts: await readFacts(terminatedLines(readRollout(file))) })
   const thread = await read(main)
   const subagents: Thread[] = []
   for (const child of family.descendants(id)) subagents.push(await read(mains.get(child)!))

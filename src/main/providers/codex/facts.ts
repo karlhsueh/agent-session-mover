@@ -1,6 +1,6 @@
 import type { ClientKind } from '../../../shared/sessions'
 import type { JsonValue } from '../../core/provider'
-import { splitLines } from '../../core/streams'
+import { GAP, type WindowLine } from '../../core/window'
 import { cleanTitle } from '../text'
 
 /** The fields of a rollout's first `session_meta` record that discovery and the `threads` row use. */
@@ -41,9 +41,15 @@ export interface RolloutFacts {
   tokensUsed: number | null
   /** The first message the thread received after any inherited history: a parent agent's task, else a user prompt. */
   task: string | null
+  /**
+   * False when the rollout was too long to read whole and its middle was skipped. `cwds` then holds
+   * only the folders in the parts read, and the model, settings, and token count come from the tail.
+   */
+  complete: boolean
 }
 
-export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<RolloutFacts> {
+/** Reads complete lines only. A `GAP` marks a skipped middle. */
+export async function readFacts(lines: AsyncIterable<WindowLine>): Promise<RolloutFacts> {
   const facts: RolloutFacts = {
     meta: null,
     firstMs: null,
@@ -58,11 +64,16 @@ export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<RolloutF
     permissionProfile: null,
     tokensUsed: null,
     task: null,
+    complete: true,
   }
   // A plain user `response_item` is the fallback title for old rollouts that predate `UserMessage` events.
   let fallbackPrompt: string | null = null
-  for await (const line of splitLines(chunks)) {
-    const record = parseObject(line.bytes)
+  for await (const line of lines) {
+    if (line === GAP) {
+      facts.complete = false
+      continue
+    }
+    const record = parseObject(line)
     if (!record) continue
     const ms = typeof record.timestamp === 'string' ? Date.parse(record.timestamp) : Number.NaN
     if (!Number.isNaN(ms)) {

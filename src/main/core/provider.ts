@@ -8,7 +8,8 @@ import type {
 } from '../../shared/sessions'
 import type { FileRole, ManifestFile, ManifestSession, ManifestSource, Sha256 } from './manifest'
 import type { StorePath } from './paths'
-import type { PreviewBudget, TranscriptFile, TranscriptPreview } from './preview'
+import type { TranscriptFile, TranscriptPreview } from './preview'
+import type { ReadBudget } from './window'
 
 export interface ProviderEnv {
   homeDir: string
@@ -96,7 +97,7 @@ export interface Provider {
   /** Read-only. The session's main transcript on this machine, or null when the session is not here. */
   findTranscript(root: string, id: string, env: ProviderEnv): Promise<TranscriptFile | null>
   /** Read-only. One parser per agent turns a store file or a staged archive blob into the Conversation preview. */
-  previewTranscript(file: TranscriptFile, budget?: PreviewBudget): Promise<TranscriptPreview>
+  previewTranscript(file: TranscriptFile, budget?: ReadBudget): Promise<TranscriptPreview>
   applyEffect(root: string, effect: ProviderEffect): Promise<void>
   /** Must be safe when `applyEffect` never ran or only partly ran, and safe to call twice. */
   undoEffect(root: string, effect: ProviderEffect): Promise<void>

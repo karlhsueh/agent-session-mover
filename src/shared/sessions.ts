@@ -62,6 +62,11 @@ export interface SubagentSummary {
 }
 
 export interface SessionSummary extends SessionInfo {
+  /**
+   * False when the main transcript was too long to read whole, so `cwds` lists only the folders in
+   * the parts read. An export reads every line, so an archive's `cwds` is always complete.
+   */
+  cwdsComplete: boolean
   /** A process that is still writing this session is running on this machine. */
   live: boolean
   archived: boolean
