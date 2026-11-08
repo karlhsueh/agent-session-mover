@@ -83,7 +83,9 @@ async function discover(root: string, env: ProviderEnv, scan: Scan): Promise<Ses
   const store = await view(root, env)
   const locked = await lockedThreadIds(root)
   const threads = new Map<string, Thread>()
-  for (const main of newestByThread(store.rollouts).values()) {
+  const mains = [...newestByThread(store.rollouts).values()]
+  scan.expect('rollout', mains)
+  for (const main of mains) {
     const facts = await scan.facts('rollout', main, async () => listedFacts(await readFacts(readWindow(rolloutSource(main), LIST_BUDGET))))
     threads.set(main.name.threadId, { main, facts })
   }

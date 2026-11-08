@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { StoreRoot } from '../../shared/ipc'
-import type { PathMapping, SessionKey, SessionList } from '../../shared/sessions'
+import type { PathMapping, SessionKey } from '../../shared/sessions'
 import { Browser } from './components/Browser'
 import { ErrorBanner } from './components/common'
 import { ExportSheet } from './components/ExportSheet'
 import { ImportDone } from './components/ImportDone'
 import { ImportingSheet, ImportPreview, OpeningSheet } from './components/ImportPreview'
+import { ScanPanel } from './components/ScanStatus'
 import { TitleBar } from './components/TitleBar'
 import { useNow, useProgress, useTheme } from './hooks'
 import { sessionTitle } from './model/format'
-import type { Loadable, OpenedArchive, PreviewScreen, PreviewState, Screen } from './state'
+import { useListings } from './useListings'
+import type { OpenedArchive, PreviewScreen, PreviewState, Screen } from './state'
 import { shownPreview } from './state'
 
 const BROWSE: Screen = { kind: 'browse', error: null }
@@ -18,20 +20,13 @@ export function App() {
   const [theme, toggleTheme] = useTheme()
   const [progress, resetProgress] = useProgress()
   const now = useNow()
-  const [sessions, setSessions] = useState<Loadable<SessionList>>({ status: 'loading' })
+  const { listings, list, settled, scans, refresh } = useListings()
   const [storeRoots, setStoreRoots] = useState<StoreRoot[]>([])
   const [screen, setScreen] = useState<Screen>(BROWSE)
 
-  const loadSessions = useCallback(async (): Promise<SessionList | null> => {
-    const result = await window.api.listSessions()
-    setSessions(result.ok ? { status: 'ready', value: result.value } : { status: 'failed', error: result.error })
-    return result.ok ? result.value : null
-  }, [])
-
   useEffect(() => {
-    void loadSessions()
     void window.api.storeRoots().then(setStoreRoots)
-  }, [loadSessions])
+  }, [])
 
   // previewImport refuses a second call while one runs, so mapping edits made meanwhile wait
   // for it and only the newest set is planned next.
@@ -96,20 +91,21 @@ export function App() {
     const result = await window.api.runImport(from.archive.token, from.mappings, keys)
     if (!result.ok) return setScreen({ ...from, error: result.error })
     setScreen({ kind: 'import-done', archive: from.archive, result: result.value })
-    void loadSessions()
+    refresh()
   }
 
   function backToBrowse() {
     setScreen(BROWSE)
-    void loadSessions()
+    refresh()
   }
 
   const inImport = screen.kind === 'import-preview' || screen.kind === 'importing' || screen.kind === 'import-done'
-  const list = sessions.status === 'ready' ? sessions.value : null
+  // An empty answer from one agent is not an empty machine while another is still reading.
+  const browsing = list !== null && (list.sessions.length > 0 || settled)
 
   return (
     <div className="app">
-      {!(sessions.status === 'ready' && !inImport) && (
+      {!(browsing && !inImport) && (
         <TitleBar theme={theme} onToggleTheme={toggleTheme}>
           <span className="app-name">Agent Sessions</span>
         </TitleBar>
@@ -132,20 +128,12 @@ export function App() {
         />
       ) : screen.kind === 'import-done' ? (
         <ImportDone screen={screen} onDone={backToBrowse} />
-      ) : sessions.status === 'loading' ? (
-        <div className="empty dim" role="status">
-          Reading session stores…
-        </div>
-      ) : sessions.status === 'failed' ? (
-        <div className="empty">
-          <ErrorBanner error={sessions.error} />
-          <button type="button" className="button" onClick={() => void loadSessions()}>
-            Try again
-          </button>
-        </div>
+      ) : !browsing ? (
+        <ScanPanel listings={listings} scans={scans} />
       ) : (
         <Browser
-          list={sessions.value}
+          list={list}
+          scans={scans}
           storeRoots={storeRoots}
           now={now}
           active={screen.kind === 'browse'}

@@ -146,7 +146,23 @@ export interface ExportResult {
   liveKeys: SessionKey[]
 }
 
+/**
+ * A listing pass reading one agent's store. It counts only the files that pass must read: files whose
+ * facts are kept from an earlier pass are not counted, so a refresh with nothing new sends no events.
+ */
+export interface ScanProgress {
+  operation: 'scan'
+  agent: AgentId
+  filesDone: number
+  filesTotal: number
+  bytesDone: number
+  bytesTotal: number
+  /** Store-relative path of the file being read. */
+  current: string | null
+}
+
 export type ProgressEvent =
+  | ScanProgress
   | { operation: 'export'; done: number; total: number }
   | { operation: 'open'; bytesRead: number; bytesTotal: number }
   | { operation: 'import'; done: number; total: number; current: SessionKey | null }

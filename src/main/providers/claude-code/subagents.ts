@@ -8,6 +8,11 @@ import { promptText } from './transcript'
 
 const AGENT_FILE = /^agent-(.+)\.(jsonl|meta\.json)$/
 
+/** The `subagents/agent-<id>.jsonl` files, the ones listing reads. */
+export function subagentTranscripts(sidecars: readonly SidecarFile[]): SidecarFile[] {
+  return sidecars.filter((file) => file.folder === 'subagents' && AGENT_FILE.exec(file.name)?.[2] === 'jsonl')
+}
+
 /**
  * One summary per `subagents/agent-<id>.jsonl`, newest first. The title is the `description` the
  * parent gave in `agent-<id>.meta.json`, else the agent's first prompt. Unreadable or malformed

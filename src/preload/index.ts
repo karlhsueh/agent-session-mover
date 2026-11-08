@@ -3,7 +3,7 @@ import { CHANNELS, type DesktopApi } from '../shared/ipc'
 import type { ProgressEvent } from '../shared/sessions'
 
 const api: DesktopApi = {
-  listSessions: () => ipcRenderer.invoke(CHANNELS.listSessions),
+  listSessions: (agent) => ipcRenderer.invoke(CHANNELS.listSessions, agent),
   previewSession: (key) => ipcRenderer.invoke(CHANNELS.previewSession, key),
   exportSessions: (keys) => ipcRenderer.invoke(CHANNELS.exportSessions, keys),
   openArchive: () => ipcRenderer.invoke(CHANNELS.openArchive),

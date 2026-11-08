@@ -11,8 +11,8 @@ import { LIST_BUDGET, readWindow, terminatedLines } from '../../core/window'
 import { resumeLine } from '../text'
 import { encodeProjectDir } from './encode'
 import { previewClaudeTranscript } from './preview'
-import { findSidecars, findTranscripts, isSidecarName, liveSessionIds, SIDECAR_FOLDERS, type SidecarFolder, type TranscriptLocation } from './store'
-import { readSubagents } from './subagents'
+import { findSidecars, findTranscripts, isSidecarName, liveSessionIds, SIDECAR_FOLDERS, type SidecarFile, type SidecarFolder, type TranscriptLocation } from './store'
+import { readSubagents, subagentTranscripts } from './subagents'
 import { clientFromEntrypoint, isHiddenEntrypoint, readFacts, rewriteTranscript, titleOf, type TranscriptFacts } from './transcript'
 
 const AGENT = 'claude-code'
@@ -30,10 +30,13 @@ export const claudeCodeProvider: Provider = {
 
   async discover(root, _env, scan = NO_CACHE) {
     const live = await liveSessionIds(root)
+    const sessions: { transcript: TranscriptLocation; sidecars: SidecarFile[] }[] = []
+    for (const transcript of newestPerId(await findTranscripts(root))) sessions.push({ transcript, sidecars: await findSidecars(transcript) })
+    scan.expect('transcript', sessions.map((session) => session.transcript))
+    scan.expect('subagent', sessions.flatMap((session) => subagentTranscripts(session.sidecars)))
     const summaries: SessionSummary[] = []
-    for (const transcript of newestPerId(await findTranscripts(root))) {
+    for (const { transcript, sidecars } of sessions) {
       // Hashes are for export. Listing needs only what the records say and the sizes stat reports.
-      const sidecars = await findSidecars(transcript)
       const facts = await scan.facts('transcript', transcript, () => readFacts(readWindow({ kind: 'file', absPath: transcript.absPath }, LIST_BUDGET)))
       summaries.push({
         ...info(transcript, facts, [transcript.size, ...sidecars.map((sidecar) => sidecar.size)]),

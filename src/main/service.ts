@@ -1,6 +1,6 @@
 import { ArchiveError } from './archive/archive'
 import { TarError } from './archive/tar'
-import { createDiscovery, listSessions } from './core/discovery'
+import { createDiscovery, type DiscoveryOptions } from './core/discovery'
 import { exportSessions, type CoreContext } from './core/export'
 import {
   closeArchive,
@@ -16,7 +16,7 @@ import {
 import { ManifestError } from './core/manifest'
 import { previewArchivedSession, previewStoredSession } from './core/preview-session'
 import type { ArchiveLimits } from './archive/archive'
-import { InputError, parseKey, parseKeys, parseMappings, parseToken } from './ipc-input'
+import { InputError, parseAgent, parseKey, parseKeys, parseMappings, parseToken } from './ipc-input'
 import type { ApiError, ApiResult, ExportOutcome, OpenArchiveOutcome } from '../shared/ipc'
 import type { ArchiveToken, ImportPreview, ImportResult, ProgressEvent, SessionList, SessionPreview } from '../shared/sessions'
 import path from 'node:path'
@@ -25,7 +25,8 @@ export type Emit = (event: ProgressEvent) => void
 
 /** What the IPC handlers call. Takes untrusted input, and dialogs as functions so tests can drive it without Electron. */
 export interface SessionService {
-  listSessions(): Promise<ApiResult<SessionList>>
+  /** One agent's sessions, with `scan` progress while files are read. Runs beside an export or import. */
+  listSessions(agent: unknown, emit: Emit): Promise<ApiResult<SessionList>>
   previewSession(key: unknown): Promise<ApiResult<SessionPreview>>
   previewArchiveSession(token: unknown, key: unknown): Promise<ApiResult<SessionPreview>>
   exportSessions(keys: unknown, chooseDestination: () => Promise<string | null>, emit: Emit): Promise<ApiResult<ExportOutcome>>
@@ -37,13 +38,13 @@ export interface SessionService {
 
 export function createSessionService(
   context: CoreContext,
-  options: { limits?: ArchiveLimits; fault?: RunImportOptions['fault'] } = {},
+  options: { limits?: ArchiveLimits; fault?: RunImportOptions['fault']; pace?: DiscoveryOptions['pace'] } = {},
 ): SessionService {
   // One archive is open at a time. Opening another closes the previous one and its token stops working.
   let current: OpenedArchive | null = null
   let busy = false
   // Kept for the app's lifetime, so a refresh reads only files that changed since the last pass.
-  const discovery = createDiscovery(context)
+  const discovery = createDiscovery(context, { pace: options.pace })
 
   // Previews only read, so they run beside an export or import instead of waiting for the lock.
   async function attempt<T>(work: () => Promise<T>): Promise<ApiResult<T>> {
@@ -72,8 +73,8 @@ export function createSessionService(
   }
 
   return {
-    listSessions() {
-      return attempt(() => listSessions(context, discovery))
+    listSessions(agentInput, emit) {
+      return attempt(() => discovery.list(parseAgent(agentInput), emit))
     },
 
     previewSession(keyInput) {

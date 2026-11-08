@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import type { StoreRoot } from '../../../shared/ipc'
 import type { SessionKey, SessionList as List } from '../../../shared/sessions'
 import { EMPTY_QUERY, isFiltered, type BrowseQuery } from '../model/browse'
 import { MOD, plural, tildePath } from '../model/format'
+import type { PendingScan } from '../model/listing'
 import { matchSessions, searchNeedle } from '../model/rows'
 import { ALL, countByProject, inScope, projectsOf, type Scope } from '../model/scope'
 import { focusedKey, NO_SELECTION, selectionReducer } from '../model/selection'
 import { useHomeDir, usePreviews, useStored, type Theme } from '../hooks'
 import { Kbd } from './common'
+import { ScanLine } from './ScanStatus'
 import { EmptyStore, Problems } from './EmptyStore'
 import { type DetailTab, parseDetailTab, SessionDetail } from './SessionDetail'
 import { SessionList, type ClickMode } from './SessionList'
@@ -18,6 +20,8 @@ import { Toolbar } from './Toolbar'
 
 interface Props {
   list: List
+  /** Agents still reading, shown as a slim line in the status bar. */
+  scans: PendingScan[]
   storeRoots: StoreRoot[]
   now: number
   /** False while a sheet covers the browser, so its shortcuts stay with the sheet. */
@@ -39,7 +43,7 @@ const keepOpen = (open: boolean) => String(open)
 const keepTab = (tab: DetailTab) => tab
 const loadPreview = (key: SessionKey) => window.api.previewSession(key)
 
-export function Browser({ list, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
+export function Browser({ list, scans, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
   const [query, setQuery] = useState<BrowseQuery>(EMPTY_QUERY)
   const [wantedScope, setScope] = useState<Scope>(ALL)
   const [sidebarPreferred, setSidebarPreferred] = useStored('agent-sessions.sidebar', parseOpen, keepOpen)
@@ -49,7 +53,8 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
   const [showShortcuts, setShowShortcuts] = useState(false)
   // Conversation text stays off screen until the viewer asks for it once.
   const [detailTab, setDetailTab] = useStored('agent-sessions.detail-tab', parseDetailTab, keepTab)
-  const [preview, requestPreview] = usePreviews(loadPreview, list.sessions)
+  const versions = useMemo(() => new Map(list.sessions.map((session) => [session.key, `${session.lastActivity} ${session.sizeBytes}`])), [list.sessions])
+  const [preview, requestPreview] = usePreviews(loadPreview, 'store', useCallback((key: SessionKey) => versions.get(key) ?? '', [versions]))
   const home = useHomeDir()
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -252,6 +257,7 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
       </div>
       <footer className="statusbar">
         <span className="status" aria-live="polite">
+          <ScanLine scans={scans} />
           <span className="dim">{filtered ? `${matches.length} of ${plural(list.sessions.length, 'session')}` : plural(list.sessions.length, 'session')}</span>
           {selectedKeys.length > 0 ? (
             <span className="selection-count">

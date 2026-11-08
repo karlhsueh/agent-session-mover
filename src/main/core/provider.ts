@@ -92,6 +92,8 @@ export interface FileStamp {
  * launches, keyed by the file's path, size, and mtime, so an unchanged file is not read again.
  */
 export interface Scan {
+  /** Names the files this pass takes `kind` facts from, so progress can count the ones it must read. */
+  expect(kind: string, files: readonly FileStamp[]): void
   /**
    * `derive` reads the file, and runs only when no facts are kept for this exact stamp. `kind` names
    * what is derived, so one file can carry several. The facts must be plain JSON.

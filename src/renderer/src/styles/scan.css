@@ -1,0 +1,69 @@
+/* Listing progress: a panel before any session shows, then one slim line in the status bar. */
+
+.scan-panel {
+  width: min(440px, calc(100% - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--text);
+}
+
+.scan-panel h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.scan-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.scan-panel li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  row-gap: 6px;
+}
+
+.scan-panel li .progress {
+  grid-column: 1 / -1;
+}
+
+.scan-agent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.scan-detail {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.scan-panel p {
+  margin: 4px 0 0;
+}
+
+.scan-line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.scan-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.scan-item .progress {
+  width: 56px;
+  flex: none;
+}

@@ -11,6 +11,8 @@ export function useProgress(): [ProgressEvent | null, () => void] {
 
   useEffect(() => {
     const unsubscribe = window.api.onProgress((event) => {
+      // A listing pass reports beside an export or import. Its progress has its own line.
+      if (event.operation === 'scan') return
       latest.current = event
       frame.current ??= requestAnimationFrame(() => {
         frame.current = null
@@ -96,30 +98,37 @@ export function useHomeDir(): string {
 
 /**
  * Conversation previews, loaded on first request and kept until `generation` changes, such as when
- * the session list reloads or another archive opens.
+ * another archive opens. `version` names the state of one session's transcript, so a refresh that
+ * changed one session reloads only that session's preview.
  */
-export function usePreviews<K extends string>(load: (key: K) => Promise<ApiResult<SessionPreview>>, generation: unknown): [(key: K) => Loadable<SessionPreview> | null, (key: K) => void] {
-  const [cache, setCache] = useState<{ generation: unknown; byKey: ReadonlyMap<K, Loadable<SessionPreview>> }>({ generation, byKey: new Map() })
+export function usePreviews<K extends string>(
+  load: (key: K) => Promise<ApiResult<SessionPreview>>,
+  generation: unknown,
+  version: (key: K) => string = () => '',
+): [(key: K) => Loadable<SessionPreview> | null, (key: K) => void] {
+  const [cache, setCache] = useState<{ generation: unknown; byKey: ReadonlyMap<string, Loadable<SessionPreview>> }>({ generation, byKey: new Map() })
   const byKey = cache.generation === generation ? cache.byKey : null
-  const asked = useRef<{ generation: unknown; keys: Set<K> }>({ generation, keys: new Set() })
+  const asked = useRef<{ generation: unknown; keys: Set<string> }>({ generation, keys: new Set() })
+  const slot = (key: K) => `${key}\n${version(key)}`
 
   const request = useCallback(
     (key: K) => {
       if (asked.current.generation !== generation) asked.current = { generation, keys: new Set() }
-      if (asked.current.keys.has(key)) return
-      asked.current.keys.add(key)
+      const at = `${key}\n${version(key)}`
+      if (asked.current.keys.has(at)) return
+      asked.current.keys.add(at)
       const store = (state: Loadable<SessionPreview>) =>
         setCache((current) => {
-          const base = current.generation === generation ? current.byKey : new Map<K, Loadable<SessionPreview>>()
-          return { generation, byKey: new Map(base).set(key, state) }
+          const base = current.generation === generation ? current.byKey : new Map<string, Loadable<SessionPreview>>()
+          return { generation, byKey: new Map(base).set(at, state) }
         })
       store({ status: 'loading' })
       void load(key).then((result) => {
-        if (!result.ok) asked.current.keys.delete(key)
+        if (!result.ok) asked.current.keys.delete(at)
         store(result.ok ? { status: 'ready', value: result.value } : { status: 'failed', error: result.error })
       })
     },
-    [load, generation],
+    [load, generation, version],
   )
-  return [(key) => byKey?.get(key) ?? null, request]
+  return [(key) => byKey?.get(slot(key)) ?? null, request]
 }

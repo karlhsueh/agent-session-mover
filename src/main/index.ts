@@ -2,7 +2,7 @@ import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import { CHANNELS, type StoreRoot } from '../shared/ipc'
-import type { ProgressEvent } from '../shared/sessions'
+import type { AgentId, ProgressEvent } from '../shared/sessions'
 import { ARCHIVE_EXTENSION } from './archive/archive'
 import { recoverJournals } from './core/executor'
 import type { CoreContext } from './core/export'
@@ -19,6 +19,8 @@ const e2e = app.isPackaged
       openPath: process.env.AGENT_SESSIONS_E2E_OPEN_PATH,
       folderPath: process.env.AGENT_SESSIONS_E2E_FOLDER_PATH,
       userData: process.env.AGENT_SESSIONS_E2E_USER_DATA,
+      // `claude-code:100,codex:300` waits that long after each file a listing reads, so a test can watch the scan.
+      scanPace: process.env.AGENT_SESSIONS_E2E_SCAN_PACE,
     }
 const APP_NAME = 'Agent Sessions'
 // Journals and backups live in userData, and its default folder follows the app name. Pinning it
@@ -27,6 +29,15 @@ app.setPath('userData', join(app.getPath('appData'), 'agent-sessions'))
 app.setName(APP_NAME)
 app.setAboutPanelOptions({ applicationName: APP_NAME, applicationVersion: app.getVersion() })
 if (e2e.userData) app.setPath('userData', e2e.userData)
+
+function scanPace(spec: string | undefined): ((agent: AgentId) => Promise<void>) | undefined {
+  if (!spec) return undefined
+  const delays = new Map(spec.split(',').map((part) => [part.split(':')[0], Number(part.split(':')[1])]))
+  return async (agent) => {
+    const ms = delays.get(agent)
+    if (ms) await new Promise((resolve) => setTimeout(resolve, ms))
+  }
+}
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -64,7 +75,7 @@ function registerSessionHandlers(service: SessionService): void {
   const owner = (event: IpcMainInvokeEvent) => BrowserWindow.fromWebContents(event.sender)
   let lastExport: string | null = null
 
-  ipcMain.handle(CHANNELS.listSessions, () => service.listSessions())
+  ipcMain.handle(CHANNELS.listSessions, (event, agent: unknown) => service.listSessions(agent, emitter(event)))
   ipcMain.handle(CHANNELS.previewSession, (_event, key: unknown) => service.previewSession(key))
   ipcMain.handle(CHANNELS.exportSessions, async (event, keys: unknown) => {
     const result = await service.exportSessions(
@@ -135,7 +146,7 @@ app.whenReady().then(async () => {
     if (!result.ok) console.error(`Could not roll back ${result.file}: ${result.errors.join('; ')}`)
   }
   await clearStaging(context.appDataDir)
-  const service = createSessionService(context)
+  const service = createSessionService(context, { pace: scanPace(e2e.scanPace) })
   app.on('will-quit', () => void service.dispose())
 
   registerSessionHandlers(service)

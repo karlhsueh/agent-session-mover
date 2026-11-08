@@ -127,6 +127,7 @@ async function withProvider(options: { factsVersion: number; title?: string; fac
     factsVersion: options.factsVersion,
     discover: (root, env, scan) =>
       real.discover(root, env, {
+        expect: () => undefined,
         facts: async (kind, file, derive) => {
           const facts = await derive()
           const kept = kind !== 'transcript' ? facts : (options.facts ?? { ...(facts as object), aiTitle: options.title })

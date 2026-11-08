@@ -1,6 +1,6 @@
 import path from 'node:path'
-import type { ArchiveToken, PathMapping, SessionKey } from '../shared/sessions'
-import { parseSessionKey } from '../shared/sessions'
+import type { AgentId, ArchiveToken, PathMapping, SessionKey } from '../shared/sessions'
+import { isAgentId, parseSessionKey } from '../shared/sessions'
 
 const MAX_KEYS = 100_000
 const MAX_MAPPINGS = 10_000
@@ -17,6 +17,11 @@ export function parseKeys(input: unknown): SessionKey[] {
     keys.add(parsed.key)
   }
   return [...keys]
+}
+
+export function parseAgent(input: unknown): AgentId {
+  if (!isAgentId(input)) throw new InputError('Not an agent.')
+  return input
 }
 
 export function parseKey(input: unknown): NonNullable<ReturnType<typeof parseSessionKey>> {

@@ -56,7 +56,11 @@ export type OpenArchiveOutcome =
  * an opaque archive token. Session keys and mappings are checked in main before use.
  */
 export interface DesktopApi {
-  listSessions(): Promise<ApiResult<SessionList>>
+  /**
+   * One agent's sessions. Files the last pass read and that have not changed since are not read again.
+   * While files are read, `scan` events arrive on `onProgress`.
+   */
+  listSessions(agent: AgentId): Promise<ApiResult<SessionList>>
   /** The Conversation preview of a session on this machine. */
   previewSession(key: SessionKey): Promise<ApiResult<SessionPreview>>
   exportSessions(keys: SessionKey[]): Promise<ApiResult<ExportOutcome>>

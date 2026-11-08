@@ -21,7 +21,7 @@ interface CacheFile {
 }
 
 /** A scan that reads every file, for callers that keep nothing between passes. */
-export const NO_CACHE: Scan = { facts: (_kind, _file, derive) => derive() }
+export const NO_CACHE: Scan = { expect: () => undefined, facts: (_kind, _file, derive) => derive() }
 
 const keyOf = (kind: string, absPath: string) => `${kind}\n${absPath}`
 
@@ -109,7 +109,7 @@ export class FactsCache {
 export interface CachePass {
   /** True when the pass can take this file's facts from the cache without reading it. */
   has(kind: string, file: FileStamp): boolean
-  scan: Scan
+  scan: Pick<Scan, 'facts'>
   commit(): Promise<void>
 }
 
