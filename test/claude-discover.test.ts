@@ -72,12 +72,12 @@ describe('Claude Code discovery', () => {
     const { readFile, writeFile } = await import('node:fs/promises')
     const kept = (await readFile(file, 'utf8')).split('\n').filter((line) => !line.includes('"ai-title"'))
     await writeFile(file, kept.join('\n'))
-    const [session] = await claudeCodeProvider.discover(machine.root)
+    const [session] = await claudeCodeProvider.discover(machine.root, machine.context.env)
     expect(session.title).toBe('Add a unit test for the tokenizer')
   })
 
   it('returns nothing for a store that does not exist', async () => {
-    expect(await claudeCodeProvider.discover(path.join(machine.dir, 'missing'))).toEqual([])
+    expect(await claudeCodeProvider.discover(path.join(machine.dir, 'missing'), machine.context.env)).toEqual([])
   })
 
   it('honors CLAUDE_CONFIG_DIR over the home folder', () => {

@@ -18,11 +18,11 @@ import {
 import { type ArchiveLimits, DEFAULT_LIMITS, extractArchive } from '../archive/archive'
 import { ExecutionError, executePlan, type Fault } from './executor'
 import type { CoreContext } from './export'
-import type { Manifest, ManifestSession } from './manifest'
-import { isNotFound, resolveInside, UnsafePathError } from './paths'
+import type { Manifest, ManifestSession, Sha256 } from './manifest'
+import { isNotFound, resolveInside, type StorePath, UnsafePathError } from './paths'
 import { type ComparedFile, planSession, relate, type SessionPlan } from './planner'
-import type { Provider, TargetFile, TargetInspection } from './provider'
-import { digest, readRange } from './streams'
+import type { ContentTransform, Provider, TargetFile, TargetInspection } from './provider'
+import { digest, readRange, sha256File } from './streams'
 
 export interface OpenedArchive {
   token: ArchiveToken
@@ -100,9 +100,9 @@ async function resolveMappings(mappings: readonly PathMapping[]): Promise<PathMa
 interface PlannedSession {
   session: ManifestSession
   key: SessionKey
-  provider: Provider | null
-  root: string | null
-  inspection: TargetInspection | null
+  provider: Provider
+  root: string
+  inspection: TargetInspection
   plan: SessionPlan
 }
 
@@ -110,17 +110,17 @@ function refusal(action: Extract<ImportAction, { kind: 'blocked' | 'conflict' }>
   return { action, writes: [], effects: [] }
 }
 
+type BlobReader = (sha256: Sha256) => AsyncIterable<Buffer>
+
 async function planOne(context: CoreContext, opened: OpenedArchive, session: ManifestSession, mappings: PathMapping[]): Promise<PlannedSession> {
   const key = sessionKey(session.agent, session.id)
-  const provider = context.providers[session.agent] ?? null
-  if (!provider) {
-    return { session, key, provider, root: null, inspection: null, plan: refusal({ kind: 'blocked', reason: 'unsupported-agent', message: `This version cannot import ${session.agent} sessions.` }) }
-  }
+  const provider = context.providers[session.agent]
   const root = path.resolve(provider.storeRoot(context.env))
-  const inspection = await provider.inspectTarget(root, session, { source: opened.manifest.source, mappings, sep: path.sep })
+  const readBlob: BlobReader = (sha256) => createReadStream(path.join(opened.blobDir, sha256)) as AsyncIterable<Buffer>
+  const inspection = await provider.inspectTarget(root, session, { env: context.env, source: opened.manifest.source, mappings, sep: path.sep, readBlob })
   if (inspection.kind === 'refused') return { session, key, provider, root, inspection, plan: planSession(inspection, []) }
   try {
-    const compared = await Promise.all(inspection.files.map((file) => compare(root, opened.blobDir, file)))
+    const compared = await Promise.all(inspection.files.map((file) => compare(root, readBlob, file)))
     return { session, key, provider, root, inspection, plan: planSession(inspection, compared) }
   } catch (error) {
     if (!(error instanceof UnsafePathError)) throw error
@@ -128,14 +128,38 @@ async function planOne(context: CoreContext, opened: OpenedArchive, session: Man
   }
 }
 
-async function compare(root: string, blobDir: string, file: TargetFile): Promise<ComparedFile> {
-  const target = await resolveInside(root, file.path)
-  const info = await lstat(target).catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
-  if (info && !info.isFile()) throw new UnsafePathError(`${file.path} exists and is not a regular file`)
-  const blob = createReadStream(path.join(blobDir, file.sha256)) as AsyncIterable<Buffer>
-  const planned = await digest(file.transform ? file.transform(blob) : blob, info?.size)
-  const existing = info ? await digest(readRange(target, info.size), planned.size) : null
-  return { file, sha256: planned.sha256, size: planned.size, relation: relate(planned, existing) }
+async function compare(root: string, readBlob: BlobReader, file: TargetFile): Promise<ComparedFile> {
+  const existing = await existingCopy(root, file)
+  const blob = () => (file.transform ? file.transform(readBlob(file.sha256)) : readBlob(file.sha256))
+  if (!existing) {
+    const planned = await digest(blob())
+    return { file, sha256: planned.sha256, size: planned.size, relation: relate(planned, null) }
+  }
+  const read = () => {
+    const raw = readRange(existing.absPath, existing.rawSize)
+    return existing.decode ? existing.decode(raw) : raw
+  }
+  const existingSize = existing.decode ? (await digest(read())).size : existing.rawSize
+  const planned = await digest(blob(), existingSize)
+  let relation = relate(planned, await digest(read(), planned.size))
+  // The executor re-hashes the stored file before it moves it to the backup, so it needs the raw hash.
+  if (relation.kind === 'target-is-prefix' && existing.decode) relation = { ...relation, existingSha256: await sha256File(existing.absPath) }
+  return { file, sha256: planned.sha256, size: planned.size, relation }
+}
+
+async function existingCopy(root: string, file: TargetFile): Promise<{ absPath: string; rawSize: number; decode: ContentTransform | null } | null> {
+  const atPath = await regularFile(root, file.path)
+  if (atPath) return { ...atPath, decode: null }
+  if (!file.supersedes) return null
+  const superseded = await regularFile(root, file.supersedes.path)
+  return superseded && { ...superseded, decode: file.supersedes.decode }
+}
+
+async function regularFile(root: string, rel: StorePath): Promise<{ absPath: string; rawSize: number } | null> {
+  const absPath = await resolveInside(root, rel)
+  const info = await lstat(absPath).catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
+  if (info && !info.isFile()) throw new UnsafePathError(`${rel} exists and is not a regular file`)
+  return info && { absPath, rawSize: info.size }
 }
 
 function selectSessions(opened: OpenedArchive, keys?: readonly SessionKey[]): ManifestSession[] {
@@ -156,8 +180,8 @@ export async function previewImport(context: CoreContext, opened: OpenedArchive,
     sessions.push({
       key: planned.key,
       action: planned.plan.action,
-      targetCwd: planned.inspection?.targetCwd ?? null,
-      warnings: planned.inspection?.warnings ?? [],
+      targetCwd: planned.inspection.targetCwd,
+      warnings: planned.inspection.warnings,
     })
   }
   return { sessions }
@@ -208,7 +232,6 @@ async function importOne(
   const { action } = planned.plan
   if (action.kind === 'skip-identical') return { key, status: 'skipped', action, backupDir: null }
   if (action.kind === 'conflict' || action.kind === 'blocked') return { key, status: 'refused', action }
-  if (!planned.provider || !planned.root) throw new Error('A writable plan always has a provider')
   try {
     const { backupDir } = await executePlan(planned.plan, {
       root: planned.root,

@@ -9,6 +9,7 @@ import { Journal, type JournalHeader, type JournalStep, listJournals, readJourna
 import type { Sha256 } from './manifest'
 import { isNotFound, resolveInside } from './paths'
 import type { SessionPlan } from './planner'
+import type { AgentId } from '../../shared/sessions'
 import type { Provider, ProviderRegistry } from './provider'
 import { sha256File } from './streams'
 
@@ -62,11 +63,14 @@ export async function executePlan(plan: SessionPlan, options: ExecuteOptions): P
       await utimes(temp, new Date(), new Date(write.file.mtimeMs))
 
       if (write.kind === 'replace') {
-        const backupPath = path.join(options.backupDir, provider.agent, ...write.file.path.split('/'))
+        const { supersedes } = write.file
+        const existingRel = supersedes && !(await exists(finalPath)) ? supersedes.path : write.file.path
+        const existingPath = await resolveInside(root, existingRel)
+        const backupPath = path.join(options.backupDir, provider.agent, ...existingRel.split('/'))
         await mkdir(path.dirname(backupPath), { recursive: true })
-        if ((await sha256File(finalPath)) !== write.existingSha256) throw new Error(`${write.file.path} changed since it was compared`)
-        await journal.record({ kind: 'backup', from: finalPath, to: backupPath, sha256: write.existingSha256 })
-        await moveFile(finalPath, backupPath)
+        if ((await sha256File(existingPath)) !== write.existingSha256) throw new Error(`${existingRel} changed since it was compared`)
+        await journal.record({ kind: 'backup', from: existingPath, to: backupPath, sha256: write.existingSha256 })
+        await moveFile(existingPath, backupPath)
         backedUp = true
         if ((await sha256File(backupPath)) !== write.existingSha256) throw new Error(`${write.file.path} changed while it was backed up`)
       }
@@ -93,7 +97,7 @@ export async function executePlan(plan: SessionPlan, options: ExecuteOptions): P
       throw error
     }
     await journal.close()
-    const rollback = await rollbackJournal(journal.file, { [provider.agent]: provider })
+    const rollback = await rollbackJournal(journal.file, () => provider)
     const message = error instanceof Error ? error.message : String(error)
     throw new ExecutionError(message, rollback.ok, { cause: error })
   }
@@ -151,7 +155,7 @@ async function exists(target: string): Promise<boolean> {
   )
 }
 
-async function undoStep(step: JournalStep, header: JournalHeader, provider: Provider | undefined): Promise<void> {
+async function undoStep(step: JournalStep, header: JournalHeader, provider: Provider): Promise<void> {
   switch (step.kind) {
     case 'temp':
       await unlink(step.path).catch((error) => (isNotFound(error) ? undefined : Promise.reject(error)))
@@ -172,7 +176,6 @@ async function undoStep(step: JournalStep, header: JournalHeader, provider: Prov
       })
       return
     case 'effect':
-      if (!provider) throw new Error(`No ${header.agent} provider to undo an effect`)
       await provider.undoEffect(header.root, step.effect)
       return
   }
@@ -193,13 +196,13 @@ function assertOwned(step: JournalStep, header: JournalHeader): void {
 }
 
 /** Undoes every recorded step in reverse. Idempotent. Keeps the journal when any step fails so a later run can retry. */
-export async function rollbackJournal(file: string, providers: ProviderRegistry): Promise<{ ok: boolean; errors: string[] }> {
+export async function rollbackJournal(file: string, providerFor: (agent: AgentId) => Provider): Promise<{ ok: boolean; errors: string[] }> {
   const { header, steps } = await readJournal(file)
   const errors: string[] = []
   for (const step of steps.toReversed()) {
     try {
       assertOwned(step, header)
-      await undoStep(step, header, providers[header.agent])
+      await undoStep(step, header, providerFor(header.agent))
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error))
     }
@@ -213,7 +216,7 @@ export async function recoverJournals(journalDir: string, providers: ProviderReg
   const results = []
   for (const file of await listJournals(journalDir)) {
     try {
-      results.push({ file, ...(await rollbackJournal(file, providers)) })
+      results.push({ file, ...(await rollbackJournal(file, (agent) => providers[agent])) })
     } catch (error) {
       results.push({ file, ok: false, errors: [error instanceof Error ? error.message : String(error)] })
     }

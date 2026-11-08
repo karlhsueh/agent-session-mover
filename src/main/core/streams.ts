@@ -3,9 +3,9 @@ import { createReadStream } from 'node:fs'
 import { open } from 'node:fs/promises'
 import type { Sha256 } from './manifest'
 
-export async function* readRange(absPath: string, length: number): AsyncGenerator<Buffer> {
+export async function* readRange(absPath: string, length: number, start = 0): AsyncGenerator<Buffer> {
   if (length === 0) return
-  for await (const chunk of createReadStream(absPath, { start: 0, end: length - 1 })) yield chunk as Buffer
+  for await (const chunk of createReadStream(absPath, { start, end: start + length - 1 })) yield chunk as Buffer
 }
 
 export interface Digest {

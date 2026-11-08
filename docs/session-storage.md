@@ -117,19 +117,22 @@ Every line is `{timestamp, ordinal, type, payload}`. The first line is `session_
 
 ### Import
 
-1. Write the rollout unchanged to `sessions/YYYY/MM/DD/` using the date in its file name, or to `archived_sessions/` for an archived thread.
+1. Write the rollout unchanged to `sessions/YYYY/MM/DD/` using the date in its file name, or to `archived_sessions/` for an archived thread. Export keeps a `.jsonl.zst` as it is. Import writes the plain `.jsonl` it holds, the bytes Codex reads either way. If this machine already holds the rollout id, import updates that copy where it is. When the copy here is `.jsonl.zst`, import compares its decompressed bytes, writes the plain file next to it, and moves the `.zst` to the backup folder.
 2. Never rewrite a rollout. Children point into earlier rollouts by byte offset, and an edit breaks them.
-3. Insert one `threads` row in a single transaction. Set `rollout_path` to the absolute plain `.jsonl` path and `cwd` to the mapped folder. Set `preview` and `first_user_message` to non-empty values, because the list hides empty previews. Write only columns that `PRAGMA table_info(threads)` reports.
+3. Insert one `threads` row in a single transaction. Set `rollout_path` to the absolute plain `.jsonl` path and `cwd` to the mapped folder. Set `preview` and `first_user_message` to non-empty values, because the list hides empty previews. Write only columns that `PRAGMA table_info(threads)` reports. Set the `*_ms` and recency columns explicitly, so the table's triggers stay idle and undo restores exact values.
+   - When the row exists, an update writes only the columns that follow the rollout (path, times, cwd, model, tokens, archived). Names, titles, and identity stay as they are here. The update runs only if the row still holds what planning read.
+   - A fork child's linked rollout from another thread also gets a row when that thread has none. Importing that thread later finds its rollout identical and skips it, so it would stay unlisted otherwise.
 4. Copy `generated_images/<threadId>/` when present.
+5. Append the thread's `session_index.jsonl` line when it is not already there.
 
 ### Reading a live database
 
-Codex opens its databases in WAL mode and writes them while any Codex process runs. A read-only open fails when the `-wal` and `-shm` files are missing. To read, copy the database with its `-wal` and `-shm` files to a temporary folder and open the copy. To write, open the live database read-write with a busy timeout and keep the transaction short.
+Codex opens its databases in WAL mode and writes them while any Codex process runs. A read-only open fails when the `-wal` and `-shm` files are missing. To read, copy the database with its `-wal` file to a temporary folder and open the copy. Leave `-shm` out: without it, SQLite rebuilds the index from the copied WAL instead of trusting a stale one. To write, open the live database read-write with a busy timeout and keep the transaction short.
 
 ## Rules for both agents
 
 - **Never modify a source session during export.** Export reads a snapshot. For an append-only file, it keeps the bytes up to the last newline.
-- **Detect sessions in use.** Claude Code lists running sessions in `sessions/<pid>.json`. Check that the process is alive. Codex holds `thread-writer-locks/<threadId>.lock` while it writes. Export of a live session gets a warning. Import into a live session is refused.
+- **Detect sessions in use.** Claude Code lists running sessions in `sessions/<pid>.json`. Check that the process is alive. Codex holds `thread-writer-locks/<threadId>.lock` while it writes, deletes it when the writer stops, and sweeps stale ones at startup. Node cannot probe the lock, so the file's existence is the signal. Verified: two locks were held open by running `codex` processes 11 hours after their rollouts were last written, so a recent-mtime rule would miss them. A stale lock after a crash blocks import until Codex starts again, which is the safe direction. Export of a live session gets a warning. Import into a live session is refused.
 - **Conflicts.** For each session, compare the archive copy with the copy already in the target store:
   - No copy: create it.
   - Identical bytes: skip.
