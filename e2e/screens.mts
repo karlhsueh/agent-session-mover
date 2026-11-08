@@ -75,7 +75,12 @@ const SIDEBAR: Record<string, State> = {
     await selectAcrossProjects(page)
     await sidebarScope(page, 'web').first().click()
   },
+  search: async (page) => {
+    await sidebarScope(page, 'All sessions').click()
+    await page.getByRole('searchbox', { name: 'Search sessions' }).fill('queue')
+  },
   light: async (page) => {
+    await page.getByRole('searchbox', { name: 'Search sessions' }).fill('')
     await page.getByRole('button', { name: 'Clear', exact: true }).click()
     await sidebarScope(page, 'All sessions').click()
     await list(page).focus()

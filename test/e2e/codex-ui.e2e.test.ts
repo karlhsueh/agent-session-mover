@@ -46,7 +46,7 @@ async function launch(on: Machine, extra: Record<string, string>): Promise<{ pag
   return { page, problems }
 }
 
-const rows = (page: Page) => page.getByRole('tree', { name: 'Sessions' }).locator('.row')
+const rows = (page: Page) => page.getByRole('listbox', { name: 'Sessions' }).locator('.row')
 
 it('lists, exports, and imports Codex sessions through the app', { timeout: 120_000 }, async () => {
   root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'agent-sessions-codex-ui-')))
