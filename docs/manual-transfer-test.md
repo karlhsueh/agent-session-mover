@@ -34,8 +34,10 @@ Fresh sessions with a code word let you prove a resume without reading private h
 
 ## 3. Install and run the app on machine B
 
-1. Install Node 24: `brew install node@24`, then follow the printed `PATH` instructions. Confirm with `node -v`.
-2. Turn on pnpm: `corepack enable`. Corepack installs the pnpm version that `package.json` names.
+1. Check Node with `node -v`. Version 24 or newer works; 26.13 is tested. If Node is missing or older, run `brew install node@24` and follow the printed `PATH` instructions.
+2. Install pnpm:
+   - On Node 25 or newer, run `npm install -g pnpm@10.13.1`. Node 25 stopped shipping Corepack.
+   - On Node 24, `corepack enable` also works.
 3. Get the code. The repository is private, so sign in to GitHub first:
    - Run `brew install gh && gh auth login`, then `gh repo clone karlhsueh/agent-sessions ~/Code/agent-sessions`.
    - Without GitHub access, copy `agent-sessions.bundle` from machine A and run `git clone ~/Downloads/agent-sessions.bundle ~/Code/agent-sessions`.

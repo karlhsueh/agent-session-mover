@@ -12,7 +12,7 @@ To learn how the pieces fit together, read [How the app works](docs/how-it-works
 
 ## Run
 
-Requires Node 24.
+Requires Node 24 or newer and pnpm 10. On Node 25 or newer, install pnpm with `npm install -g pnpm@10.13.1`, because Node no longer ships Corepack.
 
 ```sh
 pnpm install
