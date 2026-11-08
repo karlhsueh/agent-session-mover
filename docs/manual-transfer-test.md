@@ -36,7 +36,10 @@ Fresh sessions with a code word let you prove a resume without reading private h
 
 1. Install Node 24: `brew install node@24`, then follow the printed `PATH` instructions. Confirm with `node -v`.
 2. Turn on pnpm: `corepack enable`. Corepack installs the pnpm version that `package.json` names.
-3. Clone the bundle: `git clone ~/Downloads/agent-sessions.bundle ~/Code/agent-sessions`.
+3. Get the code. The repository is private, so sign in to GitHub first:
+   - Run `brew install gh && gh auth login`, then `gh repo clone karlhsueh/agent-sessions ~/Code/agent-sessions`.
+   - Without GitHub access, copy `agent-sessions.bundle` from machine A and run `git clone ~/Downloads/agent-sessions.bundle ~/Code/agent-sessions`.
+   - To get a fix later, run `git pull` in `~/Code/agent-sessions`, then `pnpm install`.
 4. Install: `cd ~/Code/agent-sessions && pnpm install`.
 5. Start: `pnpm dev`. The first start downloads Electron, which is about 100 MB, so machine B needs internet access.
 
