@@ -94,7 +94,9 @@ The store root is `$CODEX_HOME`, or `~/.codex` when that is unset. On Windows it
 | Rollout | `sessions/YYYY/MM/DD/rollout-<local time>-<threadId>.jsonl`, or `.jsonl.zst` | Yes, byte for byte | The source of truth. A reverted thread adds `_<rolloutId>` to the name. |
 | Archived rollout | `archived_sessions/rollout-*.jsonl[.zst]` | Yes | Flat, with no date folders. |
 | Linked earlier rollout | Any rollout named by `session_meta.history_base.thread_id` | Yes, byte for byte | The child points into it by byte offset. |
+| Subagent rollout | The newest rollout of a thread whose `source` is a `thread_spawn` subagent | Yes, with the session that owns it | A separate thread in Codex. See Subagents below. |
 | Thread index | `state_5.sqlite`, table `threads` | Row fields only | Import writes a new row. See below. |
+| Spawn graph | `state_5.sqlite`, table `thread_spawn_edges` | No | Import adds an edge for each subagent from its `source`. |
 | Generated images | `generated_images/<threadId>/` | Yes | Rollouts point at them by absolute path. |
 | Thread names | `session_index.jsonl` | The matching line | Needed only for `codex resume <name>`. |
 | History cache | `thread_history_1.sqlite` | No | Codex rebuilds it from the rollout. Verified. |
@@ -107,7 +109,17 @@ Codex compresses a rollout that has been idle for 7 days into `.jsonl.zst`. It t
 Every line is `{timestamp, ordinal, type, payload}`. The first line is `session_meta`, which carries `id`, `cwd`, `originator`, `cli_version`, `source`, `git`, and `history_base`. The model is in `turn_context.model`. File names and date folders use local time. Record timestamps use UTC.
 
 - **Client.** `originator` is `codex-tui`, `codex_cli_rs`, `codex_exec`, `Codex Desktop`, or `codex_work_desktop`. `source` is `cli`, `exec`, `vscode`, or a subagent object. The desktop app reports `vscode`.
-- **Title.** Use the `session_index.jsonl` name, then the database `title`, then the first user message.
+- **Title.** Use the `session_index.jsonl` name, then the database `title`, then the first user message. For a subagent, use the task text instead of the title and first message, which belong to its parent (see Subagents).
+
+### Subagents
+
+A subagent thread's `source` is `{"subagent":{"thread_spawn":{"parent_thread_id", "depth", "agent_path", "agent_nickname", "agent_role"}}}`, and `session_meta` repeats the agent fields. Codex 0.162.1 forks a subagent's rollout from its parent: the file repeats the parent's records, including a second `session_meta`, and `subagent_history_start_ordinal` names the first record that is the subagent's own. Verified on a real store (21 subagents). The subagent's first own message is a `response_item` of type `agent_message` from the parent agent, which holds the task. `review`, `compact`, and other subagent sources name no parent.
+
+- **Nesting.** A subagent belongs to the session of its topmost ancestor whose rollout is on this machine, following subagents of subagents. It is listed in that session's `subagents`, newest first, and not on its own. Its title is the task text, and its role is `agent_nickname`, then `agent_role`, then the last segment of `agent_path`.
+- **Orphans.** A subagent whose parent thread is missing here is its own session, with client `subagent`.
+- **Live.** A session is live when it or any of its subagents holds a writer lock.
+- **Export.** The session's export holds each subagent's newest rollout (role `subagent-rollout`), its linked rollouts, and its generated images. A subagent's `session_index.jsonl` line is left out, because an archive holds one index entry per session. None of the 21 real subagents had one. Exporting a subagent on its own is refused with the id of the session that holds it.
+- **Spawn graph.** Codex reads `thread_spawn_edges(parent_thread_id, child_thread_id, status)` to reopen a parent's open subagents on resume and to archive or delete a subtree. Each time Codex writes a thread row, including during backfill, it also inserts that thread's edge from `source` with status `open` unless the child has one (`insert_thread_spawn_edge_from_source_if_absent`, `state/src/runtime/threads.rs`). Documented. A store that builds its database from rollouts gets the edges that way. A store that already has a database does not backfill again, so import inserts the edge itself. All 21 real edges were `open`. Verified.
 
 ### Resume rules
 
@@ -126,7 +138,10 @@ Every line is `{timestamp, ordinal, type, payload}`. The first line is `session_
 3. Insert one `threads` row in a single transaction. Set `rollout_path` to the absolute plain `.jsonl` path and `cwd` to the mapped folder. Set `preview` and `first_user_message` to non-empty values, because the list hides empty previews. Write only columns that `PRAGMA table_info(threads)` reports. Set the `*_ms` and recency columns explicitly, so the table's triggers stay idle and undo restores exact values.
    - When the row exists, an update writes only the columns that follow the rollout (path, times, cwd, model, tokens, archived). Names, titles, and identity stay as they are here. The update runs only if the row still holds what planning read.
    - A fork child's linked rollout from another thread also gets a row when that thread has none. Importing that thread later finds its rollout identical and skips it, so it would stay unlisted otherwise.
-4. Copy `generated_images/<threadId>/` when present.
+   - Each subagent's rollout is placed like the main rollout and its row is written like the main row, with its own cwd mapped (the session's target cwd when unmapped).
+   - When `thread_spawn_edges` exists, insert an `open` edge for each thread whose row import writes and whose `source` names a parent, unless the child already has an edge.
+   - A subagent file that diverged here makes the whole session a conflict.
+4. Copy `generated_images/<threadId>/` for the thread and each subagent when present.
 5. Append the thread's `session_index.jsonl` line when it is not already there.
 
 ### Reading a live database
