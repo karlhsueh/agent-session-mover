@@ -12,6 +12,8 @@ To learn how the pieces fit together, read [How the app works](docs/how-it-works
 
 ## Run
 
+`pnpm dev` runs inside Electron's own app, so the macOS menu bar shows "Electron" there. The packaged app from `pnpm package` shows "Agent Sessions".
+
 Requires Node 24 or newer and pnpm 10. On Node 25 or newer, install pnpm with `npm install -g pnpm@10.13.1`, because Node no longer ships Corepack.
 
 ```sh
@@ -28,6 +30,7 @@ pnpm dev
 | `pnpm start`     | Builds the app and runs the build.                               |
 | `pnpm typecheck` | Type checks the Node side and the renderer separately.           |
 | `pnpm test`      | Runs the unit and behavior tests in `test/` with vitest.         |
+| `pnpm package` | Builds `dist/mac-arm64/Agent Sessions.app` (or the Windows or Linux folder on those systems) with the app name and icon. It is not code-signed. |
 | `pnpm smoke`     | Builds the app, drives export and import for Claude Code and Codex on temp stores, and saves screenshots in `artifacts/`. |
 | `pnpm screens [prefix]` | Builds the app, opens it on a synthetic store of 52 sessions in 26 folders, and saves each browse state to `artifacts/compare/<prefix>-<state>.png`. The prefix defaults to `after`. It prints how many rows each state shows without scrolling. |
 | `pnpm verify:real` | Uses the real `claude` and `codex` CLIs to create a throwaway session, export it, import it under another folder, and resume it. It spends a few model tokens. Claude Code writes to your real store and the test removes what it made. Codex runs in temporary `CODEX_HOME` folders that hold a copy of your `~/.codex/auth.json` for the length of the run. The test refuses to run when the access token expires within 2 hours, so Codex does not refresh the token inside a copy, and it deletes the copies afterwards. |

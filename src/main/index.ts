@@ -20,6 +20,12 @@ const e2e = app.isPackaged
       folderPath: process.env.AGENT_SESSIONS_E2E_FOLDER_PATH,
       userData: process.env.AGENT_SESSIONS_E2E_USER_DATA,
     }
+const APP_NAME = 'Agent Sessions'
+// Journals and backups live in userData, and its default folder follows the app name. Pinning it
+// keeps an unfinished import recoverable across the rename and between dev and packaged builds.
+app.setPath('userData', join(app.getPath('appData'), 'agent-sessions'))
+app.setName(APP_NAME)
+app.setAboutPanelOptions({ applicationName: APP_NAME, applicationVersion: app.getVersion() })
 if (e2e.userData) app.setPath('userData', e2e.userData)
 
 function createWindow(): void {
@@ -116,6 +122,8 @@ function registerShellHandlers(context: CoreContext): void {
 }
 
 app.whenReady().then(async () => {
+  // A packaged app takes its icon from the bundle. `pnpm dev` runs Electron's own app, so set it here.
+  if (!app.isPackaged && process.platform === 'darwin') app.dock?.setIcon(join(__dirname, '../../build/icon.png'))
   const context: CoreContext = {
     providers,
     env: { homeDir: homedir(), env: process.env, platform: process.platform },

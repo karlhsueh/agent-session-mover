@@ -1,5 +1,6 @@
 {
   "name": "agent-sessions",
+  "productName": "Agent Sessions",
   "version": "0.0.0",
   "private": true,
   "description": "Export and import Claude Code and Codex sessions between computers.",
@@ -17,7 +18,8 @@
     "smoke": "pnpm build && node --disable-warning=ExperimentalWarning e2e/smoke.mts && AGENT_SESSIONS_E2E=1 vitest run",
     "screens": "pnpm build && node --disable-warning=ExperimentalWarning e2e/screens.mts",
     "test": "vitest run",
-    "verify:real": "AGENT_SESSIONS_REAL=1 vitest run"
+    "verify:real": "AGENT_SESSIONS_REAL=1 vitest run",
+    "package": "pnpm build && electron-builder --dir"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -29,10 +31,34 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
     "electron": "^45.2.3",
+    "electron-builder": "26.18.0",
     "electron-vite": "^6.0.0",
     "playwright": "^1.65.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.6",
     "vitest": "5.0.5"
+  },
+  "build": {
+    "appId": "com.karlhsueh.agent-sessions",
+    "productName": "Agent Sessions",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Development"
+    },
+    "win": {
+      "icon": "build/icon.png"
+    }
   }
 }
