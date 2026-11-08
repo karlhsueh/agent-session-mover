@@ -19,6 +19,10 @@ afterEach(async () => removeTempDir(machine.dir))
 const MiB = 1024 * 1024
 const pad = (bytes: number) => 'x'.repeat(bytes)
 
+async function* chunked(bytes: Buffer, size: number): AsyncGenerator<Buffer> {
+  for (let start = 0; start < bytes.length; start += size) yield bytes.subarray(start, start + size)
+}
+
 /** Records of about 64 KB each until `bytes`, so a long transcript's middle can hold a folder the head and tail never mention. */
 function bulk(bytes: number, record: (index: number) => Record<string, unknown>): string[] {
   return Array.from({ length: Math.ceil(bytes / (64 * 1024)) }, (_, index) => JSON.stringify({ ...record(index), padding: pad(64 * 1024) }))
@@ -38,7 +42,7 @@ describe('a bounded read window', () => {
     const bytes = Buffer.from(lines.join('\n') + '\n')
     const absPath = path.join(machine.dir, 'long.jsonl')
     await writeFile(absPath, bytes)
-    const source: TranscriptSource = kind === 'file' ? { kind, absPath } : { kind, chunks: [bytes.subarray(0, 70_000), bytes.subarray(70_000)] }
+    const source: TranscriptSource = kind === 'file' ? { kind, absPath } : { kind, chunks: chunked(bytes, 70_000) }
     const seen: string[] = []
     let gaps = 0
     for await (const line of readWindow(source, budget)) {
