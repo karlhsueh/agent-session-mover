@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
-import { CHANNELS, GREET_CHANNEL, type GreetResult } from '../shared/ipc'
+import { CHANNELS } from '../shared/ipc'
 import type { ProgressEvent } from '../shared/sessions'
 import { ARCHIVE_EXTENSION } from './archive/archive'
 import { recoverJournals } from './core/executor'
@@ -9,24 +9,6 @@ import type { CoreContext } from './core/export'
 import { clearStaging } from './core/import'
 import { providers } from './providers/registry'
 import { createSessionService, type SessionService } from './service'
-
-function greet(input: unknown): GreetResult {
-  if (typeof input !== 'string' || input.trim() === '') {
-    return { ok: false, error: 'Name must be a non-blank string.' }
-  }
-
-  return {
-    ok: true,
-    message: `Hello, ${input.trim()}!`,
-    runtime: {
-      pid: process.pid,
-      platform: process.platform,
-      electron: process.versions.electron,
-      node: process.versions.node,
-      chrome: process.versions.chrome,
-    },
-  }
-}
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -104,7 +86,6 @@ app.whenReady().then(async () => {
   const service = createSessionService(context)
   app.on('will-quit', () => void service.dispose())
 
-  ipcMain.handle(GREET_CHANNEL, (_event, input: unknown) => greet(input))
   registerSessionHandlers(service)
   createWindow()
 

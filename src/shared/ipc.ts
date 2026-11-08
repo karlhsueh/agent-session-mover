@@ -10,8 +10,6 @@ import type {
   SessionList,
 } from './sessions'
 
-export const GREET_CHANNEL = 'greet'
-
 export const CHANNELS = {
   listSessions: 'sessions:list',
   exportSessions: 'sessions:export',
@@ -20,20 +18,6 @@ export const CHANNELS = {
   runImport: 'import:run',
   progress: 'progress',
 } as const
-
-export type RuntimeInfo = {
-  pid: number
-  // string rather than NodeJS.Platform: naming that type here would pull Node's
-  // globals into the renderer's type check, and `process.env` would then compile there.
-  platform: string
-  electron: string
-  node: string
-  chrome: string
-}
-
-export type GreetResult =
-  | { ok: true; message: string; runtime: RuntimeInfo }
-  | { ok: false; error: string }
 
 export type ApiErrorCode =
   | 'invalid-input'
@@ -63,7 +47,6 @@ export type OpenArchiveOutcome =
  * an opaque archive token. Session keys and mappings are checked in main before use.
  */
 export interface DesktopApi {
-  greet(name: string): Promise<GreetResult>
   listSessions(): Promise<ApiResult<SessionList>>
   exportSessions(keys: SessionKey[]): Promise<ApiResult<ExportOutcome>>
   openArchive(): Promise<ApiResult<OpenArchiveOutcome>>

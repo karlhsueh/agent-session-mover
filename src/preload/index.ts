@@ -1,9 +1,8 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { CHANNELS, GREET_CHANNEL, type DesktopApi } from '../shared/ipc'
+import { CHANNELS, type DesktopApi } from '../shared/ipc'
 import type { ProgressEvent } from '../shared/sessions'
 
 const api: DesktopApi = {
-  greet: (name) => ipcRenderer.invoke(GREET_CHANNEL, name),
   listSessions: () => ipcRenderer.invoke(CHANNELS.listSessions),
   exportSessions: (keys) => ipcRenderer.invoke(CHANNELS.exportSessions, keys),
   openArchive: () => ipcRenderer.invoke(CHANNELS.openArchive),
