@@ -19,6 +19,7 @@
     "screens": "pnpm build && node --disable-warning=ExperimentalWarning e2e/screens.mts",
     "test": "vitest run",
     "verify:real": "AGENT_SESSIONS_REAL=1 vitest run",
+    "bench:discover": "AGENT_SESSIONS_BENCH=1 vitest run --silent=false",
     "package": "pnpm build && electron-builder --dir"
   },
   "dependencies": {
