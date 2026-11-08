@@ -5,14 +5,13 @@ type Compare = (a: SessionSummary, b: SessionSummary) => number
 const byActivity: Compare = (a, b) => b.lastActivity.localeCompare(a.lastActivity)
 
 export const SORTS = {
-  activity: { label: 'Last activity', compare: byActivity, groupsByName: false },
-  title: { label: 'Title', compare: (a, b) => sessionTitle(a).localeCompare(sessionTitle(b)), groupsByName: true },
-  project: { label: 'Project', compare: (a, b) => folderName(a.cwd).localeCompare(folderName(b.cwd)) || byActivity(a, b), groupsByName: true },
-  size: { label: 'Size', compare: (a, b) => b.sizeBytes - a.sizeBytes, groupsByName: false },
-} satisfies Record<string, { label: string; compare: Compare; groupsByName: boolean }>
+  activity: { label: 'Last activity', compare: byActivity },
+  title: { label: 'Title', compare: (a, b) => sessionTitle(a).localeCompare(sessionTitle(b)) },
+  project: { label: 'Project', compare: (a, b) => folderName(a.cwd).localeCompare(folderName(b.cwd)) || byActivity(a, b) },
+  size: { label: 'Size', compare: (a, b) => b.sizeBytes - a.sizeBytes },
+} satisfies Record<string, { label: string; compare: Compare }>
 
 export type SortKey = keyof typeof SORTS
-export type Grouping = 'project' | 'flat'
 
 export interface BrowseQuery {
   text: string

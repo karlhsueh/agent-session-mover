@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 import type { SessionSummary } from '../../../shared/sessions'
-import { agentOptions, clientOptions, SORTS, type BrowseQuery, type Grouping, type Option, type SortKey } from '../model/browse'
+import { agentOptions, clientOptions, SORTS, type BrowseQuery, type Option, type SortKey } from '../model/browse'
 import { MOD } from '../model/format'
 import { AgentMark } from './common'
 import { SearchIcon } from './TitleBar'
@@ -9,8 +9,6 @@ interface Props {
   sessions: readonly SessionSummary[]
   query: BrowseQuery
   onChange: (query: BrowseQuery) => void
-  grouping: Grouping
-  onGrouping: (grouping: Grouping) => void
   searchRef: RefObject<HTMLInputElement | null>
 }
 
@@ -41,12 +39,7 @@ function Picker<T extends string>({
   )
 }
 
-const GROUPINGS: { value: Grouping; label: string; title: string }[] = [
-  { value: 'project', label: 'Projects', title: 'Group by project' },
-  { value: 'flat', label: 'Flat', title: 'Flat list' },
-]
-
-export function Toolbar({ sessions, query, onChange, grouping, onGrouping, searchRef }: Props) {
+export function Toolbar({ sessions, query, onChange, searchRef }: Props) {
   const agents = agentOptions(sessions)
   const clients = clientOptions(sessions)
   return (
@@ -84,20 +77,6 @@ export function Toolbar({ sessions, query, onChange, grouping, onGrouping, searc
       {clients.length > 1 && (
         <Picker label="Client" allLabel="All clients" value={query.client} options={clients} onChange={(client) => onChange({ ...query, client })} />
       )}
-      <span className="segmented" role="group" aria-label="Grouping">
-        {GROUPINGS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={grouping === option.value}
-            aria-label={option.title}
-            title={option.title}
-            onClick={() => onGrouping(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </span>
       <Picker<SortKey>
         label="Sort by"
         allLabel={null}

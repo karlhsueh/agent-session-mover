@@ -122,11 +122,6 @@
   font-size: 12px;
 }
 
-.subagents li.current {
-  background: var(--selected);
-  box-shadow: inset 0 0 0 1px var(--selected-line);
-}
-
 .subagents .sub-title {
   display: -webkit-box;
   -webkit-line-clamp: 2;

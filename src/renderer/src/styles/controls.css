@@ -146,8 +146,7 @@
   opacity: 0.8;
 }
 
-.chips,
-.segmented {
+.chips {
   display: inline-flex;
   flex: none;
   height: 30px;
@@ -159,8 +158,7 @@
   -webkit-app-region: no-drag;
 }
 
-.chips button,
-.segmented button {
+.chips button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -174,19 +172,12 @@
   border-radius: 5px;
 }
 
-.chips button:hover,
-.segmented button:hover {
+.chips button:hover {
   color: var(--text);
-}
-
-.chips button[aria-pressed='true'],
-.segmented button[aria-pressed='true'] {
-  color: var(--text);
-  background: var(--raised);
-  box-shadow: 0 0 0 1px var(--line-strong);
 }
 
 .chips button[aria-pressed='true'] {
+  color: var(--text);
   background: var(--selected);
   box-shadow: 0 0 0 1px var(--selected-line);
 }

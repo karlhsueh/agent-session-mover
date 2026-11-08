@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import type { StoreRoot } from '../../../shared/ipc'
 import type { SessionKey, SessionList as List } from '../../../shared/sessions'
-import { EMPTY_QUERY, isFiltered, type BrowseQuery, type Grouping } from '../model/browse'
+import { EMPTY_QUERY, isFiltered, type BrowseQuery } from '../model/browse'
 import { AGENT_LABEL, MOD, plural } from '../model/format'
-import { buildView, searchNeedle, type GroupKey } from '../model/rows'
+import { matchSessions, searchNeedle } from '../model/rows'
 import { focusedKey, NO_SELECTION, selectionReducer } from '../model/selection'
-import { useHomeDir, useStored, type Theme } from '../hooks'
+import { useHomeDir, type Theme } from '../hooks'
 import { Kbd } from './common'
-import { SessionDetail, type DetailTarget } from './SessionDetail'
-import { SessionList, type ListActions } from './SessionList'
+import { SessionDetail } from './SessionDetail'
+import { SessionList, type ClickMode } from './SessionList'
 import { Shortcuts } from './Shortcuts'
 import { TitleBar } from './TitleBar'
 import { Toolbar } from './Toolbar'
@@ -31,35 +31,20 @@ function inTextField(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
 }
 
-const parseGrouping = (raw: string | null): Grouping => (raw === 'flat' ? 'flat' : 'project')
-const keepGrouping = (grouping: Grouping) => grouping
-function parseCollapsed(raw: string | null): ReadonlySet<GroupKey> {
-  const value: unknown = raw ? JSON.parse(raw) : []
-  return new Set(Array.isArray(value) ? (value.filter((item) => typeof item === 'string') as GroupKey[]) : [])
-}
-const keepCollapsed = (collapsed: ReadonlySet<GroupKey>) => JSON.stringify([...collapsed])
-
 export function Browser({ list, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
-  const [query, setQueryState] = useState<BrowseQuery>(EMPTY_QUERY)
-  const [grouping, setGrouping] = useStored('agent-sessions.grouping', parseGrouping, keepGrouping)
-  const [collapsed, setCollapsed] = useStored('agent-sessions.collapsed', parseCollapsed, keepCollapsed)
-  const [expanded, setExpanded] = useState<ReadonlyMap<SessionKey, boolean>>(new Map())
+  const [query, setQuery] = useState<BrowseQuery>(EMPTY_QUERY)
   const [selection, dispatch] = useReducer(selectionReducer, NO_SELECTION)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const home = useHomeDir()
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const view = useMemo(() => buildView(list.sessions, { query, grouping, collapsed, expanded }), [list.sessions, query, grouping, collapsed, expanded])
-  const rows = view.rows
-  const rowsRef = useRef(rows)
-  rowsRef.current = rows
-  const byKey = useMemo(() => new Map(list.sessions.map((session) => [session.key, session])), [list.sessions])
+  const shown = useMemo(() => matchSessions(list.sessions, query), [list.sessions, query])
+  const rows = useMemo(() => shown.map((session) => session.key), [shown])
   const focus = focusedKey(selection, rows)
-  const focusedRow = rows.find((row) => row.key === focus) ?? null
+  const focused = shown.find((session) => session.key === focus) ?? null
   const selectedKeys = list.sessions.filter((session) => selection.keys.has(session.key)).map((session) => session.key)
-  const matched = new Set(view.matches)
-  const hiddenSelected = selectedKeys.filter((key) => !matched.has(key)).length
+  const hiddenSelected = selectedKeys.filter((key) => !rows.includes(key)).length
 
   useEffect(() => {
     dispatch({ type: 'retain', existing: new Set(list.sessions.map((session) => session.key)) })
@@ -69,61 +54,9 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
     listRef.current?.focus()
   }, [])
 
-  const toggleCollapsed = useCallback(
-    (group: GroupKey) =>
-      setCollapsed((current) => {
-        const next = new Set(current)
-        if (!next.delete(group)) next.add(group)
-        return next
-      }),
-    [setCollapsed],
-  )
-  // A new search expands the sessions it matches through subagents, so earlier folds start over.
-  const setQuery = (next: BrowseQuery) => {
-    if (next.text !== query.text) setExpanded(new Map())
-    setQueryState(next)
-  }
-  const setSessionOpen = useCallback((key: SessionKey, open: boolean) => setExpanded((current) => new Map(current).set(key, open)), [])
-
-  const actions = useMemo<ListActions>(
-    () => ({
-      onClick: (key, mode) => {
-        dispatch({ type: 'click', key, mode, rows: rowsRef.current })
-        listRef.current?.focus()
-      },
-      onFocusRow: (key) => {
-        dispatch({ type: 'focus', key })
-        listRef.current?.focus()
-      },
-      onToggleGroup: (row) => {
-        dispatch({ type: 'toggle-group', key: row.key, sessions: row.sessions })
-        listRef.current?.focus()
-      },
-      onCollapseGroup: (row) => toggleCollapsed(row.group),
-      onExpandSession: (key) => {
-        const row = rowsRef.current.find((candidate) => candidate.key === key)
-        if (row?.kind === 'session') setSessionOpen(key, !row.expanded)
-      },
-    }),
-    [toggleCollapsed, setSessionOpen],
-  )
-
-  /** Left and Right fold the focused row, or step to its parent or first child, as in a file tree. */
-  function fold(direction: 'in' | 'out') {
-    const row = focusedRow
-    const next = () => dispatch({ type: 'move', to: 'next', extend: false, rows })
-    if (!row) return
-    if (row.kind === 'group') {
-      if (direction === 'in') return row.collapsed ? toggleCollapsed(row.group) : next()
-      if (!row.collapsed && !view.searching) toggleCollapsed(row.group)
-    } else if (row.kind === 'session') {
-      const hasChildren = row.session.subagents.length > 0
-      if (direction === 'in') return hasChildren && (row.expanded ? next() : setSessionOpen(row.key, true))
-      if (row.expanded) setSessionOpen(row.key, false)
-      else if (row.group) dispatch({ type: 'focus', key: row.group })
-    } else if (direction === 'out') {
-      dispatch({ type: 'focus', key: row.parent })
-    }
+  const onClick = (key: SessionKey, mode: ClickMode) => {
+    dispatch({ type: 'click', key, mode, rows })
+    listRef.current?.focus()
   }
 
   useEffect(() => {
@@ -160,15 +93,12 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
         setShowShortcuts(true)
       } else if (mod && key === 'a') {
         event.preventDefault()
-        dispatch({ type: 'all', keys: view.matches })
+        dispatch({ type: 'all', keys: rows })
       } else if (!onList) {
         return
       } else if (event.key === ' ') {
         event.preventDefault()
         dispatch({ type: 'toggle-focus', rows })
-      } else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
-        event.preventDefault()
-        fold(event.key === 'ArrowRight' ? 'in' : 'out')
       } else if (event.key === 'Home' || event.key === 'End') {
         event.preventDefault()
         dispatch({ type: 'move', to: event.key === 'Home' ? 'first' : 'last', extend: event.shiftKey, rows })
@@ -189,37 +119,17 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
       </>
     )
 
-  const detail: DetailTarget =
-    focusedRow?.kind === 'session'
-      ? { kind: 'session', session: focusedRow.session, subagent: null }
-      : focusedRow?.kind === 'subagent'
-        ? { kind: 'session', session: byKey.get(focusedRow.parent)!, subagent: focusedRow.subagent.id }
-        : focusedRow?.kind === 'group'
-          ? { kind: 'group', row: focusedRow, sessions: focusedRow.sessions.map((key) => byKey.get(key)!) }
-          : null
-
   return (
     <>
       <TitleBar theme={theme} onToggleTheme={onToggleTheme}>
-        <Toolbar sessions={list.sessions} query={query} onChange={setQuery} grouping={grouping} onGrouping={(next) => setGrouping(() => next)} searchRef={searchRef} />
+        <Toolbar sessions={list.sessions} query={query} onChange={setQuery} searchRef={searchRef} />
       </TitleBar>
       {notice}
       <Problems list={list} />
       <div className="browse">
         <div className="list-pane">
-          {rows.length > 0 ? (
-            <SessionList
-              rows={rows}
-              grouped={grouping === 'project'}
-              searching={view.searching}
-              needle={searchNeedle(query)}
-              selected={selection.keys}
-              focus={focus}
-              now={now}
-              home={home}
-              actions={actions}
-              listRef={listRef}
-            />
+          {shown.length > 0 ? (
+            <SessionList sessions={shown} showProject needle={searchNeedle(query)} selected={selection.keys} focus={focus} now={now} onClick={onClick} listRef={listRef} />
           ) : (
             <div className="empty">
               <p>No sessions match.</p>
@@ -229,13 +139,12 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
             </div>
           )}
         </div>
-        <SessionDetail target={detail} home={home} now={now} />
+        <SessionDetail session={focused} home={home} now={now} />
       </div>
       <footer className="statusbar">
         <span className="status" aria-live="polite">
           <span className="dim">
-            {isFiltered(query) ? `${view.matches.length} of ${plural(list.sessions.length, 'session')}` : plural(list.sessions.length, 'session')}
-            {grouping === 'project' && ` in ${plural(view.groupCount, 'project')}`}
+            {isFiltered(query) ? `${shown.length} of ${plural(list.sessions.length, 'session')}` : plural(list.sessions.length, 'session')}
           </span>
           {selectedKeys.length > 0 ? (
             <span className="selection-count">
