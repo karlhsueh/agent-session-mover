@@ -50,3 +50,12 @@ export function SearchIcon() {
     </svg>
   )
 }
+
+export function SidebarIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M6 3v10" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  )
+}

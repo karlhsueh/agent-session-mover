@@ -22,7 +22,7 @@
 .row {
   display: grid;
   grid-template-columns: 16px 8px minmax(0, 1fr) minmax(0, 64px) 48px;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   height: 32px;
   padding: 0 12px;
@@ -34,7 +34,7 @@
 }
 
 .list.with-project .row {
-  grid-template-columns: 16px 8px minmax(0, 1fr) minmax(0, 140px) minmax(0, 64px) 48px;
+  grid-template-columns: 16px 8px minmax(0, 1fr) minmax(0, 116px) minmax(0, 52px) 40px;
 }
 
 .row:hover {

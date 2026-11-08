@@ -1,6 +1,7 @@
 import { memo, useEffect, type MouseEvent } from 'react'
 import type { SessionKey, SessionSummary } from '../../../shared/sessions'
-import { absoluteTime, CLIENT_LABEL, folderName, plural, relativeTime, sessionTitle } from '../model/format'
+import { absoluteTime, CLIENT_LABEL, plural, relativeTime, sessionTitle } from '../model/format'
+import { projectKeyOf, type Project, type ProjectKey } from '../model/scope'
 import { AgentMark, Highlight } from './common'
 
 export function rowId(key: SessionKey): string {
@@ -11,7 +12,8 @@ export type ClickMode = 'only' | 'toggle' | 'range'
 
 interface Props {
   sessions: readonly SessionSummary[]
-  showProject: boolean
+  /** Set in the All scope, where each row names its project. */
+  projects: ReadonlyMap<ProjectKey, Project> | null
   needle: string
   selected: ReadonlySet<SessionKey>
   focus: SessionKey | null
@@ -20,7 +22,7 @@ interface Props {
   listRef: React.RefObject<HTMLDivElement | null>
 }
 
-export function SessionList({ sessions, showProject, needle, selected, focus, now, onClick, listRef }: Props) {
+export function SessionList({ sessions, projects, needle, selected, focus, now, onClick, listRef }: Props) {
   useEffect(() => {
     if (focus) document.getElementById(rowId(focus))?.scrollIntoView({ block: 'nearest' })
   }, [focus])
@@ -28,7 +30,7 @@ export function SessionList({ sessions, showProject, needle, selected, focus, no
   return (
     <div
       ref={listRef}
-      className={`list${showProject ? ' with-project' : ''}${selected.size > 0 ? ' has-selection' : ''}`}
+      className={`list${projects ? ' with-project' : ''}${selected.size > 0 ? ' has-selection' : ''}`}
       role="listbox"
       aria-label="Sessions"
       aria-multiselectable="true"
@@ -39,7 +41,7 @@ export function SessionList({ sessions, showProject, needle, selected, focus, no
         <SessionRow
           key={session.key}
           session={session}
-          showProject={showProject}
+          project={projects?.get(projectKeyOf(session)) ?? null}
           needle={needle}
           selected={selected.has(session.key)}
           focused={focus === session.key}
@@ -58,7 +60,7 @@ function modeOf(event: MouseEvent): ClickMode {
 
 const SessionRow = memo(function SessionRow({
   session,
-  showProject,
+  project,
   needle,
   selected,
   focused,
@@ -66,7 +68,7 @@ const SessionRow = memo(function SessionRow({
   onClick,
 }: {
   session: SessionSummary
-  showProject: boolean
+  project: Project | null
   needle: string
   selected: boolean
   focused: boolean
@@ -105,9 +107,10 @@ const SessionRow = memo(function SessionRow({
           </span>
         )}
       </span>
-      {showProject && (
+      {project && (
         <span className="row-project truncate" title={session.cwd ?? undefined}>
-          {folderName(session.cwd)}
+          {project.name}
+          {project.parent && <span className="scope-parent"> {project.parent}</span>}
         </span>
       )}
       <span className="row-client truncate" title={session.clientDetail || undefined}>

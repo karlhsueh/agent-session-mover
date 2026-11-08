@@ -2,15 +2,18 @@ import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from
 import type { StoreRoot } from '../../../shared/ipc'
 import type { SessionKey, SessionList as List } from '../../../shared/sessions'
 import { EMPTY_QUERY, isFiltered, type BrowseQuery } from '../model/browse'
-import { AGENT_LABEL, MOD, plural } from '../model/format'
+import { MOD, plural, tildePath } from '../model/format'
 import { matchSessions, searchNeedle } from '../model/rows'
+import { ALL, countByProject, inScope, projectsOf, type Scope } from '../model/scope'
 import { focusedKey, NO_SELECTION, selectionReducer } from '../model/selection'
-import { useHomeDir, type Theme } from '../hooks'
+import { useHomeDir, useStored, type Theme } from '../hooks'
 import { Kbd } from './common'
+import { EmptyStore, Problems } from './EmptyStore'
 import { SessionDetail } from './SessionDetail'
 import { SessionList, type ClickMode } from './SessionList'
 import { Shortcuts } from './Shortcuts'
-import { TitleBar } from './TitleBar'
+import { Sidebar } from './Sidebar'
+import { SidebarIcon, TitleBar } from './TitleBar'
 import { Toolbar } from './Toolbar'
 
 interface Props {
@@ -31,20 +34,35 @@ function inTextField(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
 }
 
+const parseOpen = (raw: string | null) => raw !== 'false'
+const keepOpen = (open: boolean) => String(open)
+
 export function Browser({ list, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
   const [query, setQuery] = useState<BrowseQuery>(EMPTY_QUERY)
+  const [wantedScope, setScope] = useState<Scope>(ALL)
+  const [sidebarOpen, setSidebarOpen] = useStored('agent-sessions.sidebar', parseOpen, keepOpen)
   const [selection, dispatch] = useReducer(selectionReducer, NO_SELECTION)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const home = useHomeDir()
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const sidebarRef = useRef<HTMLDivElement>(null)
 
-  const shown = useMemo(() => matchSessions(list.sessions, query), [list.sessions, query])
+  const projects = useMemo(() => projectsOf(list.sessions), [list.sessions])
+  const projectByKey = useMemo(() => new Map(projects.map((each) => [each.key, each])), [projects])
+  const project = wantedScope.kind === 'project' ? (projectByKey.get(wantedScope.key) ?? null) : null
+  const scope: Scope = project ? wantedScope : ALL
+  const filtered = isFiltered(query)
+  const matches = useMemo(() => matchSessions(list.sessions, query), [list.sessions, query])
+  const shown = useMemo(() => matches.filter((session) => inScope(session, scope)), [matches, scope])
   const rows = useMemo(() => shown.map((session) => session.key), [shown])
+  const matchCounts = useMemo(() => (filtered ? countByProject(matches) : null), [filtered, matches])
+  const selectedCounts = useMemo(() => countByProject(list.sessions.filter((session) => selection.keys.has(session.key))), [list.sessions, selection.keys])
   const focus = focusedKey(selection, rows)
   const focused = shown.find((session) => session.key === focus) ?? null
   const selectedKeys = list.sessions.filter((session) => selection.keys.has(session.key)).map((session) => session.key)
-  const hiddenSelected = selectedKeys.filter((key) => !rows.includes(key)).length
+  const outOfView = selectedKeys.filter((key) => !rows.includes(key)).length
+  const scopeTotal = project ? project.sessions.length : list.sessions.length
 
   useEffect(() => {
     dispatch({ type: 'retain', existing: new Set(list.sessions.map((session) => session.key)) })
@@ -59,11 +77,19 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
     listRef.current?.focus()
   }
 
+  const scopes: Scope[] = [ALL, ...projects.map((each): Scope => ({ kind: 'project', key: each.key }))]
+  function moveScope(to: 'next' | 'previous' | 'first' | 'last') {
+    const index = scope.kind === 'all' ? 0 : scopes.findIndex((each) => each.kind === 'project' && each.key === scope.key)
+    const last = scopes.length - 1
+    setScope(scopes[{ first: 0, last, next: Math.min(index + 1, last), previous: Math.max(index - 1, 0) }[to]]!)
+  }
+
   useEffect(() => {
     if (!active || showShortcuts) return
     const onKey = (event: KeyboardEvent) => {
       const mod = event.metaKey || event.ctrlKey
       const typing = inTextField(event.target)
+      const onSidebar = event.target === sidebarRef.current
       const onList = event.target === listRef.current || event.target === document.body
       const key = event.key.toLowerCase()
       if ((mod && key === 'f') || (!typing && event.key === '/')) {
@@ -76,10 +102,19 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
       } else if (mod && key === 'o') {
         event.preventDefault()
         onImport()
+      } else if (mod && event.key === '\\') {
+        event.preventDefault()
+        if (sidebarOpen && onSidebar) listRef.current?.focus()
+        setSidebarOpen((open) => !open)
       } else if (event.key === 'Escape') {
-        if (event.target === searchRef.current && query.text !== '') setQuery({ ...query, text: '' })
+        if (query.text !== '' && (event.target === searchRef.current || !typing)) setQuery({ ...query, text: '' })
         else if (typing) listRef.current?.focus()
         else dispatch({ type: 'clear' })
+      } else if (onSidebar && (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End')) {
+        event.preventDefault()
+        const down = event.key === 'ArrowDown' || event.key === 'End'
+        const jump = mod || event.key === 'Home' || event.key === 'End'
+        moveScope(down ? (jump ? 'last' : 'next') : jump ? 'first' : 'previous')
       } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         if (!onList && event.target !== searchRef.current) return
         event.preventDefault()
@@ -94,8 +129,14 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
       } else if (mod && key === 'a') {
         event.preventDefault()
         dispatch({ type: 'all', keys: rows })
+      } else if (onSidebar && (event.key === 'ArrowRight' || event.key === 'Enter')) {
+        event.preventDefault()
+        listRef.current?.focus()
       } else if (!onList) {
         return
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        if (sidebarOpen) sidebarRef.current?.focus()
       } else if (event.key === ' ') {
         event.preventDefault()
         dispatch({ type: 'toggle-focus', rows })
@@ -119,23 +160,72 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
       </>
     )
 
+  const otherMatches = matches.length - shown.length
   return (
     <>
       <TitleBar theme={theme} onToggleTheme={onToggleTheme}>
+        <button
+          type="button"
+          className="button ghost icon"
+          aria-label={sidebarOpen ? 'Hide projects' : 'Show projects'}
+          aria-pressed={sidebarOpen}
+          title={`${sidebarOpen ? 'Hide' : 'Show'} projects (${MOD}\\)`}
+          onClick={() => setSidebarOpen((open) => !open)}
+        >
+          <SidebarIcon />
+        </button>
         <Toolbar sessions={list.sessions} query={query} onChange={setQuery} searchRef={searchRef} />
       </TitleBar>
       {notice}
       <Problems list={list} />
-      <div className="browse">
+      <div className={sidebarOpen ? 'browse with-sidebar' : 'browse'}>
+        {sidebarOpen && (
+          <Sidebar
+            projects={projects}
+            scope={scope}
+            total={list.sessions.length}
+            matches={matchCounts}
+            matchTotal={matches.length}
+            selected={selectedCounts}
+            selectedTotal={selectedKeys.length}
+            home={home}
+            onScope={(next) => {
+              setScope(next)
+              sidebarRef.current?.focus()
+            }}
+            sidebarRef={sidebarRef}
+          />
+        )}
         <div className="list-pane">
+          <header className="list-head">
+            <span className="list-head-title truncate" title={project?.path ?? undefined}>
+              {project ? (project.path ? tildePath(project.path, home) : 'No folder') : 'All sessions'}
+            </span>
+            <span className="dim">{filtered ? `${shown.length} of ${plural(scopeTotal, 'session')}` : plural(scopeTotal, 'session')}</span>
+          </header>
           {shown.length > 0 ? (
-            <SessionList sessions={shown} showProject needle={searchNeedle(query)} selected={selection.keys} focus={focus} now={now} onClick={onClick} listRef={listRef} />
+            <SessionList
+              sessions={shown}
+              projects={scope.kind === 'all' ? projectByKey : null}
+              needle={searchNeedle(query)}
+              selected={selection.keys}
+              focus={focus}
+              now={now}
+              onClick={onClick}
+              listRef={listRef}
+            />
           ) : (
-            <div className="empty">
-              <p>No sessions match.</p>
-              <button type="button" className="button" onClick={() => setQuery({ ...EMPTY_QUERY, sort: query.sort })}>
-                Clear filters
-              </button>
+            <div className="empty" ref={listRef} tabIndex={-1}>
+              <p>{project ? `No sessions in ${project.name} match.` : 'No sessions match.'}</p>
+              {otherMatches > 0 ? (
+                <button type="button" className="button" onClick={() => setScope(ALL)}>
+                  Show {plural(otherMatches, 'match', 'matches')} in all projects
+                </button>
+              ) : (
+                <button type="button" className="button" onClick={() => setQuery({ ...EMPTY_QUERY, sort: query.sort })}>
+                  Clear filters
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -143,13 +233,11 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
       </div>
       <footer className="statusbar">
         <span className="status" aria-live="polite">
-          <span className="dim">
-            {isFiltered(query) ? `${shown.length} of ${plural(list.sessions.length, 'session')}` : plural(list.sessions.length, 'session')}
-          </span>
+          <span className="dim">{filtered ? `${matches.length} of ${plural(list.sessions.length, 'session')}` : plural(list.sessions.length, 'session')}</span>
           {selectedKeys.length > 0 ? (
             <span className="selection-count">
               {selectedKeys.length} selected
-              {hiddenSelected > 0 && <span className="dim"> ({hiddenSelected} hidden by filters)</span>}
+              {outOfView > 0 && <span className="dim"> ({outOfView} not in this view)</span>}
               <button type="button" className="button ghost small" onClick={() => dispatch({ type: 'clear' })}>
                 Clear
               </button>
@@ -173,51 +261,5 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
       </footer>
       {showShortcuts && <Shortcuts onClose={() => setShowShortcuts(false)} />}
     </>
-  )
-}
-
-function Problems({ list }: { list: List }) {
-  if (list.problems.length === 0) return null
-  return (
-    <div className="banner banner-warn" role="status">
-      {list.problems.map((problem) => (
-        <div key={problem.agent}>
-          <strong>Could not read the {AGENT_LABEL[problem.agent]} store.</strong> <span className="banner-detail">{problem.message}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function EmptyStore({ list, storeRoots, onImport }: { list: List; storeRoots: StoreRoot[]; onImport: () => void }) {
-  return (
-    <div className="empty-store">
-      <Problems list={list} />
-      <div className="empty-card">
-        <h1>No sessions on this machine</h1>
-        <p className="dim">Agent Sessions looked for Claude Code and Codex sessions in:</p>
-        <ul className="roots">
-          {storeRoots.map((root) => (
-            <li key={root.agent}>
-              <span>{AGENT_LABEL[root.agent]}</span>
-              <code>{root.path}</code>
-            </li>
-          ))}
-          {!storeRoots.some((root) => root.agent === 'codex') && (
-            <li>
-              <span>Codex</span>
-              <span className="dim">Not supported in this build</span>
-            </li>
-          )}
-        </ul>
-        <p className="dim">
-          Set <code>CLAUDE_CONFIG_DIR</code> or <code>CODEX_HOME</code> before launch if your stores live elsewhere. To bring sessions from another machine, open
-          an archive.
-        </p>
-        <button type="button" className="button primary" onClick={onImport}>
-          Import archive… <Kbd>{MOD}O</Kbd>
-        </button>
-      </div>
-    </div>
   )
 }

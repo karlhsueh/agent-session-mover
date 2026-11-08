@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sessionKey, type SessionKey, type SessionSummary, type SubagentSummary } from '../src/shared/sessions'
 import { EMPTY_QUERY, type BrowseQuery } from '../src/renderer/src/model/browse'
 import { matchParts, matchSessions } from '../src/renderer/src/model/rows'
+import { countByProject, inScope, NO_FOLDER, projectsOf, type ProjectKey } from '../src/renderer/src/model/scope'
 import { NO_SELECTION, selectionReducer, type Selection, type SelectionAction } from '../src/renderer/src/model/selection'
 
 function session(id: string, cwd: string | null, title: string, day: number, subagents: string[] = []): SessionSummary {
@@ -48,6 +49,38 @@ describe('matching sessions', () => {
     expect(titles({ text: 'code/web' })).toEqual(['Hydration warning'])
     expect(titles({ text: 's4' })).toEqual(['Scratch notes'])
     expect(titles({ agent: 'codex' })).toEqual([])
+  })
+})
+
+describe('project scopes', () => {
+  const store = [...sessions, session('s5', '/u/work/api', 'Trace the 502s', 8), { ...session('s6', '/u/code/web', 'Live one', 2), live: true }]
+
+  it('lists one project per folder, newest activity first, with every session counted', () => {
+    expect(projectsOf(store).map((project) => [project.name, project.sessions.length])).toEqual([
+      ['api', 2],
+      ['api', 1],
+      ['web', 2],
+      ['No folder', 1],
+    ])
+  })
+
+  it('names the parent folder only when two projects share a name', () => {
+    expect(projectsOf(store).map((project) => project.parent)).toEqual(['code', 'work', null, null])
+  })
+
+  it('marks a project live when any of its sessions is live', () => {
+    expect(projectsOf(store).filter((project) => project.live).map((project) => project.path)).toEqual(['/u/code/web'])
+  })
+
+  it('keys a folderless session apart from any real path', () => {
+    const scope = { kind: 'project', key: NO_FOLDER } as const
+    expect(store.filter((each) => inScope(each, scope)).map((each) => each.title)).toEqual(['Scratch notes'])
+    expect(store.filter((each) => inScope(each, { kind: 'all' }))).toHaveLength(store.length)
+  })
+
+  it('counts matches per project, so a search can show where its hits are', () => {
+    const counts = countByProject(matchSessions(store, { ...EMPTY_QUERY, text: 'tr' }))
+    expect(Object.fromEntries(counts)).toEqual({ ['/u/code/api' as ProjectKey]: 1, ['/u/work/api' as ProjectKey]: 1 })
   })
 })
 

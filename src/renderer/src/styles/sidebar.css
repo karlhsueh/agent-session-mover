@@ -1,0 +1,111 @@
+.browse.with-sidebar {
+  grid-template-columns: 220px minmax(0, 1fr) 340px;
+}
+
+.sidebar {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.scopes {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  outline: 0;
+}
+
+.scopes-label {
+  padding: 14px 16px 6px;
+}
+
+.scope {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  margin: 0 6px;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: default;
+}
+
+.scope:hover {
+  background: var(--hover);
+}
+
+.scope.active {
+  background: var(--raised);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  font-weight: 600;
+}
+
+.scopes:focus .scope.active {
+  box-shadow: inset 0 0 0 1px var(--selected-line);
+}
+
+.scope.no-match {
+  color: var(--faint);
+}
+
+.scope-name {
+  flex: 1;
+}
+
+.scope-parent {
+  color: var(--faint);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.scope-count {
+  min-width: 18px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.scope-pill {
+  min-width: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  color: var(--accent-text);
+  background: var(--accent);
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.scope-live {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+.list-head {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  height: 36px;
+  padding: 12px 18px 0;
+}
+
+.list-head-title {
+  font-weight: 600;
+}
+
+@media (max-width: 1040px) {
+  .browse.with-sidebar {
+    grid-template-columns: 200px minmax(0, 1fr) 300px;
+  }
+}

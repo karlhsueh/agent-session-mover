@@ -2,10 +2,12 @@ import { MOD } from '../model/format'
 import { Kbd, Sheet } from './common'
 
 const SHORTCUTS: [keys: string[], what: string][] = [
-  [['↑', '↓'], 'Move through sessions'],
+  [['↑', '↓'], 'Move through projects or sessions'],
+  [['←', '→'], 'Go to the projects or the sessions'],
   [['Space'], 'Select the focused session'],
   [['Shift', '↑↓'], 'Extend the selection'],
-  [[`${MOD}A`], 'Select every session the filters show'],
+  [[`${MOD}A`], 'Select every session in the list'],
+  [[`${MOD}\\`], 'Show or hide the projects'],
   [['Esc'], 'Clear the search, then the selection'],
   [[`${MOD}F`], 'Search'],
   [[`${MOD}E`], 'Export the selection'],
