@@ -1,0 +1,135 @@
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.button:disabled {
+  opacity: 0.45;
+}
+
+.button.primary {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, white);
+}
+
+.button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.button.ghost:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.button.small {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.button.icon {
+  width: 30px;
+  padding: 0;
+}
+
+
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 16px 0;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.banner-detail {
+  margin-left: 6px;
+  color: var(--muted);
+  user-select: text;
+}
+
+.banner-error {
+  border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
+  background: color-mix(in srgb, var(--bad) 9%, transparent);
+}
+
+.banner-warn {
+  flex-direction: column;
+  align-items: stretch;
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  background: color-mix(in srgb, var(--warn) 9%, transparent);
+  margin-bottom: 10px;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.empty-store {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-card {
+  margin: auto;
+  width: min(520px, calc(100% - 48px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.roots {
+  list-style: none;
+  padding: 0;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.roots li {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 12px;
+}
+
+.roots li + li {
+  border-top: 1px solid var(--line);
+}
+
+.roots code {
+  word-break: break-all;
+}
