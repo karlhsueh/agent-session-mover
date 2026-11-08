@@ -43,7 +43,7 @@ Fresh sessions with a code word let you prove a resume without reading private h
    - Without GitHub access, copy `agent-sessions.bundle` from machine A and run `git clone ~/Downloads/agent-sessions.bundle ~/Code/agent-sessions`.
    - To get a fix later, run `git pull` in `~/Code/agent-sessions`, then `pnpm install`.
 4. Install: `cd ~/Code/agent-sessions && pnpm install`.
-5. Start: `pnpm dev`. The first start downloads Electron, which is about 100 MB, so machine B needs internet access.
+5. Start: `pnpm dev`. `pnpm install` downloads Electron, which is about 100 MB, so machine B needs internet access. If `pnpm dev` reports `Error: Electron uninstall`, run `node node_modules/electron/install.js` and start again.
 
 ## 4. Import on machine B
 
