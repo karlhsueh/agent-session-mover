@@ -99,6 +99,7 @@ export function rolloutLines(r: FixtureRollout): string[] {
   push('response_item', { type: 'message', role: 'user', content: [{ type: 'input_text', text: `<environment_context><cwd>${r.cwd}</cwd></environment_context>` }] })
   if (r.prompt !== null) {
     push('event_msg', { type: 'item_completed', item: { type: 'UserMessage', id: 'u0', content: [{ type: 'text', text: r.prompt ?? 'Add a unit test for the tokenizer', text_elements: [] }] } })
+    push('response_item', { type: 'message', role: 'user', content: [{ type: 'input_text', text: r.prompt ?? 'Add a unit test for the tokenizer' }] })
   }
   for (let turn = 0; turn < (r.turns ?? 2); turn++) {
     push('event_msg', { type: 'item_completed', item: { type: 'CommandExecution', id: `c${turn}`, command: ['cat', `${r.cwd}/src/tokenizer.ts`], cwd: r.cwd, exit_code: 0 } })

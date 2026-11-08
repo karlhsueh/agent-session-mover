@@ -201,7 +201,7 @@ export function hiddenFromPicker(meta: SessionMeta): boolean {
   return !(typeof meta.source === 'string' && PICKER_SOURCES.has(meta.source))
 }
 
-function str(value: unknown): string | null {
+export function str(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null
 }
 
