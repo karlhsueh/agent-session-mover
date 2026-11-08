@@ -84,10 +84,10 @@ describe('Codex export', () => {
 
 describe('Codex import into an empty store', () => {
   it('writes every file unchanged where Codex looks for it, and no database', async () => {
-    const ids = [CX.child, CX.parent, CX.plain, CX.archived, CX.compressed, CX.reverted, CX.subagent]
+    const ids = [CX.child, CX.parent, CX.plain, CX.archived, CX.compressed, CX.reverted, CX.orphan]
     const result = await importInto(ids)
-    // The child brings its parent's rollout as its linked prefix, so the parent finds itself already here.
-    expect(result.outcomes.map((o) => o.status)).toEqual(['created', 'skipped', 'created', 'created', 'created', 'created', 'created'])
+    // The child brings its parent's rollout as its linked prefix, so the parent adds only its subagents.
+    expect(result.outcomes.map((o) => o.status)).toEqual(['created', 'updated', 'created', 'created', 'created', 'created', 'created'])
 
     for (const id of ids) expect(await readFile(at(b, src.rollouts[id].rel))).toEqual(src.rollouts[id].plain)
     expect(await readFile(at(b, src.revertedOriginal.rel))).toEqual(src.revertedOriginal.plain)
@@ -103,7 +103,7 @@ describe('Codex import into an empty store', () => {
   })
 
   it('warns that exec and subagent sessions stay out of the resume picker', async () => {
-    const { opened, mappings } = await openIn(await exportFrom([CX.plain, CX.compressed, CX.subagent]))
+    const { opened, mappings } = await openIn(await exportFrom([CX.plain, CX.compressed, CX.orphan]))
     const warnings = (await previewImport(b.context, opened, mappings)).sessions.map((s) => s.warnings.filter((w) => w.code === 'hidden-from-picker'))
     expect(warnings).toEqual([[], [{ code: 'hidden-from-picker', clientDetail: 'codex_exec' }], [{ code: 'hidden-from-picker', clientDetail: 'codex-tui' }]])
   })
@@ -158,8 +158,8 @@ describe('Codex import into a store with a database', () => {
   })
 
   it('gives a fork parent its row when the child brings the parent rollout first', async () => {
-    const result = await importInto([CX.child, CX.parent])
-    expect(result.outcomes.map((o) => o.status)).toEqual(['created', 'skipped'])
+    const result = await importInto([CX.child])
+    expect(result.outcomes.map((o) => o.status)).toEqual(['created'])
     expect(await readFile(at(b, src.rollouts[CX.parent].rel))).toEqual(src.rollouts[CX.parent].plain)
     expect(threadRow(targetDb(), CX.child)).toMatchObject({ cwd: dstProj, title: 'Forked child' })
     expect(threadRow(targetDb(), CX.parent)).toMatchObject({ cwd: dstProj, title: 'Parent thread', preview: 'Parent thread' })

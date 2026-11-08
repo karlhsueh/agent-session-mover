@@ -19,6 +19,10 @@ export interface SessionMeta {
   historyBase: string | null
   git: { sha: string | null; branch: string | null; originUrl: string | null }
   agent: { nickname: string | null; role: string | null; path: string | null }
+  /** Set when a parent thread spawned this one, with the agent fields as `source` records them. */
+  spawn: { parent: string; nickname: string | null; role: string | null; path: string | null } | null
+  /** A spawned subagent's rollout starts with a copy of its parent's history. Records before this ordinal are that copy. */
+  historyStart: number | null
   creator: { userId: string | null; accountId: string | null }
 }
 
@@ -35,6 +39,8 @@ export interface RolloutFacts {
   approvalPolicy: string | null
   permissionProfile: JsonValue | null
   tokensUsed: number | null
+  /** The first message the thread received after any inherited history: a parent agent's task, else a user prompt. */
+  task: string | null
 }
 
 export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<RolloutFacts> {
@@ -51,6 +57,7 @@ export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<RolloutF
     approvalPolicy: null,
     permissionProfile: null,
     tokensUsed: null,
+    task: null,
   }
   // A plain user `response_item` is the fallback title for old rollouts that predate `UserMessage` events.
   let fallbackPrompt: string | null = null
@@ -66,6 +73,9 @@ export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<RolloutF
     if (record.type === 'session_meta' && !facts.meta) {
       facts.meta = sessionMeta(payload)
       seeCwd(facts, facts.meta?.cwd ?? null)
+    }
+    if (facts.task === null && !(typeof record.ordinal === 'number' && record.ordinal < (facts.meta?.historyStart ?? 0))) {
+      facts.task = taskText(record.type, payload)
     }
     if (record.type === 'turn_context') {
       seeCwd(facts, str(payload.cwd))
@@ -84,20 +94,29 @@ export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<RolloutF
 }
 
 function absorbEvent(facts: RolloutFacts, payload: Record<string, unknown>): void {
-  if (payload.type === 'item_completed' && isObject(payload.item) && payload.item.type === 'UserMessage') {
+  const prompt = userPrompt(payload)
+  if (prompt !== undefined) {
     facts.hasUserEvent = true
-    facts.firstUserMessage ??= promptText(payload.item.content, 'text')
-  }
-  if (payload.type === 'user_message') {
-    facts.hasUserEvent = true
-    const message = str(payload.message)
-    facts.firstUserMessage ??= message && !message.trimStart().startsWith('<') ? cleanTitle(message) : null
+    facts.firstUserMessage ??= prompt
   }
   if (payload.type === 'token_count' && isObject(payload.info) && isObject(payload.info.total_token_usage)) {
     const total = payload.info.total_token_usage.total_tokens
     if (typeof total === 'number' && Number.isSafeInteger(total)) facts.tokensUsed = total
   }
   if (payload.type === 'thread_settings_applied' && isObject(payload.thread_settings)) seeCwd(facts, str(payload.thread_settings.cwd))
+}
+
+/** The prompt of a user message event, null when it has no usable text, and undefined for any other event. */
+function userPrompt(payload: Record<string, unknown>): string | null | undefined {
+  if (payload.type === 'item_completed' && isObject(payload.item) && payload.item.type === 'UserMessage') return promptText(payload.item.content, 'text')
+  if (payload.type !== 'user_message') return undefined
+  const message = str(payload.message)
+  return message && !message.trimStart().startsWith('<') ? cleanTitle(message) : null
+}
+
+function taskText(type: unknown, payload: Record<string, unknown>): string | null {
+  if (type === 'response_item' && payload.type === 'agent_message') return promptText(payload.content, 'input_text')
+  return type === 'event_msg' ? (userPrompt(payload) ?? null) : null
 }
 
 function seeCwd(facts: RolloutFacts, cwd: string | null): void {
@@ -120,6 +139,7 @@ export function sessionMeta(payload: Record<string, unknown>): SessionMeta | nul
   if (!id) return null
   const git = isObject(payload.git) ? payload.git : {}
   const base = isObject(payload.history_base) ? str(payload.history_base.thread_id) : null
+  const start = payload.subagent_history_start_ordinal
   return {
     id: id.toLowerCase(),
     cwd: str(payload.cwd),
@@ -133,8 +153,18 @@ export function sessionMeta(payload: Record<string, unknown>): SessionMeta | nul
     historyBase: base?.toLowerCase() ?? null,
     git: { sha: str(git.commit_hash), branch: str(git.branch), originUrl: str(git.repository_url) },
     agent: { nickname: str(payload.agent_nickname), role: str(payload.agent_role), path: str(payload.agent_path) },
+    spawn: spawnOf(payload.source),
+    historyStart: typeof start === 'number' && Number.isSafeInteger(start) ? start : null,
     creator: { userId: str(payload.creator_user_id), accountId: str(payload.creator_account_id) },
   }
+}
+
+/** Only a `thread_spawn` subagent has a parent. Review and compact subagents have none. */
+function spawnOf(source: unknown): SessionMeta['spawn'] {
+  const spawn = isObject(source) && isObject(source.subagent) && isObject(source.subagent.thread_spawn) ? source.subagent.thread_spawn : null
+  const parent = spawn && str(spawn.parent_thread_id)
+  if (!spawn || !parent) return null
+  return { parent: parent.toLowerCase(), nickname: str(spawn.agent_nickname), role: str(spawn.agent_role) ?? str(spawn.agent_type), path: str(spawn.agent_path) }
 }
 
 export function metaOfLine(bytes: Buffer | null): SessionMeta | null {

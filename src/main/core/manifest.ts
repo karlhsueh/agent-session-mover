@@ -7,7 +7,7 @@ export const MANIFEST_VERSION = 1
 /** Every file role, keyed by the agent that may use it. The validator rejects a role under the wrong agent. */
 export const ROLES_BY_AGENT = {
   'claude-code': ['transcript', 'subagent', 'tool-result'],
-  codex: ['rollout', 'linked-rollout', 'generated-image', 'index-entry'],
+  codex: ['rollout', 'subagent-rollout', 'linked-rollout', 'generated-image', 'index-entry'],
 } as const satisfies Record<AgentId, readonly string[]>
 
 export type FileRole = (typeof ROLES_BY_AGENT)[AgentId][number]
