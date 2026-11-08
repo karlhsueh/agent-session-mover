@@ -1,6 +1,6 @@
 import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
 import { CHANNELS, type StoreRoot } from '../shared/ipc'
 import type { AgentId, ProgressEvent } from '../shared/sessions'
 import { ARCHIVE_EXTENSION } from './archive/archive'
@@ -64,6 +64,33 @@ function createWindow(): void {
   } else {
     window.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+/**
+ * Electron's default menu, without its View > Reload. That item takes Cmd/Ctrl+R, which would reload
+ * the page and drop the selection. The window uses the key to look for new sessions instead.
+ */
+function setMenu(): void {
+  const template: MenuItemConstructorOptions[] = [
+    ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    { role: 'windowMenu' },
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
 const archiveFilter = { name: 'Agent Sessions archive', extensions: [ARCHIVE_EXTENSION] }
@@ -151,6 +178,7 @@ app.whenReady().then(async () => {
 
   registerSessionHandlers(service)
   registerShellHandlers(context)
+  setMenu()
   createWindow()
 
   app.on('activate', () => {

@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AGENT_IDS, type AgentId, type ScanProgress, type SessionList } from '../../shared/sessions'
 import { type Listings, mergedList, NO_LISTINGS, type PendingScan, visibleScans, withAnswer } from './model/listing'
 
+/** A focus within this long of the last check skips the check, so switching windows back and forth stays cheap. */
+const FOCUS_CHECK_INTERVAL_MS = 2000
+
+export type RefreshReason = 'focus' | 'user'
 
 export interface Listing {
   listings: Listings
@@ -12,16 +16,21 @@ export interface Listing {
   scans: PendingScan[]
   /** A refresh of an already listed store is running. */
   refreshing: boolean
-  refresh: () => void
+  refresh: (reason: RefreshReason) => void
 }
 
-/** Lists each agent's store separately, so the first agent to finish shows while the others read. */
+/**
+ * Lists each agent's store separately, so the first agent to finish shows while the others read. Main
+ * reads only files that changed since its last pass, so a refresh is a cheap stat of the stores. It
+ * runs when the window gains focus and when the user asks, never on a timer.
+ */
 export function useListings(): Listing {
   const [listings, setListings] = useState(NO_LISTINGS)
   const [inFlight, setInFlight] = useState<ReadonlySet<AgentId>>(new Set())
   const [progress, setProgress] = useState<Partial<Record<AgentId, ScanProgress>>>({})
   const latest = useRef<Partial<Record<AgentId, ScanProgress>>>({})
   const frame = useRef<number | null>(null)
+  const lastCheck = useRef(0)
   const calls = useRef(new Map<AgentId, number>())
 
   useEffect(() => {
@@ -58,11 +67,22 @@ export function useListings(): Listing {
     })
   }, [])
 
-  const refresh = useCallback(() => {
-    for (const agent of AGENT_IDS) void load(agent)
-  }, [load])
+  const refresh = useCallback(
+    (reason: RefreshReason) => {
+      const now = Date.now()
+      if (reason === 'focus' && now - lastCheck.current < FOCUS_CHECK_INTERVAL_MS) return
+      lastCheck.current = now
+      for (const agent of AGENT_IDS) void load(agent)
+    },
+    [load],
+  )
 
-  useEffect(() => refresh(), [refresh])
+  useEffect(() => {
+    refresh('user')
+    const onFocus = () => refresh('focus')
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [refresh])
 
   const list = useMemo(() => mergedList(listings), [listings])
   const settled = AGENT_IDS.every((agent) => listings[agent] !== null)

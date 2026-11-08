@@ -8,7 +8,7 @@ import { matchSessions, searchNeedle } from '../model/rows'
 import { ALL, countByProject, inScope, projectsOf, type Scope } from '../model/scope'
 import { focusedKey, NO_SELECTION, selectionReducer } from '../model/selection'
 import { useHomeDir, usePreviews, useStored, type Theme } from '../hooks'
-import { Kbd } from './common'
+import { Kbd, RefreshButton } from './common'
 import { ScanLine } from './ScanStatus'
 import { EmptyStore, Problems } from './EmptyStore'
 import { type DetailTab, parseDetailTab, SessionDetail } from './SessionDetail'
@@ -22,6 +22,8 @@ interface Props {
   list: List
   /** Agents still reading, shown as a slim line in the status bar. */
   scans: PendingScan[]
+  refreshing: boolean
+  onRefresh: () => void
   storeRoots: StoreRoot[]
   now: number
   /** False while a sheet covers the browser, so its shortcuts stay with the sheet. */
@@ -43,7 +45,7 @@ const keepOpen = (open: boolean) => String(open)
 const keepTab = (tab: DetailTab) => tab
 const loadPreview = (key: SessionKey) => window.api.previewSession(key)
 
-export function Browser({ list, scans, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
+export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
   const [query, setQuery] = useState<BrowseQuery>(EMPTY_QUERY)
   const [wantedScope, setScope] = useState<Scope>(ALL)
   const [sidebarPreferred, setSidebarPreferred] = useStored('agent-sessions.sidebar', parseOpen, keepOpen)
@@ -118,6 +120,9 @@ export function Browser({ list, scans, storeRoots, now, active, onExport, onImpo
       } else if (mod && key === 'o') {
         event.preventDefault()
         onImport()
+      } else if (mod && key === 'r' && !event.shiftKey) {
+        event.preventDefault()
+        onRefresh()
       } else if (mod && event.key === '\\') {
         event.preventDefault()
         if (sidebarOpen && onSidebar) listRef.current?.focus()
@@ -170,6 +175,7 @@ export function Browser({ list, scans, storeRoots, now, active, onExport, onImpo
       <>
         <TitleBar theme={theme} onToggleTheme={onToggleTheme}>
           <span className="app-name">Agent Sessions</span>
+          <RefreshButton refreshing={refreshing} onRefresh={onRefresh} />
         </TitleBar>
         {notice}
         <EmptyStore list={list} storeRoots={storeRoots} onImport={onImport} />
@@ -191,6 +197,7 @@ export function Browser({ list, scans, storeRoots, now, active, onExport, onImpo
           <SidebarIcon />
         </button>
         <Toolbar sessions={list.sessions} query={query} onChange={setQuery} searchRef={searchRef} />
+        <RefreshButton refreshing={refreshing} onRefresh={onRefresh} />
       </TitleBar>
       {notice}
       <Problems list={list} />

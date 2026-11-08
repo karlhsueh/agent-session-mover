@@ -20,7 +20,7 @@ export function App() {
   const [theme, toggleTheme] = useTheme()
   const [progress, resetProgress] = useProgress()
   const now = useNow()
-  const { listings, list, settled, scans, refresh } = useListings()
+  const { listings, list, settled, scans, refreshing, refresh } = useListings()
   const [storeRoots, setStoreRoots] = useState<StoreRoot[]>([])
   const [screen, setScreen] = useState<Screen>(BROWSE)
 
@@ -91,12 +91,12 @@ export function App() {
     const result = await window.api.runImport(from.archive.token, from.mappings, keys)
     if (!result.ok) return setScreen({ ...from, error: result.error })
     setScreen({ kind: 'import-done', archive: from.archive, result: result.value })
-    refresh()
+    refresh('user')
   }
 
   function backToBrowse() {
     setScreen(BROWSE)
-    refresh()
+    refresh('user')
   }
 
   const inImport = screen.kind === 'import-preview' || screen.kind === 'importing' || screen.kind === 'import-done'
@@ -134,6 +134,8 @@ export function App() {
         <Browser
           list={list}
           scans={scans}
+          refreshing={refreshing}
+          onRefresh={() => refresh('user')}
           storeRoots={storeRoots}
           now={now}
           active={screen.kind === 'browse'}

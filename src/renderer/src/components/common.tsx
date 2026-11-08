@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import type { ApiError } from '../../../shared/ipc'
 import type { AgentId, ClientKind } from '../../../shared/sessions'
-import { AGENT_LABEL, CLIENT_LABEL } from '../model/format'
+import { AGENT_LABEL, CLIENT_LABEL, MOD } from '../model/format'
 import { matchParts } from '../model/rows'
 
 const ERROR_LEAD: Record<ApiError['code'], string> = {
@@ -141,5 +141,17 @@ export function Highlight({ text, needle }: { text: string; needle: string }) {
     <>
       {matchParts(text, needle).map((part, index) => (part.match ? <mark key={index}>{part.text}</mark> : part.text))}
     </>
+  )
+}
+
+/** Lists the stores again. Main reads only what changed, so it is quick unless a long session grew. */
+export function RefreshButton({ refreshing, onRefresh }: { refreshing: boolean; onRefresh: () => void }) {
+  return (
+    <button type="button" className="button ghost icon" aria-label="Refresh sessions" aria-busy={refreshing} title={`Refresh (${MOD}R)`} onClick={onRefresh}>
+      <svg className={refreshing ? 'spin' : undefined} width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M13.3 6.2A5.5 5.5 0 0 0 3 5.1M2.7 9.8A5.5 5.5 0 0 0 13 10.9" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M3 2.2v2.9h2.9M13 13.8v-2.9h-2.9" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   )
 }
