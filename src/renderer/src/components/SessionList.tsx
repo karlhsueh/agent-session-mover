@@ -95,7 +95,7 @@ const SessionRow = memo(function SessionRow({
           onClick(session.key, event.shiftKey ? 'range' : 'toggle')
         }}
       />
-      <AgentMark agent={session.agent} />
+      <AgentMark agent={session.agent} client={session.client} />
       <span className="row-title">
         <span className="truncate">
           <Highlight text={sessionTitle(session)} needle={needle} />
@@ -113,9 +113,11 @@ const SessionRow = memo(function SessionRow({
           {project.parent && <span className="scope-parent"> {project.parent}</span>}
         </span>
       )}
-      <span className="row-client truncate" title={session.clientDetail || undefined}>
-        {CLIENT_LABEL[session.client]}
-      </span>
+      {!project && (
+        <span className="row-client truncate" title={session.clientDetail || undefined}>
+          {CLIENT_LABEL[session.client]}
+        </span>
+      )}
       <time className="row-time" dateTime={session.lastActivity} title={absoluteTime(session.lastActivity)}>
         {relativeTime(session.lastActivity, now)}
       </time>

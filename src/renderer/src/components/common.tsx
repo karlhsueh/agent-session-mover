@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import type { ApiError } from '../../../shared/ipc'
-import type { AgentId } from '../../../shared/sessions'
-import { AGENT_LABEL } from '../model/format'
+import type { AgentId, ClientKind } from '../../../shared/sessions'
+import { AGENT_LABEL, CLIENT_LABEL } from '../model/format'
 import { matchParts } from '../model/rows'
 
 const ERROR_LEAD: Record<ApiError['code'], string> = {
@@ -131,8 +131,9 @@ export function Sheet({ label, children, onClose }: { label: string; children: R
 }
 
 /** A circle for Claude Code and a square for Codex, so the two differ without color too. */
-export function AgentMark({ agent }: { agent: AgentId }) {
-  return <span className={`mark mark-${agent}`} role="img" aria-label={AGENT_LABEL[agent]} title={AGENT_LABEL[agent]} />
+export function AgentMark({ agent, client }: { agent: AgentId; client?: ClientKind }) {
+  const label = client ? `${AGENT_LABEL[agent]} · ${CLIENT_LABEL[client]}` : AGENT_LABEL[agent]
+  return <span className={`mark mark-${agent}`} role="img" aria-label={label} title={label} />
 }
 
 export function Highlight({ text, needle }: { text: string; needle: string }) {
