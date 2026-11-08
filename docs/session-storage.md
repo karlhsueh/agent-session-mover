@@ -18,12 +18,14 @@ Both agents change their storage between versions. Claude's docs call the transc
 
 ## What transfers and what does not
 
+Two separate facts sit behind each row: whether the client shares the store, and whether an imported session was resumed in that client. Resume after import is verified only with the `claude` and `codex` CLIs (`pnpm verify:real`).
+
 | Session type | Portable | Why |
 | --- | --- | --- |
-| Claude Code CLI, desktop Code tab (local), VS Code extension | Yes | All three write to the same `projects/` store. Verified for CLI and desktop, documented for VS Code. |
+| Claude Code CLI, desktop Code tab (local), VS Code extension | Yes | All three write to the same `projects/` store. Store sharing is verified for CLI and desktop, documented for VS Code. Resume after import is verified for the CLI only. |
 | Claude Code web, `--cloud`, cloud desktop sessions, routines | No | They live on Anthropic servers. `claude --teleport` copies one down, after which it is a local session. |
 | Claude desktop Cowork sessions | No | Each one has its own config dir inside the desktop app's VM. |
-| Codex CLI (`codex`, `codex exec`) and Codex desktop app | Yes | Both use `~/.codex`. Verified. |
+| Codex CLI (`codex`, `codex exec`) and Codex desktop app | Yes | Both use `~/.codex`. Store sharing is verified. Resume after import is verified for `codex exec resume <id>` only. Whether the desktop list and the TUI picker show an imported thread is unverified. |
 | Codex IDE extension | Probably | Not installed on the test machine. Its source tag `vscode` suggests the same store. Inferred. |
 | Codex ChatGPT-hosted threads and Codex Cloud tasks | No | They have no local rollout file. |
 
