@@ -68,10 +68,10 @@ export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: 
           <p>
             {plural(live.length, 'session is', 'sessions are')} running now. The archive gets a snapshot that ends at the last complete line.
           </p>
-          <ul className="live-list">
+          <ul className="bullets live-list">
             {live.map((session) => (
-              <li key={session.key} className="truncate">
-                {sessionTitle(session)}
+              <li key={session.key}>
+                <span className="truncate block">{sessionTitle(session)}</span>
               </li>
             ))}
           </ul>
