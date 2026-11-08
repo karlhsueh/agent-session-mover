@@ -9,11 +9,13 @@ export interface Machine {
   home: string
   /** The Claude Code store root, `<home>/.claude`. */
   root: string
+  /** The Codex store root, `<home>/.codex`. */
+  codexRoot: string
   appData: string
   context: CoreContext
 }
 
-/** A fake computer: its own home, Claude store, and app data folder under one temp dir. */
+/** A fake computer: its own home, agent stores, and app data folder under one temp dir. */
 export async function makeMachine(label: string): Promise<Machine> {
   const dir = await makeTempDir(label)
   const home = path.join(dir, 'home')
@@ -23,6 +25,7 @@ export async function makeMachine(label: string): Promise<Machine> {
     dir,
     home,
     root: path.join(home, '.claude'),
+    codexRoot: path.join(home, '.codex'),
     appData,
     context: { providers, env: { homeDir: home, env: {}, platform: process.platform }, appDataDir: appData, appVersion: '0.0.0-test' },
   }
