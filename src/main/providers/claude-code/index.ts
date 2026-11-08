@@ -9,7 +9,7 @@ import { digest, lengthToLastNewline, readRange } from '../../core/streams'
 import { resumeLine } from '../text'
 import { encodeProjectDir } from './encode'
 import { previewClaudeTranscript } from './preview'
-import { findSidecars, findTranscripts, isSidecarName, liveSessionIds, SIDECAR_FOLDERS, type SidecarFile, type SidecarFolder, type TranscriptLocation } from './store'
+import { findSidecars, findTranscripts, isSidecarName, liveSessionIds, SIDECAR_FOLDERS, type SidecarFolder, type TranscriptLocation } from './store'
 import { readSubagents } from './subagents'
 import { clientFromEntrypoint, isHiddenEntrypoint, readFacts, rewriteTranscript, titleOf, type TranscriptFacts } from './transcript'
 
@@ -28,14 +28,16 @@ export const claudeCodeProvider: Provider = {
     const live = await liveSessionIds(root)
     const summaries: SessionSummary[] = []
     for (const transcript of newestPerId(await findTranscripts(root))) {
-      const files = await snapshot(transcript)
+      // Hashes are for export. Listing needs only what the records say and the sizes stat reports.
+      const sidecars = await findSidecars(transcript)
+      const facts = await readFacts(readRange(transcript.absPath, transcript.size))
       summaries.push({
-        ...info(transcript, files.facts, files.files),
+        ...info(transcript, facts, [transcript.size, ...sidecars.map((sidecar) => sidecar.size)]),
         live: live.has(transcript.id),
         archived: false,
-        hiddenFromPicker: isHiddenEntrypoint(files.facts.entrypoint ?? ''),
-        subagents: await readSubagents(files.sidecars),
-        resumeCommand: claudeCodeProvider.resumeCommand(transcript.id, primaryCwd(files.facts, transcript.projectDir)),
+        hiddenFromPicker: isHiddenEntrypoint(facts.entrypoint ?? ''),
+        subagents: await readSubagents(sidecars),
+        resumeCommand: claudeCodeProvider.resumeCommand(transcript.id, primaryCwd(facts, transcript.projectDir)),
       })
     }
     return summaries
@@ -46,7 +48,7 @@ export const claudeCodeProvider: Provider = {
     if (matches.length === 0) throw new Error(`No Claude Code session ${id}`)
     if (matches.length > 1) throw new Error(`Claude Code session ${id} exists in ${matches.length} project folders`)
     const { facts, files } = await snapshot(matches[0])
-    const { key: _key, agent: _agent, sizeBytes: _size, fileCount: _count, ...session } = info(matches[0], facts, files)
+    const { key: _key, agent: _agent, sizeBytes: _size, fileCount: _count, ...session } = info(matches[0], facts, files.map((file) => file.size))
     return { session: { agent: AGENT, ...session }, files, live: (await liveSessionIds(root)).has(id) } satisfies CollectedSession
   },
 
@@ -80,7 +82,7 @@ function newestPerId(transcripts: TranscriptLocation[]): TranscriptLocation[] {
   return [...byId.values()]
 }
 
-async function snapshot(transcript: TranscriptLocation): Promise<{ facts: TranscriptFacts; files: SnapshotFile[]; sidecars: SidecarFile[] }> {
+async function snapshot(transcript: TranscriptLocation): Promise<{ facts: TranscriptFacts; files: SnapshotFile[] }> {
   const base = ['projects', transcript.projectDir]
   const size = await lengthToLastNewline(transcript.absPath, transcript.size)
   const hash = createHash('sha256')
@@ -107,7 +109,7 @@ async function snapshot(transcript: TranscriptLocation): Promise<{ facts: Transc
       mtimeMs: sidecar.mtimeMs,
     })
   }
-  return { facts, files, sidecars }
+  return { facts, files }
 }
 
 async function* tap(chunks: AsyncIterable<Buffer>, onChunk: (chunk: Buffer) => void): AsyncGenerator<Buffer> {
@@ -117,7 +119,7 @@ async function* tap(chunks: AsyncIterable<Buffer>, onChunk: (chunk: Buffer) => v
   }
 }
 
-function info(transcript: TranscriptLocation, facts: TranscriptFacts, files: SnapshotFile[]): SessionInfo {
+function info(transcript: TranscriptLocation, facts: TranscriptFacts, sizes: number[]): SessionInfo {
   const fallback = new Date(transcript.mtimeMs).toISOString()
   return {
     key: sessionKey(AGENT, transcript.id),
@@ -131,8 +133,8 @@ function info(transcript: TranscriptLocation, facts: TranscriptFacts, files: Sna
     createdAt: facts.firstMs === null ? fallback : new Date(facts.firstMs).toISOString(),
     lastActivity: facts.lastMs === null ? fallback : new Date(facts.lastMs).toISOString(),
     cliVersion: facts.version,
-    sizeBytes: files.reduce((sum, file) => sum + file.size, 0),
-    fileCount: files.length,
+    sizeBytes: sizes.reduce((sum, size) => sum + size, 0),
+    fileCount: sizes.length,
   }
 }
 

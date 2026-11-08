@@ -43,7 +43,8 @@ export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<Transcri
     version: null,
   }
   for await (const line of splitLines(chunks)) {
-    const record = parseRecord(line.bytes)
+    // A half-written last line belongs to a writer still at work, as in an export snapshot.
+    const record = line.terminated ? parseRecord(line.bytes) : null
     if (record) absorb(facts, record)
   }
   return facts
