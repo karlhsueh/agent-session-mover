@@ -2,7 +2,7 @@
 
 A desktop app that moves Claude Code and Codex sessions from one computer to another. It lists the sessions on this machine, exports the ones you pick into one `.agentsessions` file, and imports that file on another machine so you can resume the sessions there.
 
-The list groups sessions by project folder. A session that started subagents shows how many, and they unfold under it and in the detail panel. They are always exported with their parent. Press `?` for keyboard shortcuts.
+A sidebar lists your project folders. Pick one to see only its sessions, or pick All sessions to see every session with its project beside it. Your selection carries across projects, and the sidebar shows how many sessions you picked in each. A session that started subagents shows how many, and the detail panel lists them. They are always exported with their parent. Press `?` for keyboard shortcuts.
 
 The archive holds full transcripts, unredacted: the account email, system prompts, and the contents of every file and command output the agent read. Credentials and settings are never included. After an import, the app reports that the files are in place and shows the resume command. It does not check that the agent opens them.
 
@@ -29,4 +29,5 @@ pnpm dev
 | `pnpm typecheck` | Type checks the Node side and the renderer separately.           |
 | `pnpm test`      | Runs the unit and behavior tests in `test/` with vitest.         |
 | `pnpm smoke`     | Builds the app, drives export and import for Claude Code and Codex on temp stores, and saves screenshots in `artifacts/`. |
+| `pnpm screens [prefix]` | Builds the app, opens it on a synthetic store of 52 sessions in 26 folders, and saves each browse state to `artifacts/compare/<prefix>-<state>.png`. The prefix defaults to `after`. It prints how many rows each state shows without scrolling. |
 | `pnpm verify:real` | Uses the real `claude` and `codex` CLIs to create a throwaway session, export it, import it under another folder, and resume it. It spends a few model tokens. Claude Code writes to your real store and the test removes what it made. Codex runs in temporary `CODEX_HOME` folders that hold a copy of your `~/.codex/auth.json` for the length of the run. The test refuses to run when the access token expires within 2 hours, so Codex does not refresh the token inside a copy, and it deletes the copies afterwards. |
