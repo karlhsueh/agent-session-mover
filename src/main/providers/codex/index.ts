@@ -74,6 +74,7 @@ async function discover(root: string, env: ProviderEnv): Promise<SessionSummary[
       live: locked.has(id),
       archived: main.archived || store.rows.get(id)?.archived === true,
       hiddenFromPicker: facts.meta ? hiddenFromPicker(facts.meta) : false,
+      subagents: [],
       resumeCommand: resumeLine(`codex resume ${id}`, session.cwd),
     })
   }

@@ -51,12 +51,24 @@ export interface SessionInfo {
   fileCount: number
 }
 
+/** A helper agent the session started. It is exported and imported with its parent, never on its own. */
+export interface SubagentSummary {
+  id: string
+  /** The task or prompt the parent gave it, when the agent records one. */
+  title: string | null
+  /** The agent type or nickname, such as `Explore` or `Ada`. */
+  role: string | null
+  lastActivity: string | null
+}
+
 export interface SessionSummary extends SessionInfo {
   /** A process that is still writing this session is running on this machine. */
   live: boolean
   archived: boolean
   /** The agent's own resume picker skips this session. The resume command still finds it. */
   hiddenFromPicker: boolean
+  /** Newest first. Empty when the session started none. */
+  subagents: SubagentSummary[]
   /** Shell line that resumes the session on this machine, `cd` included when the cwd is known. */
   resumeCommand: string
 }
