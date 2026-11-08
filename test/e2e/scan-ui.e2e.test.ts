@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright'
@@ -90,6 +90,17 @@ it('shows each agent as it finishes, then refreshes on focus, the button, and Cm
   await row(page, 'Found by the shortcut').waitFor()
   expect(await titles(page), 'a session that vanished drops out of the list').not.toContain('Claude session one')
   expect(await selected(), 'and out of the selection').toEqual(['Claude session two'])
+
+  const long = await write(6, 'A transcript too long to read whole', 530)
+  const filler = (where: string, megabytes: number) =>
+    Array.from({ length: megabytes * 16 }, () => JSON.stringify({ type: 'progress', cwd: where, sessionId: id(6), padding: 'x'.repeat(64 * 1024) }) + '\n').join('')
+  await appendFile(long.transcriptPath, filler(cwd, 30) + filler(path.join(home, 'code', 'other-checkout'), 1) + filler(cwd, 5))
+  await page.getByRole('button', { name: 'Refresh sessions' }).click()
+  await expect.poll(async () => (await row(page, 'A transcript too long').count()) > 0).toBe(true)
+  await row(page, 'A transcript too long').click()
+  const detail = page.getByRole('complementary', { name: 'Session details' })
+  await expect.poll(() => detail.textContent()).toMatch(/Also ran inNot known\. The list reads only the start and end of a transcript this long/)
+  await shot(page, 'scan-long-transcript-dark')
 
   const reloads = await app.evaluate(({ Menu }) => {
     const found: string[] = []

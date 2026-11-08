@@ -125,13 +125,14 @@ function Overview({ session, home, now }: { session: SessionSummary; home: strin
           <Copyable shown={session.id} copy={session.id} />
         </Field>
         <Field label="Folder">{session.cwd ? <Copyable path shown={tildePath(session.cwd, home)} copy={session.cwd} /> : 'Not recorded'}</Field>
-        {otherCwds.length > 0 && (
+        {(otherCwds.length > 0 || !session.cwdsComplete) && (
           <Field label="Also ran in">
             {otherCwds.map((cwd) => (
               <span key={cwd} className="mono selectable block" title={cwd}>
                 <PathText path={tildePath(cwd, home)} />
               </span>
             ))}
+            {!session.cwdsComplete && <span className="dim block">{otherCwds.length > 0 ? 'Maybe more.' : 'Not known.'} The list reads only the start and end of a transcript this long. An export reads all of it.</span>}
           </Field>
         )}
         <Field label="Version">{session.cliVersion ?? 'Unknown'}</Field>
