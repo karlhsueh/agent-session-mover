@@ -1,5 +1,6 @@
 import type { ClientKind } from '../../../shared/sessions'
 import { type Line, splitLines } from '../../core/streams'
+import { cleanTitle } from '../text'
 
 export interface TranscriptFacts {
   cwds: string[]
@@ -29,8 +30,6 @@ export function clientFromEntrypoint(entrypoint: string | null): ClientKind {
 export function isHiddenEntrypoint(entrypoint: string): boolean {
   return entrypoint.startsWith('sdk-')
 }
-
-const TITLE_LIMIT = 200
 
 export async function readFacts(chunks: AsyncIterable<Buffer>): Promise<TranscriptFacts> {
   const facts: TranscriptFacts = {
@@ -84,11 +83,6 @@ function promptText(message: unknown): string | null {
   return text
 }
 
-function cleanTitle(value: string): string | null {
-  const collapsed = value.replace(/\s+/g, ' ').trim()
-  if (collapsed === '') return null
-  return collapsed.length > TITLE_LIMIT ? `${collapsed.slice(0, TITLE_LIMIT - 1)}…` : collapsed
-}
 
 export function titleOf(facts: TranscriptFacts): string | null {
   return facts.customTitle ?? facts.aiTitle ?? facts.firstPrompt

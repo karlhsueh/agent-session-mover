@@ -6,6 +6,7 @@ import type { FileRole, ManifestSession, Sha256 } from '../../core/manifest'
 import { joinStorePath, mapPath } from '../../core/paths'
 import type { CollectedSession, ImportContext, Provider, RefusedAction, SnapshotFile, TargetFile, TargetInspection } from '../../core/provider'
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
+import { resumeLine } from '../text'
 import { encodeProjectDir } from './encode'
 import { findSidecars, findTranscripts, isSidecarName, liveSessionIds, SIDECAR_FOLDERS, type SidecarFolder, type TranscriptLocation } from './store'
 import { clientFromEntrypoint, isHiddenEntrypoint, readFacts, rewriteTranscript, titleOf, type TranscriptFacts } from './transcript'
@@ -30,7 +31,7 @@ export const claudeCodeProvider: Provider = {
         ...info(transcript, files.facts, files.files),
         live: live.has(transcript.id),
         archived: false,
-        resumeCommand: resumeCommand(transcript.id, primaryCwd(files.facts, transcript.projectDir)),
+        resumeCommand: resumeLine(`claude --resume ${transcript.id}`, primaryCwd(files.facts, transcript.projectDir)),
       })
     }
     return summaries
@@ -125,12 +126,6 @@ function primaryCwd(facts: TranscriptFacts, projectDir: string): string | null {
   return facts.cwds.find((cwd) => encodeProjectDir(cwd) === projectDir) ?? facts.cwds[0] ?? null
 }
 
-function resumeCommand(id: string, cwd: string | null): string {
-  const resume = `claude --resume ${id}`
-  if (!cwd) return resume
-  const quoted = process.platform === 'win32' ? `"${cwd.replace(/"/g, '""')}"` : `'${cwd.replace(/'/g, `'\\''`)}'`
-  return `cd ${quoted} && ${resume}`
-}
 
 type SessionLayout = { projectDir: string; files: { file: ManifestSession['files'][number]; rest: string[] }[] }
 
