@@ -13,10 +13,11 @@ import {
   suggestMappings,
   summarizeArchive,
 } from './core/import'
+import { createFolder } from './core/folders'
 import { ManifestError } from './core/manifest'
 import { previewArchivedSession, previewStoredSession } from './core/preview-session'
 import type { ArchiveLimits } from './archive/archive'
-import { InputError, parseAgent, parseKey, parseKeys, parseMappings, parseToken } from './ipc-input'
+import { InputError, parseAgent, parseFolder, parseKey, parseKeys, parseMappings, parseToken } from './ipc-input'
 import type { ApiError, ApiResult, ExportOutcome, OpenArchiveOutcome } from '../shared/ipc'
 import type { ArchiveToken, ImportPreview, ImportResult, ProgressEvent, SessionList, SessionPreview } from '../shared/sessions'
 import path from 'node:path'
@@ -33,6 +34,8 @@ export interface SessionService {
   openArchive(chooseArchive: () => Promise<string | null>, emit: Emit): Promise<ApiResult<OpenArchiveOutcome>>
   previewImport(token: unknown, mappings: unknown): Promise<ApiResult<ImportPreview>>
   runImport(token: unknown, mappings: unknown, keys: unknown, emit: Emit): Promise<ApiResult<ImportResult>>
+  /** Creates a mapping target and its missing parents, only while that archive is open. */
+  createFolder(token: unknown, target: unknown): Promise<ApiResult<void>>
   dispose(): Promise<void>
 }
 
@@ -135,6 +138,13 @@ export function createSessionService(
         const missing = keys.find((key) => !archived.has(key))
         if (missing) throw new InputError(`The archive has no session ${missing}.`)
         return runImport(context, opened, mappings, keys, { fault: options.fault, onProgress: emit })
+      })
+    },
+
+    createFolder(tokenInput, targetInput) {
+      return attempt(async () => {
+        archiveFor(parseToken(tokenInput))
+        await createFolder(parseFolder(targetInput))
       })
     },
 

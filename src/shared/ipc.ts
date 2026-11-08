@@ -20,6 +20,7 @@ export const CHANNELS = {
   previewImport: 'import:preview',
   previewArchiveSession: 'archive:preview-session',
   runImport: 'import:run',
+  createFolder: 'import:create-folder',
   progress: 'progress',
   storeRoots: 'stores:roots',
   chooseFolder: 'dialog:folder',
@@ -69,6 +70,8 @@ export interface DesktopApi {
   /** The Conversation preview of a session in the open archive. */
   previewArchiveSession(token: ArchiveToken, key: SessionKey): Promise<ApiResult<SessionPreview>>
   runImport(token: ArchiveToken, mappings: PathMapping[], keys: SessionKey[]): Promise<ApiResult<ImportResult>>
+  /** Creates a missing mapping target and its parents while that archive is open. An existing folder is left as it is. */
+  createFolder(token: ArchiveToken, target: string): Promise<ApiResult<void>>
   /** Returns the unsubscribe function. */
   onProgress(callback: (event: ProgressEvent) => void): () => void
   /** The store folder each provider reads on this machine. */

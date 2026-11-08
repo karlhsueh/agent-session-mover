@@ -96,7 +96,7 @@ try {
   assert.equal(await page.title(), 'Agent Sessions', 'window has the default title')
   assert.deepEqual(
     await page.evaluate('Object.keys(window.api)'),
-    ['listSessions', 'previewSession', 'exportSessions', 'openArchive', 'previewImport', 'previewArchiveSession', 'runImport', 'onProgress', 'storeRoots', 'chooseFolder', 'revealExport', 'copyText', 'homeDir'],
+    ['listSessions', 'previewSession', 'exportSessions', 'openArchive', 'previewImport', 'previewArchiveSession', 'runImport', 'createFolder', 'onProgress', 'storeRoots', 'chooseFolder', 'revealExport', 'copyText', 'homeDir'],
     'window.api exposes exactly the declared capabilities',
   )
   assert.deepEqual(await page.evaluate('[typeof process, typeof require]'), ['undefined', 'undefined'], 'page has no process or require')

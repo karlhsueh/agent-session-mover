@@ -134,6 +134,7 @@ function registerSessionHandlers(service: SessionService): void {
   ipcMain.handle(CHANNELS.runImport, (event, token: unknown, mappings: unknown, keys: unknown) =>
     service.runImport(token, mappings, keys, emitter(event)),
   )
+  ipcMain.handle(CHANNELS.createFolder, (_event, token: unknown, target: unknown) => service.createFolder(token, target))
   ipcMain.handle(CHANNELS.revealExport, () => {
     if (lastExport) shell.showItemInFolder(lastExport)
   })

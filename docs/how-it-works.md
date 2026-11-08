@@ -36,7 +36,7 @@ flowchart LR
   preload -- sends messages --> main
 ```
 
-`window.api` has a fixed set of functions. Eight move sessions or show what they hold, and are described in [Moving sessions between machines](transfer.md). Five more help the page: `storeRoots`, `chooseFolder`, `revealExport`, `copyText`, and `homeDir`, which lets the page show paths as `~/…`. The preload script never gives the page `ipcRenderer` itself. If it did, the page could send any message on any channel, and the sandbox would protect much less. Each function on `window.api` is a capability you chose to grant, and the smoke test fails if an undeclared key appears.
+`window.api` has a fixed set of functions. Nine move sessions, show what they hold, or prepare a folder for them, and are described in [Moving sessions between machines](transfer.md). Five more help the page: `storeRoots`, `chooseFolder`, `revealExport`, `copyText`, and `homeDir`, which lets the page show paths as `~/…`. The preload script never gives the page `ipcRenderer` itself. If it did, the page could send any message on any channel, and the sandbox would protect much less. Each function on `window.api` is a capability you chose to grant, and the smoke test fails if an undeclared key appears.
 
 ## Follow the code from launch to the first list
 

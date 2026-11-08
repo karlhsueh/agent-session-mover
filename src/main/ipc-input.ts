@@ -44,6 +44,11 @@ export function parseMappings(input: unknown, isAbsolute: (target: string) => bo
   })
 }
 
+export function parseFolder(input: unknown, isAbsolute: (target: string) => boolean = path.isAbsolute): string {
+  if (!isPathText(input) || !isAbsolute(input)) throw new InputError('Expected an absolute folder path.')
+  return input
+}
+
 function isPathText(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= MAX_PATH && !value.includes('\0')
 }

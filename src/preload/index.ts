@@ -10,6 +10,7 @@ const api: DesktopApi = {
   previewImport: (token, mappings) => ipcRenderer.invoke(CHANNELS.previewImport, token, mappings),
   previewArchiveSession: (token, key) => ipcRenderer.invoke(CHANNELS.previewArchiveSession, token, key),
   runImport: (token, mappings, keys) => ipcRenderer.invoke(CHANNELS.runImport, token, mappings, keys),
+  createFolder: (token, target) => ipcRenderer.invoke(CHANNELS.createFolder, token, target),
   onProgress: (callback) => {
     const listener = (_event: IpcRendererEvent, progress: ProgressEvent) => callback(progress)
     ipcRenderer.on(CHANNELS.progress, listener)
