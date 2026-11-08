@@ -93,6 +93,7 @@ describe('import into an empty store', () => {
 
     const result = await runImport(b.context, opened, mappings, [key(S1), key(S2), key(S3)])
     expect(result.outcomes.map((o) => o.status)).toEqual(['created', 'created', 'created'])
+    expect(result.outcomes[0], 'the result carries the resume command for the folder it landed in').toMatchObject({ resumeCommand: `cd '${dstProj}' && claude --resume ${S1}` })
 
     const dstDir = path.join(b.root, 'projects', encodeProjectDir(dstProj))
     const imported = await readFile(path.join(dstDir, `${S1}.jsonl`), 'utf8')

@@ -123,7 +123,7 @@ export interface ImportPreview {
 }
 
 export type SessionImportOutcome =
-  | { key: SessionKey; status: 'created' | 'updated' | 'skipped'; action: ImportAction; backupDir: string | null }
+  | { key: SessionKey; status: 'created' | 'updated' | 'skipped'; action: ImportAction; backupDir: string | null; resumeCommand: string }
   | { key: SessionKey; status: 'refused'; action: ImportAction }
   | { key: SessionKey; status: 'failed'; action: ImportAction; error: string; rolledBack: boolean }
 

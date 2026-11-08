@@ -39,6 +39,7 @@ export const codexProvider: Provider = {
   collect: (root, id, env) => retryOnFlip(() => collect(root, id, env)),
   inspectTarget: inspectCodexTarget,
   transcriptRole: 'rollout',
+  resumeCommand: (id, cwd) => resumeLine(`codex resume ${id}`, cwd),
   async findTranscript(root, id) {
     const main = newestByThread(await findRollouts(root)).get(id)
     return main ? { absPath: main.absPath, path: main.rel } : null
@@ -92,7 +93,7 @@ async function discover(root: string, env: ProviderEnv): Promise<SessionSummary[
       archived: thread.main.archived || store.rows.get(id)?.archived === true,
       hiddenFromPicker: thread.facts.meta ? hiddenFromPicker(thread.facts.meta) : false,
       subagents: subagents.map(subagentSummary).sort((a, b) => (b.lastActivity ?? '').localeCompare(a.lastActivity ?? '')),
-      resumeCommand: resumeLine(`codex resume ${id}`, session.cwd),
+      resumeCommand: codexProvider.resumeCommand(id, session.cwd),
     })
   }
   return summaries

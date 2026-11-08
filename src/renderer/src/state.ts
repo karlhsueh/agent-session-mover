@@ -32,7 +32,7 @@ export type Screen =
   | { kind: 'opening' }
   | PreviewScreen
   | { kind: 'importing'; from: PreviewScreen; keys: SessionKey[] }
-  | { kind: 'import-done'; archive: OpenedArchive; result: ImportResult; resumeCommands: ReadonlyMap<SessionKey, string> }
+  | { kind: 'import-done'; archive: OpenedArchive; result: ImportResult }
 
 export function shownPreview(state: PreviewState): ImportPreview | null {
   return state.status === 'ready' ? state.value : state.last

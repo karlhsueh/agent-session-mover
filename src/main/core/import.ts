@@ -230,7 +230,8 @@ async function importOne(
     return { key, status: 'failed', action: { kind: 'blocked', reason: 'invalid-session', message: 'Planning failed.' }, error: messageOf(error), rolledBack: true }
   }
   const { action } = planned.plan
-  if (action.kind === 'skip-identical') return { key, status: 'skipped', action, backupDir: null }
+  const resumeCommand = planned.provider.resumeCommand(session.id, planned.inspection?.targetCwd ?? null)
+  if (action.kind === 'skip-identical') return { key, status: 'skipped', action, backupDir: null, resumeCommand }
   if (action.kind === 'conflict' || action.kind === 'blocked') return { key, status: 'refused', action }
   try {
     const { backupDir } = await executePlan(planned.plan, {
@@ -243,7 +244,7 @@ async function importOne(
       runId: run.runId,
       fault: run.fault,
     })
-    return { key, status: action.kind === 'create' ? 'created' : 'updated', action, backupDir }
+    return { key, status: action.kind === 'create' ? 'created' : 'updated', action, backupDir, resumeCommand }
   } catch (error) {
     if (!(error instanceof ExecutionError)) throw error
     return { key, status: 'failed', action, error: error.message, rolledBack: error.rolledBack }

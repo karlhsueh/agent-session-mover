@@ -91,6 +91,8 @@ export interface Provider {
   inspectTarget(root: string, session: ManifestSession, context: ImportContext): Promise<TargetInspection>
   /** The archive file role that holds a session's main transcript, the one its Conversation preview reads. */
   readonly transcriptRole: FileRole
+  /** Shell line that resumes the session, `cd` included when the cwd is known. */
+  resumeCommand(id: string, cwd: string | null): string
   /** Read-only. The session's main transcript on this machine, or null when the session is not here. */
   findTranscript(root: string, id: string, env: ProviderEnv): Promise<TranscriptFile | null>
   /** Read-only. One parser per agent turns a store file or a staged archive blob into the Conversation preview. */

@@ -35,7 +35,7 @@ export const claudeCodeProvider: Provider = {
         archived: false,
         hiddenFromPicker: isHiddenEntrypoint(files.facts.entrypoint ?? ''),
         subagents: await readSubagents(files.sidecars),
-        resumeCommand: resumeLine(`claude --resume ${transcript.id}`, primaryCwd(files.facts, transcript.projectDir)),
+        resumeCommand: claudeCodeProvider.resumeCommand(transcript.id, primaryCwd(files.facts, transcript.projectDir)),
       })
     }
     return summaries
@@ -55,6 +55,7 @@ export const claudeCodeProvider: Provider = {
   },
 
   transcriptRole: 'transcript',
+  resumeCommand: (id, cwd) => resumeLine(`claude --resume ${id}`, cwd),
 
   async findTranscript(root, id) {
     const [transcript] = newestPerId((await findTranscripts(root)).filter((each) => each.id === id))

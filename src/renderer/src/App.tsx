@@ -95,9 +95,8 @@ export function App() {
     setScreen({ kind: 'importing', from, keys })
     const result = await window.api.runImport(from.archive.token, from.mappings, keys)
     if (!result.ok) return setScreen({ ...from, error: result.error })
-    const list = await loadSessions()
-    const resumeCommands = new Map((list?.sessions ?? []).map((session) => [session.key, session.resumeCommand]))
-    setScreen({ kind: 'import-done', archive: from.archive, result: result.value, resumeCommands })
+    setScreen({ kind: 'import-done', archive: from.archive, result: result.value })
+    void loadSessions()
   }
 
   function backToBrowse() {

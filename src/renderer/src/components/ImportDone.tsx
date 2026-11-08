@@ -8,7 +8,7 @@ import { CommandLine } from './common'
 type DoneScreen = Extract<Screen, { kind: 'import-done' }>
 
 export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () => void }) {
-  const { archive, result, resumeCommands } = screen
+  const { archive, result } = screen
   const home = useHomeDir()
   const info = new Map(archive.summary.sessions.map((session) => [session.key, session]))
   const placed = result.outcomes.filter((outcome) => outcome.status === 'created' || outcome.status === 'updated')
@@ -33,7 +33,7 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
           </header>
           <ul className="plan">
             {result.outcomes.map((outcome) => (
-              <OutcomeRow key={outcome.key} sessionKey={outcome.key} title={sessionTitle(info.get(outcome.key) ?? { title: null, id: outcome.key })} label={OUTCOMES[outcome.status]} message={describeOutcome(outcome)} resume={outcome.status === 'created' || outcome.status === 'updated' ? shortCommand(resumeCommands.get(outcome.key) ?? '', home) || null : null} />
+              <OutcomeRow key={outcome.key} sessionKey={outcome.key} title={sessionTitle(info.get(outcome.key) ?? { title: null, id: outcome.key })} label={OUTCOMES[outcome.status]} message={describeOutcome(outcome)} resume={outcome.status === 'created' || outcome.status === 'updated' ? shortCommand(outcome.resumeCommand, home) || null : null} />
             ))}
           </ul>
         </section>
