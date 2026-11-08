@@ -23,13 +23,23 @@ export interface FixtureSession {
   resumedFrom?: string
   customTitle?: string
   aiTitle?: string
-  subagents?: boolean
+  /** `true` writes one Explore agent with no description. */
+  subagents?: boolean | FixtureSubagent[]
   toolResult?: boolean
   /** Ends the transcript with half a JSON line, as a live writer would leave it. */
   halfWrittenLastLine?: boolean
   /** Minutes after 2026-11-01T10:00:00Z for the first record. */
   startMinute?: number
   turns?: number
+}
+
+export interface FixtureSubagent {
+  id: string
+  /** Raw `agent-<id>.meta.json` content, or an object to serialize. Omitted means no meta file. */
+  meta?: string | Record<string, unknown>
+  prompt?: string
+  /** Minutes after the base time for the agent's records. */
+  minutes?: number[]
 }
 
 export interface BuiltSession {
@@ -93,11 +103,18 @@ export async function writeSession(root: string, session: FixtureSession): Promi
   const transcriptPath = path.join(dir, `${session.id}.jsonl`)
   const tail = session.halfWrittenLastLine ? '{"type":"assistant","message":{"role":"assist' : ''
   await writeFile(transcriptPath, lines.join('\n') + '\n' + tail)
-  if (session.subagents) {
+  const agents: FixtureSubagent[] =
+    session.subagents === true ? [{ id: 'a1b2c3', meta: { agentType: 'Explore', isBuiltIn: true, finished: true }, prompt: 'Search the repo', minutes: [3] }] : session.subagents || []
+  for (const agent of agents) {
     const sub = path.join(dir, session.id, 'subagents')
     await mkdir(sub, { recursive: true })
-    await writeFile(path.join(sub, 'agent-a1b2c3.jsonl'), JSON.stringify({ type: 'user', cwd: session.cwd, sessionId: session.id, isSidechain: true, timestamp: at(3), message: { role: 'user', content: 'Search the repo' } }) + '\n')
-    await writeFile(path.join(sub, 'agent-a1b2c3.meta.json'), JSON.stringify({ agentType: 'Explore', isBuiltIn: true, finished: true }))
+    const records = (agent.minutes ?? [3]).map((minute, index) =>
+      index === 0
+        ? { type: 'user', cwd: session.cwd, sessionId: session.id, agentId: agent.id, isSidechain: true, timestamp: at(minute), message: { role: 'user', content: agent.prompt ?? 'Search the repo' } }
+        : { type: 'assistant', cwd: session.cwd, sessionId: session.id, agentId: agent.id, isSidechain: true, timestamp: at(minute), message: { role: 'assistant', content: [{ type: 'text', text: 'Found it.' }] } },
+    )
+    await writeFile(path.join(sub, `agent-${agent.id}.jsonl`), records.map((record) => JSON.stringify(record)).join('\n') + '\n')
+    if (agent.meta !== undefined) await writeFile(path.join(sub, `agent-${agent.id}.meta.json`), typeof agent.meta === 'string' ? agent.meta : JSON.stringify(agent.meta))
   }
   if (toolResultPath) {
     await mkdir(path.dirname(toolResultPath), { recursive: true })

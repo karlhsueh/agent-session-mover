@@ -8,7 +8,8 @@ import type { CollectedSession, ImportContext, Provider, RefusedAction, Snapshot
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
 import { resumeLine } from '../text'
 import { encodeProjectDir } from './encode'
-import { findSidecars, findTranscripts, isSidecarName, liveSessionIds, SIDECAR_FOLDERS, type SidecarFolder, type TranscriptLocation } from './store'
+import { findSidecars, findTranscripts, isSidecarName, liveSessionIds, SIDECAR_FOLDERS, type SidecarFile, type SidecarFolder, type TranscriptLocation } from './store'
+import { readSubagents } from './subagents'
 import { clientFromEntrypoint, isHiddenEntrypoint, readFacts, rewriteTranscript, titleOf, type TranscriptFacts } from './transcript'
 
 const AGENT = 'claude-code'
@@ -32,7 +33,7 @@ export const claudeCodeProvider: Provider = {
         live: live.has(transcript.id),
         archived: false,
         hiddenFromPicker: isHiddenEntrypoint(files.facts.entrypoint ?? ''),
-        subagents: [],
+        subagents: await readSubagents(files.sidecars),
         resumeCommand: resumeLine(`claude --resume ${transcript.id}`, primaryCwd(files.facts, transcript.projectDir)),
       })
     }
@@ -68,7 +69,7 @@ function newestPerId(transcripts: TranscriptLocation[]): TranscriptLocation[] {
   return [...byId.values()]
 }
 
-async function snapshot(transcript: TranscriptLocation): Promise<{ facts: TranscriptFacts; files: SnapshotFile[] }> {
+async function snapshot(transcript: TranscriptLocation): Promise<{ facts: TranscriptFacts; files: SnapshotFile[]; sidecars: SidecarFile[] }> {
   const base = ['projects', transcript.projectDir]
   const size = await lengthToLastNewline(transcript.absPath, transcript.size)
   const hash = createHash('sha256')
@@ -83,7 +84,8 @@ async function snapshot(transcript: TranscriptLocation): Promise<{ facts: Transc
       mtimeMs: transcript.mtimeMs,
     },
   ]
-  for (const sidecar of await findSidecars(transcript)) {
+  const sidecars = await findSidecars(transcript)
+  for (const sidecar of sidecars) {
     const length = sidecar.name.endsWith('.jsonl') ? await lengthToLastNewline(sidecar.absPath, sidecar.size) : sidecar.size
     files.push({
       role: ROLE_BY_FOLDER[sidecar.folder],
@@ -94,7 +96,7 @@ async function snapshot(transcript: TranscriptLocation): Promise<{ facts: Transc
       mtimeMs: sidecar.mtimeMs,
     })
   }
-  return { facts, files }
+  return { facts, files, sidecars }
 }
 
 async function* tap(chunks: AsyncIterable<Buffer>, onChunk: (chunk: Buffer) => void): AsyncGenerator<Buffer> {

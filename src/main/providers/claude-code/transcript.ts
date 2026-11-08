@@ -68,7 +68,7 @@ function absorb(facts: TranscriptFacts, record: Record<string, unknown>): void {
   }
 }
 
-function promptText(message: unknown): string | null {
+export function promptText(message: unknown): string | null {
   if (!isObject(message)) return null
   const content = message.content
   let text: string | null = null
