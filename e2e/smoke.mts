@@ -115,7 +115,7 @@ try {
 
   await scope(page, 'web').click()
   assert.deepEqual(await rowTitles(page), [fixtures[3]!.title, fixtures[4]!.title], 'a project scope lists only that folder’s sessions')
-  assert.match((await page.locator('.list-head').textContent()) ?? '', /^~\/code\/web2 sessions$/, 'the list header names the folder and its count')
+  assert.match((await page.locator('.list-head').textContent()) ?? '', /^~\/code\/web2$/, 'the list header names the folder and its count')
   assert.equal(await list(page).locator('.row-project').count(), 0, 'a project scope drops the project column')
   await page.keyboard.press('ArrowDown')
   assert.equal(await scope(page, 'tools').getAttribute('aria-selected'), 'true', 'Down in the sidebar moves to the next project')

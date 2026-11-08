@@ -100,7 +100,7 @@ function Entry({
       </span>
       {live && <span className="scope-live" aria-hidden="true" />}
       {selected > 0 && (
-        <span className="scope-pill" aria-hidden="true">
+        <span className="scope-pill" aria-hidden="true" title={`${selected} selected of ${count}`}>
           {selected}
         </span>
       )}

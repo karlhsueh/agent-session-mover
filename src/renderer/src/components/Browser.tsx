@@ -224,7 +224,9 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
             <span className="list-head-title truncate" title={headProject?.path ?? undefined}>
               {headProject ? (headProject.path ? tildePath(headProject.path, home) : 'No folder') : 'All sessions'}
             </span>
-            <span className="dim">{filtered ? `${shown.length} of ${plural(scopeTotal, 'session')}` : plural(scopeTotal, 'session')}</span>
+            <span className="list-head-count" title={plural(scopeTotal, 'session')}>
+              {filtered ? `${shown.length} of ${scopeTotal}` : scopeTotal}
+            </span>
           </header>
           {shown.length > 0 ? (
             <SessionList
