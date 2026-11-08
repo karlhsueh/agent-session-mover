@@ -283,7 +283,7 @@ try {
   const webRow = page.locator('.mapping', { has: webTarget })
   assert.equal(await webRow.locator('.mapping-status').textContent(), 'Folder does not exist yet', 'mapping flags a missing folder')
   await webRow.getByRole('button', { name: 'Choose…' }).click()
-  await page.locator(`.plan:not(.stale) .plan-target[title="${chosenWebFolder}"]`).first().waitFor()
+  await page.locator(`.plan:not(.stale) .plan-target[title="${chosenWebFolder.replace(/[\\"]/g, '\\$&')}"]`).first().waitFor()
   assert.equal(await webTarget.inputValue(), join('~', 'checkouts', 'web-main'), 'folder picker fills the mapping')
   assert.equal(await webRow.locator('.mapping-status').textContent(), 'Folder exists', 'preview re-runs with the chosen folder')
   await shot(page, 'import-preview-dark')
