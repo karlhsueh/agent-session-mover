@@ -46,7 +46,7 @@ async function launch(on: Machine, extra: Record<string, string>): Promise<{ pag
   return { page, problems }
 }
 
-const rows = (page: Page) => page.getByRole('listbox', { name: 'Sessions' }).getByRole('option')
+const rows = (page: Page) => page.getByRole('tree', { name: 'Sessions' }).locator('.row')
 
 it('lists, exports, and imports Codex sessions through the app', { timeout: 120_000 }, async () => {
   root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'agent-sessions-codex-ui-')))
@@ -62,7 +62,8 @@ it('lists, exports, and imports Codex sessions through the app', { timeout: 120_
   await rows(laptop.page).first().waitFor()
   const listed = await rows(laptop.page).allTextContents()
   expect(listed.length, 'the list shows the Codex fixture sessions').toBeGreaterThanOrEqual(6)
-  expect(listed.every((text) => text.includes('Codex')), 'every row is labeled Codex').toBe(true)
+  expect(await laptop.page.locator('.row .mark-codex').count(), 'every row carries the Codex mark').toBe(listed.length)
+  expect(listed.some((text) => text.includes('+3')), 'the parent session shows its 3 nested subagents').toBe(true)
   expect(listed.some((text) => text.includes('Renamed tokenizer work')), 'the session index name is the title').toBe(true)
   await laptop.page.screenshot({ animations: 'disabled', path: 'artifacts/codex-browse-dark.png' })
 
