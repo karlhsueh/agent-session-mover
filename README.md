@@ -31,6 +31,7 @@ pnpm dev
 | `pnpm typecheck` | Type checks the Node side and the renderer separately.           |
 | `pnpm test`      | Runs the unit and behavior tests in `test/` with vitest.         |
 | `pnpm package` | Builds `dist/mac-arm64/Agent Sessions.app` (or the Windows or Linux folder on those systems) with the app name and icon. It is not code-signed. |
-| `pnpm smoke`     | Builds the app, drives export and import for Claude Code and Codex on temp stores, and saves screenshots in `artifacts/`. |
+| `pnpm smoke`     | Builds the app, drives listing progress, refresh, export, and import for Claude Code and Codex on temp stores, and saves screenshots in `artifacts/`. |
 | `pnpm screens [prefix]` | Builds the app, opens it on a synthetic store of 52 sessions in 26 folders, and saves each browse state to `artifacts/compare/<prefix>-<state>.png`. The prefix defaults to `after`. It prints how many rows each state shows without scrolling. |
+| `pnpm bench:discover` | Builds a synthetic 1.09 GB store once in the temp folder and times listing it cold, after a relaunch, and after one change. `AGENT_SESSIONS_BENCH_REAL=1` also times your real stores, read-only. Results go to `artifacts/bench/`. |
 | `pnpm verify:real` | Uses the real `claude` and `codex` CLIs to create a throwaway session, export it, import it under another folder, and resume it. It spends a few model tokens. Claude Code writes to your real store and the test removes what it made. Codex runs in temporary `CODEX_HOME` folders that hold a copy of your `~/.codex/auth.json` for the length of the run. The test refuses to run when the access token expires within 2 hours, so Codex does not refresh the token inside a copy, and it deletes the copies afterwards. |

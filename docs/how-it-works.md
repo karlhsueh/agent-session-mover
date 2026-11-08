@@ -1,5 +1,5 @@
 ---
-summary: How the Electron main process, preload script, and React renderer fit together, traced through one listSessions call.
+summary: How the Electron main process, preload script, and React renderer fit together, traced through the listSessions calls.
 read_when:
   - Learning this codebase or Electron
   - Adding a call between the renderer and the main process
@@ -101,7 +101,7 @@ sequenceDiagram
 
 	```ts
 	const api: DesktopApi = {
-	  listSessions: () => ipcRenderer.invoke(CHANNELS.listSessions),
+	  listSessions: (agent) => ipcRenderer.invoke(CHANNELS.listSessions, agent),
 	  ...
 	}
 
@@ -120,11 +120,11 @@ sequenceDiagram
 	)
 	```
 
-6. React calls the `App` function in `App.tsx` for the first time. The `sessions` state starts as `{ status: 'loading' }`, so the page shows **Reading session stores…**. Under `pnpm dev`, `StrictMode` calls `App` twice to catch side effects. That is expected and does not happen in a built app.
+6. React calls the `App` function in `App.tsx` for the first time. No agent has answered yet, so the page shows **Reading session stores** with a bar for each agent. Under `pnpm dev`, `StrictMode` calls `App` twice to catch side effects. That is expected and does not happen in a built app.
 
 ### One call
 
-After that first render, React runs the effect in `App` that loads the list.
+After that first render, React runs the effect in `useListings` (`src/renderer/src/useListings.ts`) that loads the list. It asks for each agent separately, so the sequence below runs once per agent, side by side.
 
 ```mermaid
 sequenceDiagram
@@ -132,43 +132,47 @@ sequenceDiagram
   participant P as Preload
   participant M as Main (index.ts)
   participant S as Service (service.ts)
-  R->>P: window.api.listSessions()
-  P->>M: ipcRenderer.invoke('sessions:list')
-  M->>S: service.listSessions()
-  S->>S: each provider discovers its store
+  R->>P: window.api.listSessions('codex')
+  P->>M: ipcRenderer.invoke('sessions:list', 'codex')
+  M->>S: service.listSessions('codex', emit)
+  S->>S: the provider lists its store, reading only changed files
+  S-->>R: scan progress events, while files are read
   S-->>M: ApiResult<SessionList>
   M-->>P: reply
   P-->>R: promise resolves
-  R->>R: setSessions, React renders the rows
+  R->>R: setListings, React renders the rows
 ```
 
-1. The effect calls `loadSessions`:
+1. The effect calls `load` once for each agent:
 
 	```ts
-	const loadSessions = useCallback(async (): Promise<SessionList | null> => {
-	  const result = await window.api.listSessions()
-	  setSessions(result.ok ? { status: 'ready', value: result.value } : { status: 'failed', error: result.error })
-	  return result.ok ? result.value : null
+	const load = useCallback(async (agent: AgentId) => {
+	  ...
+	  const result = await window.api.listSessions(agent)
+	  setListings((current) => withAnswer(current, agent, result))
+	  ...
 	}, [])
 	```
 
-2. `window.api.listSessions()` is the function from the preload script. It calls `ipcRenderer.invoke('sessions:list')`. IPC means inter-process communication. Electron copies the arguments into a message and sends it to the main process. `invoke` returns a promise right away, so `loadSessions` pauses at `await`.
+2. `window.api.listSessions(agent)` is the function from the preload script. It calls `ipcRenderer.invoke('sessions:list', agent)`. IPC means inter-process communication. Electron copies the arguments into a message and sends it to the main process. `invoke` returns a promise right away, so `load` pauses at `await`.
 
 3. In the main process, Electron finds the handler that `registerSessionHandlers` registered for `'sessions:list'`:
 
 	```ts
-	ipcMain.handle(CHANNELS.listSessions, () => service.listSessions())
+	ipcMain.handle(CHANNELS.listSessions, (event, agent: unknown) => service.listSessions(agent, emitter(event)))
 	```
 
-	The handler's first argument is the event, which says which window sent the message. This handler does not need it. The export and open handlers use it to show their dialogs over the right window.
+	The handler's first argument is the event, which says which window sent the message. `emitter(event)` sends progress back to that window. The export and open handlers also use the event to show their dialogs over the right window.
 
-4. `service.listSessions()` in `src/main/service.ts` calls `listSessions(context)` in `src/main/core/export.ts`. That function asks each provider in the registry to discover its store. The Claude Code provider reads `$CLAUDE_CONFIG_DIR`, or `~/.claude` when that is unset. A store that throws goes into `problems`, and the other stores are still listed. The service wraps the list as `{ ok: true, value }`, or turns an exception into `{ ok: false, error: { code, message } }`. It never throws across the boundary.
+4. `service.listSessions(agent, emit)` in `src/main/service.ts` checks the agent and calls `discovery.list` in `src/main/core/discovery.ts`. The service keeps one `Discovery` for the app's lifetime. It asks the agent's provider to list its store and gives it a `Scan` that answers from facts kept from earlier passes, so only new or changed files are read. The Claude Code provider reads `$CLAUDE_CONFIG_DIR`, or `~/.claude` when that is unset. While files are read, `emit` sends `scan` progress to the window. A store that throws goes into `problems`. The service wraps the list as `{ ok: true, value }`, or turns an exception into `{ ok: false, error: { code, message } }`. It never throws across the boundary. [Listing sessions](transfer.md#listing-sessions) covers the cache and the partial reads.
 
-5. Electron copies the returned object back to the renderer. The `invoke` promise resolves, the `await` finishes, and `loadSessions` calls `setSessions({ status: 'ready', value })`.
+5. Electron copies the returned object back to the renderer. The `invoke` promise resolves, the `await` finishes, and `withAnswer` folds that agent's list into the others. An answer equal to the one on screen keeps the old object, so an idle refresh re-renders nothing.
 
-6. React calls `App` again. The state is now `ready`, so `App` renders `Browser` with the list. `Browser` filters the sessions with `matchSessions` from `model/rows.ts` and the current scope from `model/scope.ts`, and `SessionList` draws one row per session. React compares the new output with the page and changes only what differs.
+6. React calls `App` again. Once one agent has sessions, `App` renders `Browser` with them, and the status bar shows a slim progress line for each agent still reading. `Browser` filters the sessions with `matchSessions` from `model/rows.ts` and the current scope from `model/scope.ts`, and `SessionList` draws one row per session. React compares the new output with the page and changes only what differs.
 
-If the call fails, the same path runs. The service returns `{ ok: false, error }` at step 4, the state becomes `failed`, and the page shows the error with a **Try again** button.
+If the call fails, the same path runs. The service returns `{ ok: false, error }` at step 4, and the renderer shows the error as a problem for that agent beside the other agents' sessions.
+
+The same calls run again when the window gains focus (at most once every 2 seconds), when you click the refresh button, and when you press Cmd/Ctrl+R. Electron's default **View > Reload** also takes Cmd/Ctrl+R and would reload the page, so `setMenu` in `src/main/index.ts` installs the default menu without it.
 
 Every call is asynchronous, because the reply comes from another process. Everything that crosses is copied, so only plain data works. You can send objects and arrays, but a class instance loses its methods and a function throws an error.
 
@@ -186,7 +190,7 @@ The page never sends a file path. Main shows the save and open dialogs itself an
 
 A React component is a function that returns what the page looks like for the current state. You change the state with `setState`, and React updates the page to match. No component edits the page directly.
 
-`App` keeps the session list as a `Loadable`, which is `loading`, `ready`, or `failed`. It keeps everything else in one `Screen` union in `src/renderer/src/state.ts`: `browse`, `export-confirm`, `exporting`, `export-done`, `opening`, `import-preview`, `importing`, and `import-done`. Each value carries only the data that screen needs. `import-done` holds the import result, and `browse` holds nothing but an optional error. One union is better here than separate `isExporting` and `showPreview` booleans, because booleans allow combinations that mean nothing, such as an export and an import running at once.
+`useListings` keeps one `SessionList` per agent, null until that agent first answers, in `model/listing.ts`. It keeps everything else in one `Screen` union in `src/renderer/src/state.ts`: `browse`, `export-confirm`, `exporting`, `export-done`, `opening`, `import-preview`, `importing`, and `import-done`. Each value carries only the data that screen needs. `import-done` holds the import result, and `browse` holds nothing but an optional error. One union is better here than separate `isExporting` and `showPreview` booleans, because booleans allow combinations that mean nothing, such as an export and an import running at once.
 
 The list follows the same idea. A `Scope` in `model/scope.ts` is either `{ kind: 'all' }` or `{ kind: 'project', key }`, where the key is the session's starting folder or a marker for sessions that recorded none. `projectsOf` turns the sessions into the sidebar's projects, newest activity first, and adds the parent folder's name when two projects share a name. The middle list is derived, never stored: `matchSessions` in `model/rows.ts` applies the search, filters, and sort, then `Browser` keeps the sessions in scope. A search also matches subagent titles. While a search runs, `countByProject` gives the sidebar its per-project match counts. Components only draw what these functions return, so `test/view-rows.test.ts` checks the rules without a browser.
 
@@ -212,14 +216,15 @@ Type checking is split the same way. `tsconfig.node.json` covers main, preload, 
 
 ## The smoke test replaces the dialogs
 
-`pnpm smoke` builds the app and drives it with Playwright. It cannot click through a native save, open, or folder dialog, so main reads four variables when the app is not packaged:
+`pnpm smoke` builds the app and drives it with Playwright. It cannot click through a native save, open, or folder dialog, so main reads these variables when the app is not packaged:
 
 | Variable | Effect |
 | --- | --- |
 | `AGENT_SESSIONS_E2E_SAVE_PATH` | Export saves here without a dialog. |
 | `AGENT_SESSIONS_E2E_OPEN_PATH` | Import opens this archive without a dialog. |
 | `AGENT_SESSIONS_E2E_FOLDER_PATH` | **Choose…** in the folder mapping returns this folder. |
-| `AGENT_SESSIONS_E2E_USER_DATA` | Replaces `userData`, so journals and backups stay in the test's temp folder. |
+| `AGENT_SESSIONS_E2E_USER_DATA` | Replaces `userData`, so journals, backups, and the listing cache stay in the test's temp folder. |
+| `AGENT_SESSIONS_E2E_SCAN_PACE` | `claude-code:700,codex:450` waits that long after each file a listing reads, so a test can watch the progress. |
 
 The test builds a Claude Code store under a temporary `HOME`, exports from it, and imports into a second temporary `HOME`. It saves screenshots to `artifacts/`.
 
@@ -229,7 +234,7 @@ Each of these came from a problem found while building the app:
 
 - **`package.json` has no `"type": "module"`.** A sandboxed preload script must be CommonJS. With an ES module preload, `window.api` was `undefined` and the page failed.
 - **The stylesheets are `<link>` tags in `index.html`.** A CSS import in JavaScript makes Vite's dev server add `<style>` tags, and the page's Content Security Policy allows only `style-src 'self'`. That conflict is inferred and has not been tested. The `<link>` form ran with no policy violations.
-- **`useProgress` in `hooks.ts` renders at most once per frame.** Opening an archive sends a progress event for every chunk it reads. A render per event would make the progress bar the slowest part of the open.
+- **`useProgress` in `hooks.ts` renders at most once per frame.** Opening an archive sends a progress event for every chunk it reads. A render per event would make the progress bar the slowest part of the open. `useListings` folds listing progress the same way, and `useProgress` ignores it, so a refresh never replaces an export's progress.
 
 ## Add a call by editing four files
 
