@@ -4,6 +4,11 @@
   "version": "0.0.0",
   "private": true,
   "description": "Export and import Claude Code and Codex sessions between computers.",
+  "author": {
+    "name": "karlhsueh",
+    "email": "7528921+karlhsueh@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/karlhsueh/agent-sessions",
   "packageManager": "pnpm@10.13.1",
   "engines": {
     "node": ">=24"
@@ -20,7 +25,8 @@
     "test": "vitest run",
     "verify:real": "AGENT_SESSIONS_REAL=1 vitest run",
     "bench:discover": "AGENT_SESSIONS_BENCH=1 vitest run --silent=false",
-    "package": "pnpm build && electron-builder --dir"
+    "package": "pnpm build && electron-builder --dir",
+    "dist": "pnpm build && electron-builder --publish never"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -42,6 +48,8 @@
   "build": {
     "appId": "com.karlhsueh.agent-sessions",
     "productName": "Agent Sessions",
+    "artifactName": "${name}-${version}-${os}-${arch}.${ext}",
+    "publish": null,
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -52,14 +60,29 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "linux": {
       "icon": "build/icon.png",
-      "category": "Development"
+      "category": "Development",
+      "maintainer": "karlhsueh <7528921+karlhsueh@users.noreply.github.com>",
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] }
+      ]
     },
     "win": {
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
     }
   }
 }
