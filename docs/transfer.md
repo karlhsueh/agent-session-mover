@@ -54,7 +54,7 @@ Export writes to a hidden temp file next to the destination, fsyncs it, and rena
 
 ## Providers
 
-A provider owns one agent's store. Core never branches on the agent. The registry in `src/main/providers/registry.ts` is a full `Record<AgentId, Provider>`: `claude-code` in `src/main/providers/claude-code/` and `codex` in `src/main/providers/codex/`. An archive that names any other agent fails `parseManifest`, so core has no unsupported-agent path. The `unsupported-agent` member of `BlockedReason` in `src/shared/sessions.ts` is no longer produced.
+A provider owns one agent's store. Core never branches on the agent. The registry in `src/main/providers/registry.ts` is a full `Record<AgentId, Provider>`: `claude-code` in `src/main/providers/claude-code/` and `codex` in `src/main/providers/codex/`. An archive that names any other agent fails `parseManifest`, so core has no unsupported-agent path.
 
 ```ts
 export interface Provider {
@@ -123,6 +123,10 @@ Tests inject a `Fault` (`{ afterWrites, mode: 'error' | 'crash' }`). `error` exe
 | `openArchive()` | Shows the open dialog, verifies and stages the archive, and returns a token, an `ArchiveSummary`, and suggested `PathMapping`s. Only one archive is open at a time, so opening another closes the previous one. |
 | `previewImport(token, mappings)` | Returns an `ImportAction`, the target cwd, and warnings (`target-cwd-missing`, `hidden-from-picker`) for every session in the archive. |
 | `runImport(token, mappings, keys)` | Plans again, then imports each selected session. It returns one `SessionImportOutcome` per key: `created`, `updated` (with the backup folder), `skipped`, `refused`, or `failed` (with `rolledBack`). |
+| `storeRoots()` | Returns the store folder each provider reads, for the empty state. |
+| `chooseFolder(startIn)` | Shows the folder picker for a path mapping and returns the chosen folder, or `null`. |
+| `revealExport()` | Reveals the last archive that main saved. It takes no path from the renderer. |
+| `copyText(text)` | Writes a string of up to 64 KB to the clipboard. |
 | `onProgress(callback)` | Subscribes to `ProgressEvent`s from export, open, and import. It returns the unsubscribe function. |
 
 Only one export, open, preview, or import runs at a time. Another call returns `busy`. A suggested mapping keeps a path that exists on this machine. Otherwise it swaps the source home folder for this machine's home folder and converts separators. Mapping targets must be absolute paths. The renderer chooses targets, but they only become folder names through `encodeProjectDir` and values written into the rewritten fields. Main never uses them to read or write a file.

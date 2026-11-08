@@ -111,6 +111,8 @@ Every line is `{timestamp, ordinal, type, payload}`. The first line is `session_
 
 - `codex resume <id>` and `codex exec resume <id>` find a rollout anywhere under `sessions/`, even with no database row. They then insert the row themselves. Verified.
 - `--last` and the picker trust the database. If any thread with a row matches the current folder, a rollout without a row stays invisible. Verified. So import must insert a row whenever `state_5.sqlite` exists.
+- The TUI picker and the TUI's `codex resume --last` filter on the row's `cwd`, which import sets to the mapped folder. Inferred from source (`tui/src/lib.rs`, `tui/src/resume_picker.rs`), not driven. Both hide `exec`-created sessions unless `--include-non-interactive` is passed.
+- `codex exec resume --last` matches the `cwd` of the rollout's last `turn_context` record, and uses the row's `cwd` only when the rollout has none (`exec/src/lib.rs` `latest_thread_cwd`). Import keeps rollouts byte-exact, so this command does not find an imported thread from the mapped folder until the thread has been resumed once by id. Verified: it picked an older thread in the same folder. `codex exec resume <id>` works from any folder.
 - A store with no `state_5.sqlite` builds one from every rollout on first run. Verified.
 - Resume from a different folder works with the original paths in the rollout. Verified.
 - The desktop app syncs its thread list from the same database. Whether it shows an imported row is unverified.
@@ -145,6 +147,5 @@ Codex opens its databases in WAL mode and writes them while any Codex process ru
 
 - Does the Claude desktop sidebar show an imported transcript that has no `local_*.json`?
 - Does the Codex desktop list show an imported row whose `updated_at` is older than its sync watermark?
-- Does Codex `--last` match on the database `cwd` or on the rollout's last `turn_context.cwd`?
 - How do Windows paths, folder names, and file locks behave? Nothing here has run on Windows or Linux.
 - Do subagent resume and `/rewind` work after import?
