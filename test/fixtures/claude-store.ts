@@ -72,7 +72,7 @@ export function transcriptRecords(root: string, session: FixtureSession): { line
     minute += 1
     lines.push(JSON.stringify(record))
   }
-  const toolResultPath = session.toolResult ? `${root}/projects/${enc}/${session.id}/tool-results/toolu_01.txt` : null
+  const toolResultPath = session.toolResult ? path.join(root, 'projects', enc, session.id, 'tool-results', 'toolu_01.txt') : null
 
   chain(session.cwd, { type: 'user', message: { role: 'user', content: 'Add a unit test for the tokenizer' } })
   chain(session.cwd, { type: 'attachment', attachment: { type: 'environment', snapshot: { workingDirectory: session.cwd, isWorktree: false, platform: 'darwin', scratchpadDirectory: '/private/tmp/scratch' } } })
