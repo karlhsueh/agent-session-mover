@@ -63,7 +63,7 @@ async function* verified(blob: BlobSource): AsyncGenerator<Buffer> {
 }
 
 export async function fsyncPath(absPath: string): Promise<void> {
-  const handle = await open(absPath, 'r')
+  const handle = await open(absPath, 'r+')
   try {
     await handle.sync()
   } finally {

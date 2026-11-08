@@ -30,3 +30,5 @@ export async function makeMachine(label: string): Promise<Machine> {
     context: { providers, env: { homeDir: home, env: {}, platform: process.platform }, appDataDir: appData, appVersion: '0.0.0-test' },
   }
 }
+
+export const shellQuoted = (dir: string): string => (process.platform === 'win32' ? `"${dir}"` : `'${dir}'`)

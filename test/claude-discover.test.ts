@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { listSessions } from '../src/main/core/discovery'
 import { claudeCodeProvider } from '../src/main/providers/claude-code'
 import { DEAD_PID, removeTempDir, writeLiveEntry, writeNeverExportFiles, writeSession } from './fixtures/claude-store'
-import { type Machine, makeMachine } from './fixtures/machine'
+import { type Machine, makeMachine, shellQuoted } from './fixtures/machine'
 
 const ID = {
   plain: '0a000000-0000-4000-8000-000000000001',
@@ -55,7 +55,7 @@ describe('Claude Code discovery', () => {
       live: false,
       archived: false,
       fileCount: 4,
-      resumeCommand: `cd '${proj}' && claude --resume ${ID.plain}`,
+      resumeCommand: `cd ${shellQuoted(proj)} && claude --resume ${ID.plain}`,
     })
 
     expect(byId.get(ID.resumed)).toMatchObject({ cwd: proj, cwds: [proj, other], title: 'Tokenizer test', createdAt: '2026-11-01T11:40:00.000Z' })
@@ -82,7 +82,7 @@ describe('Claude Code discovery', () => {
   })
 
   it('honors CLAUDE_CONFIG_DIR over the home folder', () => {
-    expect(claudeCodeProvider.storeRoot({ homeDir: '/Users/a', env: {}, platform: 'darwin' })).toBe('/Users/a/.claude')
-    expect(claudeCodeProvider.storeRoot({ homeDir: '/Users/a', env: { CLAUDE_CONFIG_DIR: '/data/claude' }, platform: 'darwin' })).toBe('/data/claude')
+    expect(claudeCodeProvider.storeRoot({ homeDir: '/Users/a', env: {}, platform: 'darwin' })).toBe(path.resolve('/Users/a/.claude'))
+    expect(claudeCodeProvider.storeRoot({ homeDir: '/Users/a', env: { CLAUDE_CONFIG_DIR: '/data/claude' }, platform: 'darwin' })).toBe(path.resolve('/data/claude'))
   })
 })

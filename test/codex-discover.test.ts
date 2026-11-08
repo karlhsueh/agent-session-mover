@@ -5,7 +5,7 @@ import { listSessions } from '../src/main/core/discovery'
 import { codexProvider } from '../src/main/providers/codex'
 import { removeTempDir, treeHash } from './fixtures/claude-store'
 import { buildCodexStore, type CodexStore, CX, writeNeverExportFiles } from './fixtures/codex-store'
-import { type Machine, makeMachine } from './fixtures/machine'
+import { type Machine, makeMachine, shellQuoted } from './fixtures/machine'
 
 let machine: Machine
 let cwd: string
@@ -40,7 +40,7 @@ describe('Codex discovery', () => {
       fileCount: 3,
       live: false,
       archived: false,
-      resumeCommand: `cd '${cwd}' && codex resume ${CX.plain}`,
+      resumeCommand: `cd ${shellQuoted(cwd)} && codex resume ${CX.plain}`,
     })
     expect(byId.get(CX.archived)).toMatchObject({ archived: true, client: 'desktop', clientDetail: 'Codex Desktop', title: 'Database title for archived' })
     expect(byId.get(CX.plain)?.hiddenFromPicker, 'a cli session shows in the picker').toBe(false)
@@ -58,8 +58,8 @@ describe('Codex discovery', () => {
   })
 
   it('honors CODEX_HOME, and reads the database from CODEX_SQLITE_HOME', async () => {
-    expect(codexProvider.storeRoot({ homeDir: '/Users/a', env: {}, platform: 'darwin' })).toBe('/Users/a/.codex')
-    expect(codexProvider.storeRoot({ homeDir: '/Users/a', env: { CODEX_HOME: '/data/codex' }, platform: 'darwin' })).toBe('/data/codex')
+    expect(codexProvider.storeRoot({ homeDir: '/Users/a', env: {}, platform: 'darwin' })).toBe(path.resolve('/Users/a/.codex'))
+    expect(codexProvider.storeRoot({ homeDir: '/Users/a', env: { CODEX_HOME: '/data/codex' }, platform: 'darwin' })).toBe(path.resolve('/data/codex'))
 
     const sqliteHome = path.join(machine.dir, 'sqlite-home')
     await mkdir(sqliteHome)
