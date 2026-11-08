@@ -46,7 +46,7 @@ async function exportFrom(machine: Machine, keys: SessionKey[], name = 'out.agen
 
 async function openIn(machine: Machine, archive: string): Promise<{ opened: OpenedArchive; mappings: ReturnType<typeof suggestMappings> }> {
   const opened = await openArchive(machine.context, archive)
-  return { opened, mappings: suggestMappings(opened.manifest, { homeDir: machine.home, sep: '/', exists: defaultExists }) }
+  return { opened, mappings: suggestMappings(opened.manifest, { homeDir: machine.home, sep: path.sep, exists: defaultExists }) }
 }
 
 const records = (text: string) => text.trimEnd().split('\n').map((line) => JSON.parse(line) as Record<string, any>)
@@ -68,7 +68,7 @@ describe('export', () => {
       `tool-result projects/${enc}/${S1}/tool-results/toolu_01.txt`,
       `transcript projects/${enc}/${S1}.jsonl`,
     ])
-    expect(manifest.source).toMatchObject({ homeDir: a.home, sep: '/', storeRoots: { 'claude-code': a.root } })
+    expect(manifest.source).toMatchObject({ homeDir: a.home, sep: path.sep, storeRoots: { 'claude-code': a.root } })
   })
 
   it('snapshots a half-written transcript up to its last complete line', async () => {

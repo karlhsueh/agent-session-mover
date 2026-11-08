@@ -37,6 +37,7 @@ it('shows each agent as it finishes, then refreshes on focus, the button, and Cm
     env: {
       ...process.env,
       HOME: home,
+      USERPROFILE: home,
       CLAUDE_CONFIG_DIR: claude,
       CODEX_HOME: codex,
       AGENT_SESSIONS_E2E_USER_DATA: path.join(root, 'userdata'),

@@ -68,7 +68,7 @@ async function importOne(id: string, context: CoreContext = b.context, name = 'a
   const file = path.join(a.dir, name)
   await exportSessions(a.context, [key(id)], file)
   const opened = await openArchive(b.context, file)
-  const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: '/', exists: defaultExists })
+  const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: path.sep, exists: defaultExists })
   return runImport(context, opened, mappings, [key(id)], { fault })
 }
 
@@ -80,7 +80,7 @@ describe('Codex rollback', () => {
     const file = path.join(a.dir, 'a.agentsessions')
     await exportSessions(a.context, [key(CX.plain)], file)
     const opened = await openArchive(b.context, file)
-    const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: '/', exists: defaultExists })
+    const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: path.sep, exists: defaultExists })
     const [outcome] = (await runImport(b.context, opened, mappings, [key(CX.plain)], { fault: { afterWrites: 1, mode: 'error' } })).outcomes
     expect(outcome).toMatchObject({ status: 'failed', rolledBack: true })
     expect(await snapshotTarget()).toEqual(before)

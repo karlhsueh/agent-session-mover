@@ -40,7 +40,7 @@ async function exportFrom(ids: string[], name = 'out.agentsessions'): Promise<st
 
 async function openIn(archive: string): Promise<{ opened: OpenedArchive; mappings: ReturnType<typeof suggestMappings> }> {
   const opened = await openArchive(b.context, archive)
-  return { opened, mappings: suggestMappings(opened.manifest, { homeDir: b.home, sep: '/', exists: defaultExists }) }
+  return { opened, mappings: suggestMappings(opened.manifest, { homeDir: b.home, sep: path.sep, exists: defaultExists }) }
 }
 
 async function importInto(ids: string[], name?: string) {

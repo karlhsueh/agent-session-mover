@@ -19,7 +19,7 @@ const archive = join(root, 'screens.agentsessions')
 const launch = (at: string, extra: Record<string, string> = {}) =>
   electron.launch({
     args: ['.'],
-    env: { ...process.env, HOME: at, CLAUDE_CONFIG_DIR: join(at, '.claude'), CODEX_HOME: join(at, '.codex'), AGENT_SESSIONS_E2E_USER_DATA: join(at, 'userdata'), ...extra },
+    env: { ...process.env, HOME: at, USERPROFILE: at, CLAUDE_CONFIG_DIR: join(at, '.claude'), CODEX_HOME: join(at, '.codex'), AGENT_SESSIONS_E2E_USER_DATA: join(at, 'userdata'), ...extra },
   })
 const app = await launch(home, { AGENT_SESSIONS_E2E_SAVE_PATH: archive, AGENT_SESSIONS_E2E_OPEN_PATH: archive })
 

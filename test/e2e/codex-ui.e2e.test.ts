@@ -33,7 +33,7 @@ async function machine(name: string): Promise<Machine> {
 async function launch(on: Machine, extra: Record<string, string>): Promise<{ page: Page; problems: string[] }> {
   const app = await electron.launch({
     args: ['.'],
-    env: { ...process.env, HOME: on.home, CLAUDE_CONFIG_DIR: on.claude, CODEX_HOME: on.codex, AGENT_SESSIONS_E2E_USER_DATA: on.userData, ...extra },
+    env: { ...process.env, HOME: on.home, USERPROFILE: on.home, CLAUDE_CONFIG_DIR: on.claude, CODEX_HOME: on.codex, AGENT_SESSIONS_E2E_USER_DATA: on.userData, ...extra },
   })
   apps.push(app)
   const page = await app.firstWindow()

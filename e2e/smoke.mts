@@ -63,7 +63,7 @@ await mkdir(chosenWebFolder, { recursive: true })
 async function launch(on: Machine, extra: Record<string, string>): Promise<{ app: ElectronApplication; page: Page; problems: string[] }> {
   const app = await electron.launch({
     args: ['.'],
-    env: { ...process.env, HOME: on.home, CLAUDE_CONFIG_DIR: on.claude, CODEX_HOME: on.codex, AGENT_SESSIONS_E2E_USER_DATA: on.userData, ...extra },
+    env: { ...process.env, HOME: on.home, USERPROFILE: on.home, CLAUDE_CONFIG_DIR: on.claude, CODEX_HOME: on.codex, AGENT_SESSIONS_E2E_USER_DATA: on.userData, ...extra },
   })
   const page = await app.firstWindow()
   const problems: string[] = []
@@ -106,7 +106,7 @@ try {
   await rows(page).first().waitFor()
   assert.deepEqual(await scopeNames(page), ['All sessions', ...projectsByAge], 'the sidebar lists All sessions, then projects newest first')
   assert.deepEqual(await sidebar(page).locator('.scope-count').allTextContents(), ['10', '2', '2', '2', '1', '1', '1', '1'], 'each project counts its sessions')
-  assert.equal(await scope(page, 'api').getAttribute('title'), '~/code/api', 'the full folder is in the tooltip, relative to home')
+  assert.equal(await scope(page, 'api').getAttribute('title'), join('~', 'code', 'api'), 'the full folder is in the tooltip, relative to home')
   assert.equal(await scope(page, 'api').locator('.scope-live').count(), 1, 'a project with a running session shows a live dot')
   assert.deepEqual(await rowTitles(page), titlesByAge, 'All sessions lists every session flat, newest activity first')
   assert.equal(await row(page, 'payment client').locator('.row-project').textContent(), 'api', 'in All sessions each row names its project')
@@ -190,7 +190,8 @@ try {
 
   await row(page, fixtures[2]!.title).click({ modifiers: ['ControlOrMeta'] })
   assert.match((await detail.textContent()) ?? '', /claude --resume 5a000000-0000-4000-8000-000000000003/, 'detail shows the focused session and its resume command')
-  assert.match((await detail.locator('.command-block').textContent()) ?? '', /^cd ~\/'code\/api' && claude --resume/, 'the resume command shows the folder relative to home')
+  const resumeCd = process.platform === 'win32' ? `cd "${join(source.home, 'code', 'api')}" && claude --resume` : "cd ~/'code/api' && claude --resume"
+  assert.ok(((await detail.locator('.command-block').textContent()) ?? '').startsWith(resumeCd), 'the resume command cds into the session folder, relative to home where the shell allows')
   await row(page, fixtures[6]!.title).click({ modifiers: ['ControlOrMeta'] })
   assert.match((await detail.textContent()) ?? '', /resume picker and --continue skip/, 'detail explains an sdk-cli session is hidden from the picker')
   await shot(page, 'browse-dark')

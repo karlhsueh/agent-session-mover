@@ -45,7 +45,7 @@ async function exportFrom(ids: string[], name = 'out.agentsessions'): Promise<st
 
 async function importInto(ids: string[], name?: string) {
   const opened = await openArchive(b.context, await exportFrom(ids, name))
-  const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: '/', exists: defaultExists })
+  const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: path.sep, exists: defaultExists })
   return runImport(b.context, opened, mappings, ids.map(key) as SessionKey[])
 }
 
@@ -163,7 +163,7 @@ describe('Codex subagents imported into a store with a database', () => {
       await mkdir(c.codexRoot, { recursive: true })
       createStateDb(path.join(c.codexRoot, 'state_5.sqlite'), [], { edges: false })
       const opened = await openArchive(c.context, await exportFrom([CX.parent], 'c.agentsessions'))
-      const mappings = suggestMappings(opened.manifest, { homeDir: c.home, sep: '/', exists: defaultExists })
+      const mappings = suggestMappings(opened.manifest, { homeDir: c.home, sep: path.sep, exists: defaultExists })
       const [outcome] = (await runImport(c.context, opened, mappings, [key(CX.parent)])).outcomes
       expect(outcome.status).toBe('created')
       expect(threadRows(path.join(c.codexRoot, 'state_5.sqlite')).map((row) => row.id).sort()).toEqual([...FAMILY].sort())

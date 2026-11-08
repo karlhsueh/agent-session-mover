@@ -34,7 +34,7 @@ async function archiveOf(name: string, ids: string[]): Promise<{ opened: OpenedA
   const file = path.join(a.dir, name)
   await exportSessions(a.context, ids.map(key), file)
   const opened = await openArchive(b.context, file)
-  return { opened, mappings: suggestMappings(opened.manifest, { homeDir: b.home, sep: '/', exists: defaultExists }) }
+  return { opened, mappings: suggestMappings(opened.manifest, { homeDir: b.home, sep: path.sep, exists: defaultExists }) }
 }
 
 const journals = async () => (await readdir(path.join(b.appData, 'journal')).catch(() => [])).filter((n) => n.endsWith('.jsonl'))
