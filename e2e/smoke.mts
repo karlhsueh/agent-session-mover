@@ -158,7 +158,7 @@ try {
   const detail = page.getByRole('complementary', { name: 'Session details' })
   assert.match((await detail.textContent()) ?? '', /claude --resume 5a000000-0000-4000-8000-000000000002/, 'detail shows the focused session and its resume command')
   await row(4).click({ modifiers: ['ControlOrMeta'] })
-  assert.match((await detail.textContent()) ?? '', /resume picker and --continue hide/, 'detail explains an sdk-cli session is hidden from the picker')
+  assert.match((await detail.textContent()) ?? '', /resume picker and --continue skip/, 'detail explains an sdk-cli session is hidden from the picker')
   await page.screenshot({ animations: 'disabled', path: 'artifacts/browse-dark.png' })
 
   await page.keyboard.press('ControlOrMeta+A')
@@ -206,7 +206,7 @@ try {
   const plan = page.locator('.plan')
   await page.locator('.plan:not(.stale) .badge').first().waitFor()
   assert.equal(await plan.locator('.badge', { hasText: 'Create' }).count(), fixtures.length, 'preview plans a create for every session')
-  assert.match((await plan.textContent()) ?? '', /resume picker hides/, 'preview warns about the sdk-cli session')
+  assert.match((await plan.textContent()) ?? '', /resume picker and --continue skip/, 'preview warns about the sdk-cli session')
 
   const webSource = join(source.home, 'code', 'web')
   const webTarget = page.getByLabel(`Folder on this machine for ${webSource}`)
@@ -222,7 +222,7 @@ try {
   await page.getByLabel(new RegExp(fixtures[5]!.title)).uncheck()
   const run = page.getByRole('button', { name: `Import ${fixtures.length - 1} sessions` })
   await run.click()
-  await page.getByRole('heading', { name: `${fixtures.length - 1} sessions ready to resume` }).waitFor()
+  await page.getByRole('heading', { name: `${fixtures.length - 1} sessions placed` }).waitFor()
   assert.equal(await page.locator('.outcome .badge', { hasText: 'Placed' }).count(), fixtures.length - 1, 'every chosen session was placed')
   assert.equal(await page.locator('.outcome .command').count(), fixtures.length - 1, 'each placed session shows its resume command')
   assert.match((await page.locator('.outcome').first().textContent()) ?? '', /claude --resume/, 'resume command is a claude resume line')

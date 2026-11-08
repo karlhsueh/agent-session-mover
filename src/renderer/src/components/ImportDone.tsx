@@ -17,7 +17,7 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
     <div className="import">
       <div className="import-scroll">
         <header className="import-head">
-          <h1>{placed.length > 0 ? `${plural(placed.length, 'session')} ready to resume` : 'Nothing was imported'}</h1>
+          <h1>{placed.length > 0 ? `${plural(placed.length, 'session')} placed` : 'Nothing was imported'}</h1>
           <p className="dim">
             {placed.length > 0 &&
               `The files are where ${agents.join(' and ')} looks for them. Run a resume command in a terminal to continue. Agent Sessions cannot check that the agent opens them. `}

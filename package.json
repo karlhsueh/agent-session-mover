@@ -2,7 +2,7 @@
   "name": "agent-sessions",
   "version": "0.0.0",
   "private": true,
-  "description": "Hello world Electron, React, and TypeScript app.",
+  "description": "Export and import Claude Code and Codex sessions between computers.",
   "packageManager": "pnpm@10.13.1",
   "main": "./out/main/index.js",
   "scripts": {
@@ -10,7 +10,7 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
-    "smoke": "pnpm build && node --disable-warning=ExperimentalWarning e2e/smoke.mts",
+    "smoke": "pnpm build && node --disable-warning=ExperimentalWarning e2e/smoke.mts && AGENT_SESSIONS_E2E=1 vitest run",
     "test": "vitest run",
     "verify:real": "AGENT_SESSIONS_REAL=1 vitest run"
   },
