@@ -18,6 +18,11 @@ describe('mapping field paths', () => {
     expect(expandTilde('~other/code', '/Users/me')).toBe('~other/code')
     expect(expandTilde('~/code', '')).toBe('~/code')
   })
+
+  it('expands a typed ~/ path with the separator of a Windows home', () => {
+    expect(expandTilde('~/code/api', 'C:\\Users\\me')).toBe('C:\\Users\\me\\code\\api')
+    expect(expandTilde('~/code\\api', '/Users/me')).toBe('/Users/me/code\\api')
+  })
 })
 
 describe('platformLabel', () => {

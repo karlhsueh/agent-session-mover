@@ -31,7 +31,8 @@ export function tildePath(path: string, home: string): string {
 export function expandTilde(path: string, home: string): string {
   const prefix = home.replace(/[\\/]+$/, '')
   if (!prefix || !/^~([\\/]|$)/.test(path)) return path
-  return `${prefix}${path.slice(1)}`
+  const rest = path.slice(1)
+  return `${prefix}${prefix.includes('\\') ? rest.replace(/\//g, '\\') : rest}`
 }
 
 /**
