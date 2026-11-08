@@ -129,6 +129,10 @@ export const SCREEN_FIXTURES: Fixture[] = PROJECTS.flatMap(([project, sessions],
     entrypoint: entrypoint ?? 'cli',
     ageMinutes,
     live: title === LIVE_TITLE,
+    rounds: title === LIVE_TITLE ? 14 : undefined,
     subagents: title === FANOUT_TITLE ? SUBAGENT_TASKS.map(([type, description]) => ({ type, description })) : undefined,
   })),
 )
+
+/** A store with one project, where the sidebar has nothing to scope. */
+export const SINGLE_PROJECT_FIXTURES: Fixture[] = SCREEN_FIXTURES.filter((fixture) => fixture.project === 'code/api')

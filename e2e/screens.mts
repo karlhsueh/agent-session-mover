@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _electron as electron, type Page } from 'playwright'
 import { writeClaudeSession } from './claude-fixture.mts'
-import { FANOUT_TITLE, SCREEN_FIXTURES, SELECTED_TITLES } from './screens-fixture.mts'
+import { FANOUT_TITLE, LIVE_TITLE, SCREEN_FIXTURES, SELECTED_TITLES, SINGLE_PROJECT_FIXTURES } from './screens-fixture.mts'
 
 /** `pnpm screens [prefix]` writes artifacts/compare/<prefix>-<state>.png for whichever layout the build has. */
 const prefix = process.argv[2] ?? 'after'
@@ -15,10 +15,13 @@ const home = join(root, 'home')
 for (const fixture of SCREEN_FIXTURES) await writeClaudeSession(join(home, '.claude'), home, fixture)
 await mkdir(join(home, '.codex'), { recursive: true })
 
-const app = await electron.launch({
-  args: ['.'],
-  env: { ...process.env, HOME: home, CLAUDE_CONFIG_DIR: join(home, '.claude'), CODEX_HOME: join(home, '.codex'), AGENT_SESSIONS_E2E_USER_DATA: join(root, 'userdata') },
-})
+const archive = join(root, 'screens.agentsessions')
+const launch = (at: string, extra: Record<string, string> = {}) =>
+  electron.launch({
+    args: ['.'],
+    env: { ...process.env, HOME: at, CLAUDE_CONFIG_DIR: join(at, '.claude'), CODEX_HOME: join(at, '.codex'), AGENT_SESSIONS_E2E_USER_DATA: join(at, 'userdata'), ...extra },
+  })
+const app = await launch(home, { AGENT_SESSIONS_E2E_SAVE_PATH: archive, AGENT_SESSIONS_E2E_OPEN_PATH: archive })
 
 const list = (page: Page) => page.getByRole('tree', { name: 'Sessions' }).or(page.getByRole('listbox', { name: 'Sessions' }))
 const row = (page: Page, title: string) => list(page).locator('.row', { hasText: title })
@@ -79,14 +82,27 @@ const SIDEBAR: Record<string, State> = {
     await sidebarScope(page, 'All sessions').click()
     await page.getByRole('searchbox', { name: 'Search sessions' }).fill('queue')
   },
-  light: async (page) => {
+  conversation: async (page) => {
     await page.getByRole('searchbox', { name: 'Search sessions' }).fill('')
     await page.getByRole('button', { name: 'Clear', exact: true }).click()
+    await row(page, LIVE_TITLE).click()
+    await page.getByRole('tab', { name: 'Conversation' }).click()
+    await page.getByRole('list', { name: 'Conversation' }).waitFor()
+  },
+  light: async (page) => {
+    await page.getByRole('tab', { name: 'Overview' }).click()
     await sidebarScope(page, 'All sessions').click()
     await list(page).focus()
     await page.keyboard.press('Home')
     await page.getByRole('button', { name: 'Use light theme' }).click()
   },
+}
+
+async function shoot(page: Page, name: string) {
+  await page.waitForTimeout(150)
+  const path = join(outDir, `${prefix}-${name}.png`)
+  await page.screenshot({ animations: 'disabled', path })
+  console.log(path)
 }
 
 try {
@@ -108,7 +124,31 @@ try {
     console.log(`${path}: ${listRows} list rows visible (${sessionRows} sessions)${sidebar ? `, ${scopes} sidebar entries` : ''}`)
   }
   await page.getByRole('button', { name: 'Use dark theme' }).click()
+
+  await selectAcrossProjects(page)
+  await page.keyboard.press('ControlOrMeta+E')
+  await page.getByRole('button', { name: 'Choose location…' }).click()
+  await page.getByRole('dialog', { name: 'Archive saved' }).getByRole('button', { name: 'Done' }).click()
+  await page.keyboard.press('ControlOrMeta+O')
+  await page.locator('.plan:not(.stale) .badge').first().waitFor()
+  await page.locator('.plan-row', { hasText: FANOUT_TITLE }).getByRole('button', { name: 'Preview' }).click()
+  await page.getByRole('list', { name: 'Conversation' }).waitFor()
+  await page.locator('.plan-row', { hasText: FANOUT_TITLE }).scrollIntoViewIfNeeded()
+  await shoot(page, 'import-preview-conversation')
 } finally {
   await app.close()
+}
+
+const single = join(root, 'single')
+for (const fixture of SINGLE_PROJECT_FIXTURES) await writeClaudeSession(join(single, '.claude'), single, fixture)
+await mkdir(join(single, '.codex'), { recursive: true })
+const singleApp = await launch(single)
+try {
+  const page = await singleApp.firstWindow()
+  await page.setViewportSize({ width: 1200, height: 760 })
+  await list(page).locator('.row').first().waitFor()
+  await shoot(page, 'single-project')
+} finally {
+  await singleApp.close()
   await rm(root, { recursive: true, force: true })
 }

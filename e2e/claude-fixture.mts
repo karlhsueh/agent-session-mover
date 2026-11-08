@@ -16,7 +16,11 @@ export interface Fixture {
   ageMinutes: number
   live?: boolean
   subagents?: { type: string; description: string }[]
+  /** Read-then-test rounds between the first prompt and the last reply. Defaults to 1. */
+  rounds?: number
 }
+
+const ROUND_FILES = ['src/index.ts', 'src/queue.ts', 'src/worker.ts', 'test/queue.test.ts']
 
 /** Writes one Claude Code session the way 2.1.x lays it out, ending `ageMinutes` ago. */
 export async function writeClaudeSession(store: string, home: string, fixture: Fixture): Promise<void> {
@@ -24,11 +28,26 @@ export async function writeClaudeSession(store: string, home: string, fixture: F
   const dir = join(store, 'projects', encode(cwd))
   await mkdir(dir, { recursive: true })
   const end = Date.now() - fixture.ageMinutes * MINUTE
+  const turns: { type: 'user' | 'assistant'; content: unknown }[] = [{ type: 'user', content: fixture.title }]
+  for (let round = 0; round < (fixture.rounds ?? 1); round++) {
+    const file = ROUND_FILES[round % ROUND_FILES.length]!
+    turns.push(
+      { type: 'assistant', content: [{ type: 'text', text: `Reading ${file} first.` }, { type: 'tool_use', id: `toolu_r${round}`, name: 'Read', input: { file_path: join(cwd, file) } }] },
+      { type: 'user', content: [{ type: 'tool_result', tool_use_id: `toolu_r${round}`, content: 'file contents' }] },
+      { type: 'assistant', content: [{ type: 'tool_use', id: `toolu_b${round}`, name: 'Bash', input: { command: 'pnpm test', description: 'Run the tests' } }] },
+      { type: 'user', content: [{ type: 'tool_result', tool_use_id: `toolu_b${round}`, content: 'all tests passed' }] },
+    )
+  }
+  turns.push(
+    { type: 'assistant', content: [{ type: 'text', text: 'The change is in and the tests pass.\n\nWant me to update the docs as well?' }] },
+    { type: 'user', content: 'Looks good, continue.' },
+    { type: 'assistant', content: [{ type: 'text', text: 'Done.' }] },
+  )
   let parentUuid: string | null = null
-  const lines = [0, 1, 2, 3].map((turn) => {
-    const uuid = `${fixture.id.slice(0, 8)}-000${turn}-4000-8000-000000000000`
-    const message = turn % 2 === 0 ? { role: 'user', content: turn === 0 ? fixture.title : 'Looks good, continue.' } : { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] }
-    const record = { parentUuid, isSidechain: false, userType: 'external', cwd, sessionId: fixture.id, version: '2.1.319', gitBranch: 'main', entrypoint: fixture.entrypoint, uuid, timestamp: new Date(end - (3 - turn) * MINUTE).toISOString(), type: turn % 2 === 0 ? 'user' : 'assistant', message }
+  const lines = turns.map((turn, index) => {
+    const uuid = `${fixture.id.slice(0, 8)}-${String(index).padStart(4, '0')}-4000-8000-000000000000`
+    const timestamp = new Date(end - (turns.length - 1 - index) * MINUTE).toISOString()
+    const record = { parentUuid, isSidechain: false, userType: 'external', cwd, sessionId: fixture.id, version: '2.1.319', gitBranch: 'main', entrypoint: fixture.entrypoint, uuid, timestamp, type: turn.type, message: { role: turn.type, content: turn.content } }
     parentUuid = uuid
     return JSON.stringify(record)
   })
