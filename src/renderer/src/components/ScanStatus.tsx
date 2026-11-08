@@ -18,7 +18,8 @@ function counts(progress: ScanProgress | null): string | null {
 export function ScanLine({ scans }: { scans: PendingScan[] }) {
   if (scans.length === 0) return null
   return (
-    <span className="scan-line" role="status" aria-label="Reading session stores">
+    // Counts change ten times a second, so the status bar's live region must not read each one aloud.
+    <span className="scan-line" aria-live="off">
       {scans.map(({ agent, progress }) => (
         <span key={agent} className="scan-item">
           <ProgressBar value={fraction(progress)} label={`Reading ${AGENT_LABEL[agent]} sessions`} />
@@ -36,7 +37,7 @@ export function ScanLine({ scans }: { scans: PendingScan[] }) {
 export function ScanPanel({ listings, scans }: { listings: Listings; scans: PendingScan[] }) {
   return (
     <div className="empty">
-      <div className="scan-panel" role="status" aria-label="Reading session stores">
+      <div className="scan-panel" role="region" aria-label="Reading session stores" aria-busy="true">
         <h1>Reading session stores</h1>
         <ul>
           {AGENT_IDS.map((agent) => {

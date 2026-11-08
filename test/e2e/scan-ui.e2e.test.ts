@@ -49,7 +49,7 @@ it('shows each agent as it finishes, then refreshes on focus, the button, and Cm
   page.on('pageerror', (error) => problems.push(error.message))
   await page.setViewportSize({ width: 1200, height: 760 })
 
-  const panel = page.getByRole('status', { name: 'Reading session stores' })
+  const panel = page.getByRole('region', { name: 'Reading session stores' })
   await panel.locator('.scan-detail', { hasText: /of 2 files/ }).waitFor()
   expect(await panel.textContent(), 'before any agent answers, each agent shows its own count').toMatch(/Claude Code.*of 2 files.*Codex/)
   await shot(page, 'scan-first-launch-dark')

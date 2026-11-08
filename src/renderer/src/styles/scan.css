@@ -1,5 +1,3 @@
-/* Listing progress: a panel before any session shows, then one slim line in the status bar. */
-
 .scan-panel {
   width: min(440px, calc(100% - 48px));
   display: flex;
