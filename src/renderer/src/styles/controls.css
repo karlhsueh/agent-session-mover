@@ -202,3 +202,7 @@
   line-height: 1.5;
   padding-top: 2px;
 }
+
+.command-step {
+  display: inline-block;
+}

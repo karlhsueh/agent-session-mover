@@ -51,14 +51,25 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
   )
 }
 
-/** Wraps only at spaces. Browsers also break after hyphens, which would split a UUID or `--resume`. */
+/**
+ * Wraps only at spaces, and first after `&&`, so `cd <folder> &&` and the agent command stay whole
+ * when they fit. Browsers also break after hyphens, which would split a UUID or `--resume`.
+ */
 export function CommandText({ command }: { command: string }) {
+  const steps = command.split(' && ')
   return (
     <code>
-      {command.split(' ').map((word, index) => (
+      {steps.map((step, index) => (
         <Fragment key={index}>
           {index > 0 && ' '}
-          <span className="nowrap">{word}</span>
+          <span className="command-step">
+            {`${step}${index < steps.length - 1 ? ' &&' : ''}`.split(' ').map((word, at) => (
+              <Fragment key={at}>
+                {at > 0 && ' '}
+                <span className="nowrap">{word}</span>
+              </Fragment>
+            ))}
+          </span>
         </Fragment>
       ))}
     </code>
