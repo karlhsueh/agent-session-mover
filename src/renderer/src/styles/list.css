@@ -34,7 +34,7 @@
 }
 
 .list.with-project .row {
-  grid-template-columns: 16px 8px minmax(0, 1fr) minmax(0, 116px) minmax(0, 52px) 40px;
+  grid-template-columns: 16px 8px minmax(0, 1fr) minmax(0, 116px) minmax(0, 60px) 40px;
 }
 
 .row:hover {
