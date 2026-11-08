@@ -88,7 +88,7 @@ export function titleOf(facts: TranscriptFacts): string | null {
   return facts.customTitle ?? facts.aiTitle ?? facts.firstPrompt
 }
 
-function parseRecord(bytes: Buffer): Record<string, unknown> | null {
+export function parseRecord(bytes: Buffer): Record<string, unknown> | null {
   try {
     const value: unknown = JSON.parse(bytes.toString('utf8'))
     return isObject(value) ? value : null
@@ -97,7 +97,7 @@ function parseRecord(bytes: Buffer): Record<string, unknown> | null {
   }
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
+export function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
