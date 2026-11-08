@@ -40,7 +40,9 @@ const keepOpen = (open: boolean) => String(open)
 export function Browser({ list, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
   const [query, setQuery] = useState<BrowseQuery>(EMPTY_QUERY)
   const [wantedScope, setScope] = useState<Scope>(ALL)
-  const [sidebarOpen, setSidebarOpen] = useStored('agent-sessions.sidebar', parseOpen, keepOpen)
+  const [sidebarPreferred, setSidebarPreferred] = useStored('agent-sessions.sidebar', parseOpen, keepOpen)
+  // A one-project store has nothing to scope, so the sidebar starts hidden and the stored choice is left alone.
+  const [singleSidebar, setSingleSidebar] = useState(false)
   const [selection, dispatch] = useReducer(selectionReducer, NO_SELECTION)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const home = useHomeDir()
@@ -50,6 +52,9 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
 
   const projects = useMemo(() => projectsOf(list.sessions), [list.sessions])
   const projectByKey = useMemo(() => new Map(projects.map((each) => [each.key, each])), [projects])
+  const single = projects.length === 1 ? projects[0]! : null
+  const sidebarOpen = single ? singleSidebar : sidebarPreferred
+  const toggleSidebar = () => (single ? setSingleSidebar((open) => !open) : setSidebarPreferred((open) => !open))
   const project = wantedScope.kind === 'project' ? (projectByKey.get(wantedScope.key) ?? null) : null
   const scope: Scope = project ? wantedScope : ALL
   const filtered = isFiltered(query)
@@ -63,6 +68,7 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
   const selectedKeys = list.sessions.filter((session) => selection.keys.has(session.key)).map((session) => session.key)
   const outOfView = selectedKeys.filter((key) => !rows.includes(key)).length
   const scopeTotal = project ? project.sessions.length : list.sessions.length
+  const headProject = project ?? single
 
   useEffect(() => {
     dispatch({ type: 'retain', existing: new Set(list.sessions.map((session) => session.key)) })
@@ -105,7 +111,7 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
       } else if (mod && event.key === '\\') {
         event.preventDefault()
         if (sidebarOpen && onSidebar) listRef.current?.focus()
-        setSidebarOpen((open) => !open)
+        toggleSidebar()
       } else if (event.key === 'Escape') {
         if (query.text !== '' && (event.target === searchRef.current || !typing)) setQuery({ ...query, text: '' })
         else if (typing) listRef.current?.focus()
@@ -170,7 +176,7 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
           aria-label={sidebarOpen ? 'Hide projects' : 'Show projects'}
           aria-pressed={sidebarOpen}
           title={`${sidebarOpen ? 'Hide' : 'Show'} projects (${MOD}\\)`}
-          onClick={() => setSidebarOpen((open) => !open)}
+          onClick={toggleSidebar}
         >
           <SidebarIcon />
         </button>
@@ -198,15 +204,15 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
         )}
         <div className="list-pane">
           <header className="list-head">
-            <span className="list-head-title truncate" title={project?.path ?? undefined}>
-              {project ? (project.path ? tildePath(project.path, home) : 'No folder') : 'All sessions'}
+            <span className="list-head-title truncate" title={headProject?.path ?? undefined}>
+              {headProject ? (headProject.path ? tildePath(headProject.path, home) : 'No folder') : 'All sessions'}
             </span>
             <span className="dim">{filtered ? `${shown.length} of ${plural(scopeTotal, 'session')}` : plural(scopeTotal, 'session')}</span>
           </header>
           {shown.length > 0 ? (
             <SessionList
               sessions={shown}
-              projects={scope.kind === 'all' ? projectByKey : null}
+              projects={scope.kind === 'all' && !single ? projectByKey : null}
               needle={searchNeedle(query)}
               selected={selection.keys}
               focus={focus}
