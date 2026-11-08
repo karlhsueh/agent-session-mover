@@ -13,9 +13,15 @@ pnpm dev
 
 `pnpm dev` runs inside Electron's own app, so the macOS menu bar shows "Electron" there. The packaged app from `pnpm package` shows "Agent Sessions".
 
+## Code layout
+
+- `src/main` is the Electron main process. It owns every file read and write: discovery, export, and import in `core/`, the archive format in `archive/`, and one provider per agent in `providers/`.
+- `src/preload` exposes `window.api` to the page through `contextBridge`. The page has no Node access.
+- `src/renderer` is the React page.
+- `src/shared` holds the types and the IPC contract both sides use.
+
 ## Read first
 
-- [How the app works](docs/how-it-works.md) traces one call from the React page through the preload script to the main process.
 - [Moving sessions between machines](docs/transfer.md) covers the archive format, the import executor, and the IPC surface.
 - [Session storage and transfer rules](docs/session-storage.md) is the spec for where Claude Code and Codex keep sessions and what a transfer may rewrite.
 - [Releasing](docs/RELEASING.md) covers tags, installers, and signing.
