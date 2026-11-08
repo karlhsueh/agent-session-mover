@@ -11,7 +11,8 @@
     "start": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
     "smoke": "pnpm build && node --disable-warning=ExperimentalWarning e2e/smoke.mts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:real": "AGENT_SESSIONS_REAL=1 vitest run"
   },
   "dependencies": {
     "react": "^19.3.1",
