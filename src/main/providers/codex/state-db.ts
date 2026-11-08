@@ -119,7 +119,7 @@ export async function undoRowChange(change: RowChange): Promise<void> {
   })
 }
 
-function inTransaction(file: string, work: (db: DatabaseSync) => void): void {
+export function inTransaction(file: string, work: (db: DatabaseSync) => void): void {
   const db = new DatabaseSync(file)
   try {
     db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`)
@@ -161,7 +161,7 @@ function quote(name: string): string {
   return `"${name}"`
 }
 
-async function isFile(file: string): Promise<boolean> {
+export async function isFile(file: string): Promise<boolean> {
   return lstat(file).then(
     (info) => info.isFile(),
     (error) => (isNotFound(error) ? false : Promise.reject(error)),

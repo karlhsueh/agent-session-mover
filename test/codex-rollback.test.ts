@@ -10,7 +10,7 @@ import { codexProvider } from '../src/main/providers/codex'
 import { providers } from '../src/main/providers/registry'
 import { sessionKey } from '../src/shared/sessions'
 import { listTree, removeTempDir } from './fixtures/claude-store'
-import { createStateDb, threadRows } from './fixtures/codex-db'
+import { createStateDb, spawnEdges, threadRows } from './fixtures/codex-db'
 import { appendRecord, buildCodexStore, type CodexStore, CX } from './fixtures/codex-store'
 import { type Machine, makeMachine } from './fixtures/machine'
 
@@ -45,7 +45,7 @@ async function filesHash(): Promise<string> {
 }
 
 async function snapshotTarget() {
-  return { files: await filesHash(), rows: threadRows(targetDb()) }
+  return { files: await filesHash(), rows: threadRows(targetDb()), edges: spawnEdges(targetDb()) }
 }
 
 /** The real provider, with a fault right before or right after one kind of effect. */
@@ -64,13 +64,15 @@ function faulty(kind: string, when: 'before' | 'after', mode: 'error' | 'crash')
   return { ...b.context, providers: { ...providers, codex } }
 }
 
-async function importPlain(context: CoreContext = b.context, name = 'a.agentsessions') {
+async function importOne(id: string, context: CoreContext = b.context, name = 'a.agentsessions', fault?: { afterWrites: number; mode: 'error' }) {
   const file = path.join(a.dir, name)
-  await exportSessions(a.context, [key(CX.plain)], file)
+  await exportSessions(a.context, [key(id)], file)
   const opened = await openArchive(b.context, file)
   const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: '/', exists: defaultExists })
-  return runImport(context, opened, mappings, [key(CX.plain)])
+  return runImport(context, opened, mappings, [key(id)], { fault })
 }
+
+const importPlain = (context?: CoreContext, name?: string) => importOne(CX.plain, context, name)
 
 describe('Codex rollback', () => {
   it('leaves files and rows as they were when a file write fails', async () => {
@@ -99,6 +101,31 @@ describe('Codex rollback', () => {
     const [outcome] = (await importPlain(faulty('thread-row', 'after', 'error'), 'b.agentsessions')).outcomes
     expect(outcome).toMatchObject({ status: 'failed', rolledBack: true, action: { kind: 'update' } })
     expect(await snapshotTarget()).toEqual(before)
+  })
+})
+
+describe('Codex rollback of a session with subagents', () => {
+  it('leaves files, rows, and edges as they were when a write fails partway through the subagents', async () => {
+    const before = await snapshotTarget()
+    const [outcome] = (await importOne(CX.parent, b.context, 'p.agentsessions', { afterWrites: 2, mode: 'error' })).outcomes
+    expect(outcome).toMatchObject({ status: 'failed', rolledBack: true })
+    expect(await snapshotTarget()).toEqual(before)
+  })
+
+  it('removes the rows and edges it wrote when an edge write fails', async () => {
+    const before = await snapshotTarget()
+    const [outcome] = (await importOne(CX.parent, faulty('spawn-edge', 'after', 'error'))).outcomes
+    expect(outcome).toMatchObject({ status: 'failed', rolledBack: true })
+    expect(await snapshotTarget()).toEqual(before)
+  })
+
+  it('recovers from a crash after the first edge, and a second recovery is a no-op', async () => {
+    const before = await snapshotTarget()
+    await expect(importOne(CX.parent, faulty('spawn-edge', 'after', 'crash'))).rejects.toThrow(SimulatedCrash)
+    expect(spawnEdges(targetDb()).length).toBe(1)
+    expect(await recoverJournals(journalDir(), providers)).toMatchObject([{ ok: true, errors: [] }])
+    expect(await snapshotTarget()).toEqual(before)
+    expect(await recoverJournals(journalDir(), providers)).toEqual([])
   })
 })
 

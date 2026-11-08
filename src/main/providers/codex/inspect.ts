@@ -9,6 +9,7 @@ import type { CodexEffect } from './effects'
 import { hiddenFromPicker, readFacts, type RolloutFacts, type SessionMeta } from './facts'
 import { isNewer, parseRolloutName, type RolloutName } from './rollout-name'
 import { hasLine, INDEX_FILE, parseIndexBlob } from './session-index'
+import { readEdge } from './spawn-edges'
 import { dbPath, readTargetRow, type Row, withSnapshot } from './state-db'
 import { ARCHIVED_DIR, findRollouts, IMAGES_DIR, lockedThreadIds, type RolloutFile, SESSIONS_DIR, unzstd } from './store'
 import { type RowInput, rowValues } from './thread-row'
@@ -23,30 +24,34 @@ interface ArchivedRollout {
 
 interface Layout {
   main: ArchivedRollout
+  /** The newest rollout of each subagent thread below the session's own thread. */
+  subagents: ArchivedRollout[]
   linked: ArchivedRollout[]
-  images: { file: ManifestFile; name: string }[]
+  images: { file: ManifestFile; threadId: string; name: string }[]
   index: ManifestFile | null
 }
 
 /** Accepts only the shapes export writes. Every target path is later built from these parsed parts, never copied. */
 function layoutOf(session: ManifestSession): Layout | null {
   let main: ArchivedRollout | null = null
+  const subagents: ArchivedRollout[] = []
   const linked: ArchivedRollout[] = []
   const images: Layout['images'] = []
   let index: ManifestFile | null = null
   for (const file of session.files) {
     const segments = file.path.split('/')
-    if (file.role === 'rollout' || file.role === 'linked-rollout') {
+    if (file.role === 'rollout' || file.role === 'subagent-rollout' || file.role === 'linked-rollout') {
       const name = parseRolloutName(segments.at(-1)!)
       if (!name || segments.length < 2 || (segments[0] !== SESSIONS_DIR && segments[0] !== ARCHIVED_DIR)) return null
       const entry = { file, name, archived: segments[0] === ARCHIVED_DIR }
       if (file.role === 'linked-rollout') linked.push(entry)
+      else if (file.role === 'subagent-rollout') subagents.push(entry)
       else if (main || name.threadId !== session.id) return null
       else main = entry
     } else if (file.role === 'generated-image') {
-      const [dir, id, name, ...extra] = segments
-      if (dir !== IMAGES_DIR || id !== session.id || !name || name.startsWith('.') || extra.length > 0) return null
-      images.push({ file, name })
+      const [dir, threadId, name, ...extra] = segments
+      if (dir !== IMAGES_DIR || !threadId || !name || name.startsWith('.') || extra.length > 0) return null
+      images.push({ file, threadId, name })
     } else if (file.role === 'index-entry') {
       if (index || file.path !== INDEX_FILE || file.size > MAX_INDEX_ENTRY) return null
       index = file
@@ -55,8 +60,10 @@ function layoutOf(session: ManifestSession): Layout | null {
     }
   }
   if (!main) return null
-  const rolloutIds = new Set([main, ...linked].map((entry) => entry.name.rolloutId))
-  return rolloutIds.size === linked.length + 1 ? { main, linked, images, index } : null
+  const threadIds = new Set([main, ...subagents].map((entry) => entry.name.threadId))
+  if (threadIds.size !== subagents.length + 1 || images.some((image) => !threadIds.has(image.threadId))) return null
+  const rolloutIds = new Set([main, ...subagents, ...linked].map((entry) => entry.name.rolloutId))
+  return rolloutIds.size === subagents.length + linked.length + 1 ? { main, subagents, linked, images, index } : null
 }
 
 type Placement = { kind: 'placed'; file: TargetFile } | { kind: 'refused'; action: RefusedAction }
@@ -105,31 +112,46 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
   const plainBlob = (entry: ArchivedRollout) => (entry.name.compressed ? unzstd(context.readBlob(entry.file.sha256)) : context.readBlob(entry.file.sha256))
   const unreadable = await firstUnreadable(layout.linked.filter((entry) => entry.name.compressed).map((entry) => () => digest(plainBlob(entry))))
   const facts = await readFacts(plainBlob(main)).catch(() => null)
-  if (!facts || unreadable) return invalid('A compressed rollout in the archive cannot be decompressed.')
+  const subagentFacts = await Promise.all(layout.subagents.map((entry) => readFacts(plainBlob(entry)).catch(() => null)))
+  if (!facts || unreadable || subagentFacts.includes(null)) return invalid('A compressed rollout in the archive cannot be decompressed.')
   const { meta } = facts
   if (!meta || meta.id !== session.id) return invalid('The rollout does not start with this session’s metadata.')
+  const family = new Set([main, ...layout.subagents].map((entry) => entry.name.threadId))
+  const subagents: Thread[] = []
+  for (const [index, entry] of layout.subagents.entries()) {
+    const sub = subagentFacts[index]!
+    const spawn = sub.meta?.spawn
+    if (sub.meta?.id !== entry.name.threadId || !spawn || !family.has(spawn.parent)) return invalid('A subagent rollout in the archive was not spawned within this session.')
+    subagents.push({ entry, facts: sub, meta: sub.meta })
+  }
   if (hiddenFromPicker(meta)) warnings.push({ code: 'hidden-from-picker', clientDetail: session.clientDetail })
 
   if (!session.cwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: 'The session records no working directory.' })
-  const targetCwd = mapPath(session.cwd, context.mappings, context.source.sep, context.sep)
+  const mapCwd = (cwd: string | null) => cwd && mapPath(cwd, context.mappings, context.source.sep, context.sep)
+  const targetCwd = mapCwd(session.cwd)
   if (!targetCwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: `No folder on this machine is chosen for ${session.cwd}.` })
   if (!(await stat(targetCwd).then((s) => s.isDirectory(), () => false))) warnings.push({ code: 'target-cwd-missing', path: targetCwd })
 
   const existing = await findRollouts(root)
-  const archivedIds = new Set([main, ...layout.linked].map((entry) => entry.name.rolloutId))
-  const newerHere = existing.find((file) => file.name.threadId === session.id && !archivedIds.has(file.name.rolloutId) && isNewer(file.name, main.name))
-  if (newerHere) {
-    return refuse({ kind: 'conflict', reason: 'diverged', message: `This machine has a newer rollout of the session (${newerHere.rel}) that the archive does not include.` }, targetCwd)
+  const rollouts = [main, ...layout.subagents, ...layout.linked]
+  const archivedIds = new Set(rollouts.map((entry) => entry.name.rolloutId))
+  for (const newest of [main, ...layout.subagents]) {
+    const newerHere = existing.find((file) => file.name.threadId === newest.name.threadId && !archivedIds.has(file.name.rolloutId) && isNewer(file.name, newest.name))
+    if (newerHere) {
+      return refuse({ kind: 'conflict', reason: 'diverged', message: `This machine has a newer rollout of the session (${newerHere.rel}) that the archive does not include.` }, targetCwd)
+    }
   }
 
   const files: TargetFile[] = []
-  for (const entry of [main, ...layout.linked]) {
+  const placedAt = new Map<ArchivedRollout, TargetFile>()
+  for (const entry of rollouts) {
     const placed = place(entry, existing)
     if (placed.kind === 'refused') return refuse(placed.action, targetCwd)
     files.push(placed.file)
+    placedAt.set(entry, placed.file)
   }
-  for (const { file, name } of layout.images) {
-    files.push({ role: file.role, path: joinStorePath(IMAGES_DIR, session.id, name), sha256: file.sha256, transform: null, mtimeMs: file.mtimeMs })
+  for (const { file, threadId, name } of layout.images) {
+    files.push({ role: file.role, path: joinStorePath(IMAGES_DIR, threadId, name), sha256: file.sha256, transform: null, mtimeMs: file.mtimeMs })
   }
 
   let indexLine: string | null = null
@@ -140,34 +162,46 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
 
   // A linked rollout of another thread (a fork's parent) lands here too. That thread gets a row now,
   // because importing it later finds its rollout identical and skips, which would leave it unlisted.
-  const others = new Map<string, { entry: ArchivedRollout; file: TargetFile }>()
-  layout.linked.forEach((entry, index) => {
+  const others = new Map<string, ArchivedRollout>()
+  for (const entry of layout.linked) {
     const known = others.get(entry.name.threadId)
-    if (entry.name.threadId !== session.id && (!known || isNewer(entry.name, known.entry.name))) others.set(entry.name.threadId, { entry, file: files[index + 1] })
-  })
+    if (!family.has(entry.name.threadId) && (!known || isNewer(entry.name, known.name))) others.set(entry.name.threadId, entry)
+  }
 
   const effects: CodexEffect[] = []
   const db = dbPath(root, context.env)
-  const targets = await withSnapshot(db, (snapshot) => [session.id, ...others.keys()].map((id) => readTargetRow(snapshot, id)))
-  if (targets?.[0]) {
+  const ids = [session.id, ...subagents.map((sub) => sub.meta.id), ...others.keys()]
+  const target = await withSnapshot(db, (snapshot) => ({ rows: ids.map((id) => readTargetRow(snapshot, id)), edges: ids.map((id) => readEdge(snapshot, id)) }))
+  if (target?.rows[0]) {
     const realRoot = await realpath(root).catch(() => path.resolve(root))
-    const input = (thread: { file: TargetFile; facts: RolloutFacts; meta: SessionMeta; cwd: string; title: string | null; name: string | null }): RowInput => ({
-      ...thread,
-      id: thread.meta.id,
-      rolloutPath: path.join(realRoot, ...thread.file.path.split('/')),
-      archived: thread.file.path.startsWith(`${ARCHIVED_DIR}/`),
-      createdMs: Date.parse(thread.meta.timestamp ?? '') || (thread.facts.firstMs ?? Date.parse(session.createdAt)),
-      updatedMs: thread.facts.lastMs ?? Date.parse(session.lastActivity),
-    })
+    const write = (at: number, thread: Thread, fields: { cwd: string; title: string | null; name: string | null }) => {
+      const file = placedAt.get(thread.entry)!
+      const { facts: threadFacts, meta: threadMeta } = thread
+      effects.push(
+        rowEffect(db, target.rows[at]!, {
+          ...fields,
+          id: threadMeta.id,
+          meta: threadMeta,
+          facts: threadFacts,
+          rolloutPath: path.join(realRoot, ...file.path.split('/')),
+          archived: file.path.startsWith(`${ARCHIVED_DIR}/`),
+          createdMs: Date.parse(threadMeta.timestamp ?? '') || (threadFacts.firstMs ?? Date.parse(session.createdAt)),
+          updatedMs: threadFacts.lastMs ?? Date.parse(session.lastActivity),
+        }),
+      )
+      if (threadMeta.spawn && target.edges[at] === 'absent') effects.push({ kind: 'spawn-edge', db, parent: threadMeta.spawn.parent, child: threadMeta.id })
+    }
+    const ownCwd = (thread: Thread) => mapCwd(thread.meta.cwd) ?? targetCwd
     const name = indexLine === null ? null : (JSON.parse(indexLine) as { thread_name: string }).thread_name
-    effects.push(rowEffect(db, targets[0], input({ file: files[0], facts, meta, cwd: targetCwd, title: session.title, name })))
-    for (const [index, { entry, file }] of [...others.values()].entries()) {
-      const target = targets[index + 1]
-      if (!target || target.current) continue
+    write(0, { entry: main, facts, meta }, { cwd: targetCwd, title: session.title, name })
+    for (const [index, sub] of subagents.entries()) write(index + 1, sub, { cwd: ownCwd(sub), title: sub.facts.task, name: null })
+    for (const [index, entry] of [...others.values()].entries()) {
+      const at = index + 1 + subagents.length
+      if (!target.rows[at] || target.rows[at].current) continue
       const other = await readFacts(plainBlob(entry))
-      if (!other.meta || other.meta.id !== entry.name.threadId) continue
-      const cwd = (other.meta.cwd && mapPath(other.meta.cwd, context.mappings, context.source.sep, context.sep)) ?? targetCwd
-      effects.push(rowEffect(db, target, input({ file, facts: other, meta: other.meta, cwd, title: null, name: null })))
+      if (other.meta?.id !== entry.name.threadId) continue
+      const thread = { entry, facts: other, meta: other.meta }
+      write(at, thread, { cwd: ownCwd(thread), title: null, name: null })
     }
   }
   const present = indexLine === null ? null : await hasLine(root, indexLine)
@@ -175,8 +209,15 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
 
   // Import may replace a linked rollout too, so a lock on any thread it writes for blocks it.
   const locked = await lockedThreadIds(root)
-  const live = [main, ...layout.linked].some((entry) => locked.has(entry.name.threadId))
+  const live = rollouts.some((entry) => locked.has(entry.name.threadId))
   return { kind: 'ready', targetCwd, warnings, live, files, effects: effects as ProviderEffect[] }
+}
+
+/** A rollout from the archive and what it says. */
+interface Thread {
+  entry: ArchivedRollout
+  facts: RolloutFacts
+  meta: SessionMeta
 }
 
 function rowEffect(db: string, target: { columns: Set<string>; current: Row | null }, input: RowInput): CodexEffect {

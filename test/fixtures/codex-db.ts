@@ -52,6 +52,17 @@ CREATE TRIGGER threads_recency_at_after_insert AFTER INSERT ON threads WHEN NEW.
 BEGIN UPDATE threads SET recency_at = NEW.updated_at, recency_at_ms = COALESCE(NEW.updated_at_ms, NEW.updated_at * 1000) WHERE id = NEW.id; END;
 `
 
+/** Migration 21. Every real store has it, so `createStateDb` adds it unless asked not to. */
+export const SPAWN_EDGES_DDL = `
+CREATE TABLE thread_spawn_edges (
+    parent_thread_id TEXT NOT NULL,
+    child_thread_id TEXT NOT NULL PRIMARY KEY,
+    status TEXT NOT NULL
+);
+CREATE INDEX idx_thread_spawn_edges_parent_status
+    ON thread_spawn_edges(parent_thread_id, status);
+`
+
 export interface FixtureRow {
   id: string
   rollout_path: string
@@ -65,11 +76,12 @@ export interface FixtureRow {
 }
 
 /** Creates `state_5.sqlite` in WAL mode, the way Codex leaves it. */
-export function createStateDb(file: string, rows: FixtureRow[]): void {
+export function createStateDb(file: string, rows: FixtureRow[], options: { edges?: boolean } = {}): void {
   const db = new DatabaseSync(file)
   try {
     db.exec('PRAGMA journal_mode = WAL')
     db.exec(THREADS_DDL)
+    if (options.edges !== false) db.exec(SPAWN_EDGES_DDL)
     for (const row of rows) insertRow(db, row)
   } finally {
     db.close()
@@ -96,4 +108,24 @@ export function threadRows(file: string): Record<string, unknown>[] {
 
 export function threadRow(file: string, id: string): Record<string, unknown> | undefined {
   return threadRows(file).find((row) => row.id === id)
+}
+
+/** Every spawn edge, ordered by child. Empty when the table does not exist. */
+export function spawnEdges(file: string): Record<string, unknown>[] {
+  const db = new DatabaseSync(file)
+  try {
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'thread_spawn_edges'").get()) return []
+    return db.prepare('SELECT parent_thread_id, child_thread_id, status FROM thread_spawn_edges ORDER BY child_thread_id').all() as Record<string, unknown>[]
+  } finally {
+    db.close()
+  }
+}
+
+export function insertEdge(file: string, parent: string, child: string, status: string): void {
+  const db = new DatabaseSync(file)
+  try {
+    db.prepare('INSERT INTO thread_spawn_edges (parent_thread_id, child_thread_id, status) VALUES (?, ?, ?)').run(parent, child, status)
+  } finally {
+    db.close()
+  }
 }

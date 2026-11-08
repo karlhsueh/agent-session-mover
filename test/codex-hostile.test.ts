@@ -23,6 +23,8 @@ afterEach(async () => removeTempDir(b.dir))
 
 const rollout = Buffer.from(rolloutLines({ id: ID, cwd: CWD }).join('\n') + '\n')
 const otherRollout = Buffer.from(rolloutLines({ id: CX.archived, cwd: CWD }).join('\n') + '\n')
+const strayAgent = { id: CX.subagent, cwd: CWD, spawn: { parent: CX.decoy, depth: 1 } }
+const strayRollout = Buffer.from(rolloutLines(strayAgent).join('\n') + '\n')
 const index = (id: string) => Buffer.from(JSON.stringify({ id, thread_name: 'n', updated_at: '2026-11-01T10:00:00Z' }) + '\n')
 const entry = (role: string, filePath: string, body: Buffer) => ({ file: { role, path: filePath, sha256: sha256(body), size: body.length, mtimeMs: 0 }, body })
 
@@ -75,6 +77,9 @@ describe('Codex import of a valid archive with hostile intent', () => {
     ['an index entry for another thread', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('index-entry', 'session_index.jsonl', index(CX.archived))]],
     ['an index entry of two lines', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('index-entry', 'session_index.jsonl', Buffer.concat([index(ID), index(ID)]))]],
     ['a compressed rollout that is not zstd', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD, compressed: true }), Buffer.from('not zstd at all'))]],
+    ['a subagent rollout of the session itself', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('subagent-rollout', rolloutRel({ id: ID, cwd: CWD, startMinute: 5 }), rollout)]],
+    ['a subagent rollout that no thread of the session spawned', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('subagent-rollout', rolloutRel(strayAgent), strayRollout)]],
+    ['a subagent rollout that is not a subagent', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('subagent-rollout', rolloutRel({ id: CX.archived, cwd: CWD }), otherRollout)]],
     ['an index entry at another path',() => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('index-entry', 'config.toml', index(ID))]],
   ])('blocks %s and writes nothing', async (_name, files) => {
     const before = await treeHash(b.home)

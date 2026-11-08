@@ -13,7 +13,13 @@ export const CX = {
   revertedRollout: '019a0000-0000-7000-8000-0000000000f4',
   parent: '019a0000-0000-7000-8000-000000000005',
   child: '019a0000-0000-7000-8000-000000000006',
+  /** Spawned by `parent`, and spawned `grandchild` in turn. */
   subagent: '019a0000-0000-7000-8000-000000000007',
+  subagent2: '019a0000-0000-7000-8000-00000000000a',
+  grandchild: '019a0000-0000-7000-8000-00000000000b',
+  /** A subagent whose parent thread is not in the store. */
+  orphan: '019a0000-0000-7000-8000-00000000000c',
+  missingParent: '019a0000-0000-7000-8000-0000000000ee',
   live: '019a0000-0000-7000-8000-000000000008',
   hosted: '019a0000-0000-7000-8000-000000000009',
   decoy: '019a0000-0000-7000-8000-00000000000d',
@@ -36,6 +42,12 @@ export interface FixtureRollout {
   turns?: number
   /** Records an image Codex saved for this thread, by absolute path into the source store. */
   savedImage?: string
+  /** Makes this a spawned subagent. Codex writes the agent fields both into `source` and onto `session_meta`. */
+  spawn?: { parent: string; depth: number; nickname?: string; role?: string; path?: string }
+  /** A forked subagent's rollout repeats its parent's records before its own. */
+  inherit?: string[]
+  /** The message the parent agent sent the subagent. */
+  task?: string
 }
 
 export interface BuiltRollout {
@@ -60,6 +72,8 @@ export function rolloutLines(r: FixtureRollout): string[] {
     lines.push(JSON.stringify({ timestamp: iso(minute), ordinal: lines.length, type, payload }))
     minute += 1
   }
+  const spawn = r.spawn && { agent_nickname: r.spawn.nickname ?? null, agent_role: r.spawn.role ?? null, agent_path: r.spawn.path ?? null }
+  const historyStart = r.inherit ? r.inherit.length + 1 : null
   push('session_meta', {
     id: r.id,
     session_id: r.id,
@@ -67,7 +81,9 @@ export function rolloutLines(r: FixtureRollout): string[] {
     cwd: r.cwd,
     originator: r.originator ?? 'codex-tui',
     cli_version: '0.162.1',
-    source: r.source ?? 'cli',
+    source: r.spawn ? { subagent: { thread_spawn: { parent_thread_id: r.spawn.parent, depth: r.spawn.depth, ...spawn } } } : (r.source ?? 'cli'),
+    ...(spawn ? { ...spawn, parent_thread_id: r.spawn!.parent, forked_from_id: r.spawn!.parent } : {}),
+    ...(historyStart === null ? {} : { subagent_history_start_ordinal: historyStart }),
     thread_source: 'user',
     model_provider: 'openai',
     history_mode: 'paginated',
@@ -76,6 +92,8 @@ export function rolloutLines(r: FixtureRollout): string[] {
     git: { commit_hash: 'a1b2c3d', branch: 'main', repository_url: 'https://example.invalid/repo.git' },
     ...(r.historyBase ? { history_base: { thread_id: r.historyBase.rolloutId, end_ordinal_exclusive: r.historyBase.endOrdinal, end_byte_offset: r.historyBase.endByteOffset } } : {}),
   })
+  for (const line of r.inherit ?? []) lines.push(JSON.stringify({ ...JSON.parse(line), ordinal: lines.length }))
+  if (r.task) push('response_item', { type: 'agent_message', author: '/root', recipient: r.spawn?.path ?? '/root/agent', content: [{ type: 'input_text', text: r.task }] })
   const permission = { type: 'workspace-write', file_system: { entries: [{ path: { path: r.cwd } }] } }
   push('turn_context', { cwd: r.cwd, model: 'gpt-5.5-codex', effort: 'medium', approval_policy: 'on-request', permission_profile: permission, turn_id: 't0' })
   push('response_item', { type: 'message', role: 'user', content: [{ type: 'input_text', text: `<environment_context><cwd>${r.cwd}</cwd></environment_context>` }] })
@@ -152,6 +170,7 @@ export interface CodexStore {
   rollouts: Record<string, BuiltRollout>
   revertedOriginal: BuiltRollout
   imagePath: string
+  subagentImage: string
   indexLine: string
   db: string
 }
@@ -159,6 +178,7 @@ export interface CodexStore {
 /** One store with every shape the provider must handle. `cwd` is the folder the sessions ran in. */
 export async function buildCodexStore(root: string, cwd: string, options: { db?: boolean } = {}): Promise<CodexStore> {
   const imagePath = path.join(root, 'generated_images', CX.plain, 'call_1.png')
+  const subagentImage = path.join(root, 'generated_images', CX.subagent2, 'call_2.png')
   const rollouts: Record<string, BuiltRollout> = {}
   rollouts[CX.plain] = await writeRollout(root, { id: CX.plain, cwd, savedImage: imagePath })
   rollouts[CX.archived] = await writeRollout(root, { id: CX.archived, cwd, startMinute: 20, archived: true, originator: 'Codex Desktop', source: 'vscode', prompt: 'Archive me' })
@@ -184,18 +204,19 @@ export async function buildCodexStore(root: string, cwd: string, options: { db?:
     prompt: 'Forked child',
     historyBase: { rolloutId: CX.parent, endOrdinal: forkKeep.length, endByteOffset: Buffer.byteLength(forkKeep.join('\n') + '\n') },
   })
-  rollouts[CX.subagent] = await writeRollout(root, {
-    id: CX.subagent,
-    cwd,
-    startMinute: 140,
-    prompt: null,
-    source: { subagent: { thread_spawn: { parent_thread_id: CX.parent, depth: 1, agent_path: '/root/review', agent_nickname: 'Ada', agent_role: null } } },
-  })
+  const subagent = (id: string, startMinute: number, spawn: NonNullable<FixtureRollout['spawn']>, task: string, extra: Partial<FixtureRollout> = {}) =>
+    writeRollout(root, { id, cwd, startMinute, prompt: null, spawn, task, inherit: rollouts[spawn.parent]?.lines, ...extra })
+  rollouts[CX.subagent] = await subagent(CX.subagent, 140, { parent: CX.parent, depth: 1, nickname: 'Ada', path: '/root/review' }, 'Review the tokenizer change')
+  rollouts[CX.grandchild] = await subagent(CX.grandchild, 150, { parent: CX.subagent, depth: 2, path: '/root/review/deep_check' }, 'Check the edge cases')
+  rollouts[CX.subagent2] = await subagent(CX.subagent2, 170, { parent: CX.parent, depth: 1, role: 'explorer', path: '/root/map' }, 'Map the parser module', { savedImage: subagentImage })
+  rollouts[CX.orphan] = await subagent(CX.orphan, 180, { parent: CX.missingParent, depth: 1, nickname: 'Orphaned', path: '/root/lost' }, 'Lost task')
   rollouts[CX.live] = await writeRollout(root, { id: CX.live, cwd, startMinute: 160, prompt: 'Still running' })
   await writeLock(root, CX.live)
 
   await mkdir(path.dirname(imagePath), { recursive: true })
   await writeFile(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3]))
+  await mkdir(path.dirname(subagentImage), { recursive: true })
+  await writeFile(subagentImage, Buffer.from([0x89, 0x50, 0x4e, 0x47, 9, 9]))
   const indexLine = await writeIndexLine(root, CX.plain, 'Renamed tokenizer work')
   await writeIndexLine(root, CX.parent, 'Parent by name')
 
@@ -208,5 +229,5 @@ export async function buildCodexStore(root: string, cwd: string, options: { db?:
       { id: CX.hosted, rollout_path: path.join(root, 'sessions/2026/11/01/missing.jsonl'), cwd, title: NEVER_EXPORT, preview: NEVER_EXPORT },
     ])
   }
-  return { rollouts, revertedOriginal, imagePath, indexLine, db }
+  return { rollouts, revertedOriginal, imagePath, subagentImage, indexLine, db }
 }
