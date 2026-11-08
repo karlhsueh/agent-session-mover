@@ -1,9 +1,8 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { CHANNELS, GREET_CHANNEL, type DesktopApi } from '../shared/ipc'
+import { CHANNELS, type DesktopApi } from '../shared/ipc'
 import type { ProgressEvent } from '../shared/sessions'
 
 const api: DesktopApi = {
-  greet: (name) => ipcRenderer.invoke(GREET_CHANNEL, name),
   listSessions: () => ipcRenderer.invoke(CHANNELS.listSessions),
   exportSessions: (keys) => ipcRenderer.invoke(CHANNELS.exportSessions, keys),
   openArchive: () => ipcRenderer.invoke(CHANNELS.openArchive),
@@ -16,6 +15,10 @@ const api: DesktopApi = {
       ipcRenderer.removeListener(CHANNELS.progress, listener)
     }
   },
+  storeRoots: () => ipcRenderer.invoke(CHANNELS.storeRoots),
+  chooseFolder: (startIn) => ipcRenderer.invoke(CHANNELS.chooseFolder, startIn),
+  revealExport: () => ipcRenderer.invoke(CHANNELS.revealExport),
+  copyText: (text) => ipcRenderer.invoke(CHANNELS.copyText, text),
 }
 
 contextBridge.exposeInMainWorld('api', api)

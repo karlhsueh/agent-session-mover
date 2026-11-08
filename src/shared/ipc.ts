@@ -1,4 +1,5 @@
 import type {
+  AgentId,
   ArchiveSummary,
   ArchiveToken,
   ExportResult,
@@ -10,8 +11,6 @@ import type {
   SessionList,
 } from './sessions'
 
-export const GREET_CHANNEL = 'greet'
-
 export const CHANNELS = {
   listSessions: 'sessions:list',
   exportSessions: 'sessions:export',
@@ -19,21 +18,11 @@ export const CHANNELS = {
   previewImport: 'import:preview',
   runImport: 'import:run',
   progress: 'progress',
+  storeRoots: 'stores:roots',
+  chooseFolder: 'dialog:folder',
+  revealExport: 'export:reveal',
+  copyText: 'clipboard:write',
 } as const
-
-export type RuntimeInfo = {
-  pid: number
-  // string rather than NodeJS.Platform: naming that type here would pull Node's
-  // globals into the renderer's type check, and `process.env` would then compile there.
-  platform: string
-  electron: string
-  node: string
-  chrome: string
-}
-
-export type GreetResult =
-  | { ok: true; message: string; runtime: RuntimeInfo }
-  | { ok: false; error: string }
 
 export type ApiErrorCode =
   | 'invalid-input'
@@ -63,7 +52,6 @@ export type OpenArchiveOutcome =
  * an opaque archive token. Session keys and mappings are checked in main before use.
  */
 export interface DesktopApi {
-  greet(name: string): Promise<GreetResult>
   listSessions(): Promise<ApiResult<SessionList>>
   exportSessions(keys: SessionKey[]): Promise<ApiResult<ExportOutcome>>
   openArchive(): Promise<ApiResult<OpenArchiveOutcome>>
@@ -71,4 +59,16 @@ export interface DesktopApi {
   runImport(token: ArchiveToken, mappings: PathMapping[], keys: SessionKey[]): Promise<ApiResult<ImportResult>>
   /** Returns the unsubscribe function. */
   onProgress(callback: (event: ProgressEvent) => void): () => void
+  /** The store folder each provider reads on this machine. */
+  storeRoots(): Promise<StoreRoot[]>
+  /** Shows the folder picker. Returns the chosen folder, or null when the user closed it. */
+  chooseFolder(startIn: string | null): Promise<string | null>
+  /** Shows the archive this window saved last in Finder or Explorer. */
+  revealExport(): Promise<void>
+  copyText(text: string): Promise<void>
+}
+
+export interface StoreRoot {
+  agent: AgentId
+  path: string
 }
