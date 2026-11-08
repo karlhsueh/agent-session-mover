@@ -48,7 +48,7 @@ it('resumes a Claude Code session after export, removal, and import under anothe
   await mkdir(machineB)
   const word = `WORD${randomBytes(3).toString('hex').toUpperCase()}`
   const context: CoreContext = {
-    providers: { 'claude-code': providers['claude-code'] },
+    providers,
     env: { homeDir: home, env: { CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR }, platform: process.platform },
     appDataDir: path.join(scratch, 'appdata'),
     appVersion: '0.0.0-real',
