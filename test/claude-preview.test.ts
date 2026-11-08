@@ -60,6 +60,7 @@ describe('Claude Code conversation preview', () => {
         { type: 'tool_use', name: 'Edit', input: { file_path: '/elsewhere/a.ts', old_string: 'x', new_string: 'y' } },
         { type: 'tool_use', name: 'mcp__docs__fetch', input: { url: 'https://example.invalid/page' } },
         { type: 'tool_use', name: 'TodoWrite', input: { todos: [] } },
+        { type: 'tool_use', name: 'toString', input: { path: '/w/proj/src' } },
         { type: 'text', text: 'Done.' },
       ]),
     ])
@@ -71,6 +72,7 @@ describe('Claude Code conversation preview', () => {
       'tool:Edited /elsewhere/a.ts',
       'tool:mcp__docs__fetch https://example.invalid/page',
       'tool:Updated the todo list',
+      'tool:toString src',
       'assistant:Done.',
     ])
   })

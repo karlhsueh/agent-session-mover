@@ -61,6 +61,7 @@ describe('Codex conversation preview', () => {
       item(9, { type: 'web_search_call', status: 'completed', action: { type: 'search', query: 'zstd node' } }),
       item(10, { type: 'function_call', name: 'view_image', arguments: JSON.stringify({ path: `${CWD}/shot.png` }) }),
       item(11, { type: 'function_call', name: 'mystery_tool', arguments: 'not json' }),
+      item(11, { type: 'function_call', name: 'constructor', arguments: JSON.stringify({ path: 'x' }) }),
       item(12, { type: 'function_call_output', call_id: 'c1', output: 'lots of output' }),
       item(13, { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'Fixed.' }] }),
       item(14, { type: 'item_completed', item: { type: 'UserMessage', content: [{ type: 'text', text: 'Fix the build' }] } }, 'event_msg'),
@@ -75,6 +76,7 @@ describe('Codex conversation preview', () => {
       'tool:Searched the web for zstd node',
       'tool:Viewed shot.png',
       'tool:mystery_tool not json',
+      'tool:constructor x',
       'assistant:Fixed.',
     ])
   })

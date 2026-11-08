@@ -74,7 +74,7 @@ function isTagged(text: string): boolean {
 }
 
 function toolSummary(name: string, input: Input, cwd: string | null): string {
-  const known = TOOLS[name]
+  const known = Object.hasOwn(TOOLS, name) ? TOOLS[name] : undefined
   const field = known ? known.field : TELLING_FIELDS.find((key) => typeof input[key] === 'string' && input[key] !== '')
   const value = field && typeof input[field] === 'string' ? (input[field] as string) : null
   const shown = value && field && PATH_FIELDS.has(field) ? relativeTo(value, cwd) : value

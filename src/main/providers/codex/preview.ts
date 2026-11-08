@@ -65,7 +65,7 @@ const FUNCTIONS: Record<string, Summarize> = {
 const TELLING_ARGS = ['path', 'file', 'cmd', 'command', 'query', 'url', 'pattern', 'title']
 
 function functionSummary(name: string, args: Payload, cwd: string | null): string {
-  const known = FUNCTIONS[name]
+  const known = Object.hasOwn(FUNCTIONS, name) ? FUNCTIONS[name] : undefined
   if (known) return known(args, cwd)
   const key = TELLING_ARGS.find((candidate) => str(args[candidate])) ?? Object.keys(args).find((candidate) => str(args[candidate]))
   return [name, key && str(args[key])].filter(Boolean).join(' ')
