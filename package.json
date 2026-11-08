@@ -49,7 +49,7 @@
   "build": {
     "appId": "com.karlhsueh.agent-sessions",
     "productName": "Agent Sessions",
-    "artifactName": "${name}-${version}-${os}-${arch}.${ext}",
+    "artifactName": "${name}-${os}-${arch}.${ext}",
     "publish": null,
     "directories": {
       "output": "dist",

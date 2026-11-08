@@ -12,11 +12,11 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`. It builds the a
 
 | File | Platform |
 | --- | --- |
-| `agent-sessions-<version>-mac-arm64.dmg`, `.zip` | macOS on Apple silicon |
-| `agent-sessions-<version>-mac-x64.dmg`, `.zip` | macOS on Intel |
-| `agent-sessions-<version>-win-x64.exe` | Windows x64 (NSIS installer) |
-| `agent-sessions-<version>-linux-x86_64.AppImage` | Linux x64 |
-| `agent-sessions-<version>-linux-amd64.deb` | Debian and Ubuntu x64 |
+| `agent-sessions-mac-arm64.dmg`, `.zip` | macOS on Apple silicon |
+| `agent-sessions-mac-x64.dmg`, `.zip` | macOS on Intel |
+| `agent-sessions-win-x64.exe` | Windows x64 (NSIS installer) |
+| `agent-sessions-linux-x86_64.AppImage` | Linux x64 |
+| `agent-sessions-linux-amd64.deb` | Debian and Ubuntu x64 |
 | `SHA256SUMS` | SHA-256 of every file above |
 
 electron-builder names the Linux arch the way each format expects, so the AppImage says `x86_64` and the deb says `amd64`.
@@ -97,5 +97,5 @@ Keep the `.p12`, its password, and the `.p8` in a password manager, then move th
 ## What users see from unsigned builds
 
 - Windows SmartScreen warns about an unknown publisher. Click More info, then Run anyway.
-- The AppImage needs `chmod +x` before it runs. The deb installs with `sudo apt install ./agent-sessions-<version>-linux-amd64.deb`.
+- The AppImage needs `chmod +x` before it runs. The deb installs with `sudo apt install ./agent-sessions-linux-amd64.deb`.
 - An ad-hoc signed Mac build is blocked on first open. Open System Settings, then Privacy & Security, and click Open Anyway.

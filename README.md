@@ -26,16 +26,19 @@ After an import, the app shows the resume command for each session. It checks th
 
 ## Install
 
-Get the installer for your system from the [latest release](https://github.com/karlhsueh/agent-sessions/releases/latest):
+**macOS** with [Homebrew](https://brew.sh):
 
-| System | File |
-| --- | --- |
-| macOS, Apple silicon | `agent-sessions-<version>-mac-arm64.dmg` |
-| macOS, Intel | `agent-sessions-<version>-mac-x64.dmg` |
-| Windows x64 | `agent-sessions-<version>-win-x64.exe` |
-| Linux x64 | `.AppImage`, or `.deb` for Debian and Ubuntu |
+```sh
+brew install --cask karlhsueh/tap/agent-sessions
+```
 
-Each release lists the SHA-256 of every file in `SHA256SUMS`. The macOS app is signed and notarized. The Windows and Linux builds are not code-signed, so Windows SmartScreen asks you to confirm the first launch.
+Or download the installer for your system. These links always fetch the latest release:
+
+- macOS: [Apple silicon](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-arm64.dmg) · [Intel](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-x64.dmg)
+- Windows: [x64 installer](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-win-x64.exe)
+- Linux: [AppImage](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-linux-x86_64.AppImage) · [deb](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-linux-amd64.deb) for Debian and Ubuntu
+
+The macOS app is signed and notarized. The Windows and Linux builds are not code-signed yet, so Windows SmartScreen asks you to confirm the first launch. On Linux, run `chmod +x` on the AppImage before you open it. Each [release](https://github.com/karlhsueh/agent-sessions/releases/latest) lists the SHA-256 of every file in `SHA256SUMS`.
 
 ## Supported agents
 
