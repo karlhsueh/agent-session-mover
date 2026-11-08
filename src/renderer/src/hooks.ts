@@ -61,3 +61,33 @@ export function useNow(): number {
   }, [])
   return now
 }
+
+/**
+ * State remembered in this window's localStorage, for per-viewer conveniences only. Storage can be
+ * unavailable or hold anything, so `parse` returns the fallback for a value it does not accept.
+ */
+export function useStored<T>(key: string, parse: (raw: string | null) => T, serialize: (value: T) => string): [T, (update: (current: T) => T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      return parse(localStorage.getItem(key))
+    } catch {
+      return parse(null)
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, serialize(value))
+    } catch {
+      // The value still applies for this window.
+    }
+  }, [key, value, serialize])
+  return [value, setValue]
+}
+
+export function useHomeDir(): string {
+  const [home, setHome] = useState('')
+  useEffect(() => {
+    void window.api.homeDir().then(setHome)
+  }, [])
+  return home
+}

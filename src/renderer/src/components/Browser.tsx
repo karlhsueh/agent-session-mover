@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import type { StoreRoot } from '../../../shared/ipc'
 import type { SessionKey, SessionList as List } from '../../../shared/sessions'
-import { EMPTY_QUERY, isFiltered, visibleSessions, type BrowseQuery } from '../model/browse'
+import { EMPTY_QUERY, isFiltered, type BrowseQuery, type Grouping } from '../model/browse'
 import { AGENT_LABEL, MOD, plural } from '../model/format'
+import { buildView, searchNeedle, type GroupKey } from '../model/rows'
 import { focusedKey, NO_SELECTION, selectionReducer } from '../model/selection'
-import type { Theme } from '../hooks'
+import { useHomeDir, useStored, type Theme } from '../hooks'
 import { Kbd } from './common'
-import { Filters } from './Filters'
+import { SessionDetail, type DetailTarget } from './SessionDetail'
+import { SessionList, type ListActions } from './SessionList'
+import { Shortcuts } from './Shortcuts'
 import { TitleBar } from './TitleBar'
-import { SessionDetail } from './SessionDetail'
-import { SessionList, type ClickMode } from './SessionList'
+import { Toolbar } from './Toolbar'
 
 interface Props {
   list: List
@@ -29,20 +31,35 @@ function inTextField(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
 }
 
+const parseGrouping = (raw: string | null): Grouping => (raw === 'flat' ? 'flat' : 'project')
+const keepGrouping = (grouping: Grouping) => grouping
+function parseCollapsed(raw: string | null): ReadonlySet<GroupKey> {
+  const value: unknown = raw ? JSON.parse(raw) : []
+  return new Set(Array.isArray(value) ? (value.filter((item) => typeof item === 'string') as GroupKey[]) : [])
+}
+const keepCollapsed = (collapsed: ReadonlySet<GroupKey>) => JSON.stringify([...collapsed])
+
 export function Browser({ list, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
-  const [query, setQuery] = useState<BrowseQuery>(EMPTY_QUERY)
+  const [query, setQueryState] = useState<BrowseQuery>(EMPTY_QUERY)
+  const [grouping, setGrouping] = useStored('agent-sessions.grouping', parseGrouping, keepGrouping)
+  const [collapsed, setCollapsed] = useStored('agent-sessions.collapsed', parseCollapsed, keepCollapsed)
+  const [expanded, setExpanded] = useState<ReadonlyMap<SessionKey, boolean>>(new Map())
   const [selection, dispatch] = useReducer(selectionReducer, NO_SELECTION)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const home = useHomeDir()
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const visible = useMemo(() => visibleSessions(list.sessions, query), [list.sessions, query])
-  const order = useMemo(() => visible.map((session) => session.key), [visible])
-  const orderRef = useRef(order)
-  orderRef.current = order
-  const focus = focusedKey(selection, order)
-  const focused = visible.find((session) => session.key === focus) ?? null
+  const view = useMemo(() => buildView(list.sessions, { query, grouping, collapsed, expanded }), [list.sessions, query, grouping, collapsed, expanded])
+  const rows = view.rows
+  const rowsRef = useRef(rows)
+  rowsRef.current = rows
+  const byKey = useMemo(() => new Map(list.sessions.map((session) => [session.key, session])), [list.sessions])
+  const focus = focusedKey(selection, rows)
+  const focusedRow = rows.find((row) => row.key === focus) ?? null
   const selectedKeys = list.sessions.filter((session) => selection.keys.has(session.key)).map((session) => session.key)
-  const hiddenSelected = selectedKeys.filter((key) => !order.includes(key)).length
+  const matched = new Set(view.matches)
+  const hiddenSelected = selectedKeys.filter((key) => !matched.has(key)).length
 
   useEffect(() => {
     dispatch({ type: 'retain', existing: new Set(list.sessions.map((session) => session.key)) })
@@ -52,13 +69,65 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
     listRef.current?.focus()
   }, [])
 
-  const onClick = useCallback((key: SessionKey, mode: ClickMode) => {
-    dispatch({ type: 'click', key, mode, order: orderRef.current })
-    listRef.current?.focus()
-  }, [])
+  const toggleCollapsed = useCallback(
+    (group: GroupKey) =>
+      setCollapsed((current) => {
+        const next = new Set(current)
+        if (!next.delete(group)) next.add(group)
+        return next
+      }),
+    [setCollapsed],
+  )
+  // A new search expands the sessions it matches through subagents, so earlier folds start over.
+  const setQuery = (next: BrowseQuery) => {
+    if (next.text !== query.text) setExpanded(new Map())
+    setQueryState(next)
+  }
+  const setSessionOpen = useCallback((key: SessionKey, open: boolean) => setExpanded((current) => new Map(current).set(key, open)), [])
+
+  const actions = useMemo<ListActions>(
+    () => ({
+      onClick: (key, mode) => {
+        dispatch({ type: 'click', key, mode, rows: rowsRef.current })
+        listRef.current?.focus()
+      },
+      onFocusRow: (key) => {
+        dispatch({ type: 'focus', key })
+        listRef.current?.focus()
+      },
+      onToggleGroup: (row) => {
+        dispatch({ type: 'toggle-group', key: row.key, sessions: row.sessions })
+        listRef.current?.focus()
+      },
+      onCollapseGroup: (row) => toggleCollapsed(row.group),
+      onExpandSession: (key) => {
+        const row = rowsRef.current.find((candidate) => candidate.key === key)
+        if (row?.kind === 'session') setSessionOpen(key, !row.expanded)
+      },
+    }),
+    [toggleCollapsed, setSessionOpen],
+  )
+
+  /** Left and Right fold the focused row, or step to its parent or first child, as in a file tree. */
+  function fold(direction: 'in' | 'out') {
+    const row = focusedRow
+    const next = () => dispatch({ type: 'move', to: 'next', extend: false, rows })
+    if (!row) return
+    if (row.kind === 'group') {
+      if (direction === 'in') return row.collapsed ? toggleCollapsed(row.group) : next()
+      if (!row.collapsed && !view.searching) toggleCollapsed(row.group)
+    } else if (row.kind === 'session') {
+      const hasChildren = row.session.subagents.length > 0
+      if (direction === 'in') return hasChildren && (row.expanded ? next() : setSessionOpen(row.key, true))
+      if (row.expanded) setSessionOpen(row.key, false)
+      else if (row.group) dispatch({ type: 'focus', key: row.group })
+    } else if (direction === 'out') {
+      dispatch({ type: 'focus', key: row.parent })
+    }
+  }
 
   useEffect(() => {
-    if (!active) return
+    if (!active || showShortcuts) return
     const onKey = (event: KeyboardEvent) => {
       const mod = event.metaKey || event.ctrlKey
       const typing = inTextField(event.target)
@@ -83,23 +152,31 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
         event.preventDefault()
         if (typing) listRef.current?.focus()
         const to = event.key === 'ArrowDown' ? (mod ? 'last' : 'next') : mod ? 'first' : 'previous'
-        dispatch({ type: 'move', to, extend: event.shiftKey, order })
+        dispatch({ type: 'move', to, extend: event.shiftKey, rows })
       } else if (typing) {
         return
+      } else if (event.key === '?') {
+        event.preventDefault()
+        setShowShortcuts(true)
       } else if (mod && key === 'a') {
         event.preventDefault()
-        dispatch({ type: 'all', order })
-      } else if (event.key === ' ' && onList) {
+        dispatch({ type: 'all', keys: view.matches })
+      } else if (!onList) {
+        return
+      } else if (event.key === ' ') {
         event.preventDefault()
-        dispatch({ type: 'toggle-focus', order })
-      } else if ((event.key === 'Home' || event.key === 'End') && onList) {
+        dispatch({ type: 'toggle-focus', rows })
+      } else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
         event.preventDefault()
-        dispatch({ type: 'move', to: event.key === 'Home' ? 'first' : 'last', extend: event.shiftKey, order })
+        fold(event.key === 'ArrowRight' ? 'in' : 'out')
+      } else if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault()
+        dispatch({ type: 'move', to: event.key === 'Home' ? 'first' : 'last', extend: event.shiftKey, rows })
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [active, order, query, selectedKeys, onExport, onImport])
+  })
 
   if (list.sessions.length === 0)
     return (
@@ -112,20 +189,37 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
       </>
     )
 
+  const detail: DetailTarget =
+    focusedRow?.kind === 'session'
+      ? { kind: 'session', session: focusedRow.session, subagent: null }
+      : focusedRow?.kind === 'subagent'
+        ? { kind: 'session', session: byKey.get(focusedRow.parent)!, subagent: focusedRow.subagent.id }
+        : focusedRow?.kind === 'group'
+          ? { kind: 'group', row: focusedRow, sessions: focusedRow.sessions.map((key) => byKey.get(key)!) }
+          : null
+
   return (
     <>
       <TitleBar theme={theme} onToggleTheme={onToggleTheme}>
-        <Filters sessions={list.sessions} query={query} onChange={setQuery} searchRef={searchRef} />
-        <button type="button" className="button" onClick={onImport} title={`Import archive (${MOD}O)`}>
-          Import…
-        </button>
+        <Toolbar sessions={list.sessions} query={query} onChange={setQuery} grouping={grouping} onGrouping={(next) => setGrouping(() => next)} searchRef={searchRef} />
       </TitleBar>
       {notice}
       <Problems list={list} />
       <div className="browse">
         <div className="list-pane">
-          {visible.length > 0 ? (
-            <SessionList sessions={visible} selected={selection.keys} focus={focus} now={now} onClick={onClick} listRef={listRef} />
+          {rows.length > 0 ? (
+            <SessionList
+              rows={rows}
+              grouped={grouping === 'project'}
+              searching={view.searching}
+              needle={searchNeedle(query)}
+              selected={selection.keys}
+              focus={focus}
+              now={now}
+              home={home}
+              actions={actions}
+              listRef={listRef}
+            />
           ) : (
             <div className="empty">
               <p>No sessions match.</p>
@@ -135,27 +229,40 @@ export function Browser({ list, storeRoots, now, active, onExport, onImport, the
             </div>
           )}
         </div>
-        <SessionDetail session={focused} />
+        <SessionDetail target={detail} home={home} now={now} />
       </div>
       <footer className="statusbar">
-        <span className="dim" aria-live="polite">
-          {isFiltered(query) ? `${visible.length} of ${plural(list.sessions.length, 'session')}` : plural(list.sessions.length, 'session')}
-        </span>
-        <span className="hints dim">
-          <Kbd>↑↓</Kbd> move <Kbd>Space</Kbd> select <Kbd>{MOD}A</Kbd> all <Kbd>Esc</Kbd> clear
+        <span className="status" aria-live="polite">
+          <span className="dim">
+            {isFiltered(query) ? `${view.matches.length} of ${plural(list.sessions.length, 'session')}` : plural(list.sessions.length, 'session')}
+            {grouping === 'project' && ` in ${plural(view.groupCount, 'project')}`}
+          </span>
+          {selectedKeys.length > 0 ? (
+            <span className="selection-count">
+              {selectedKeys.length} selected
+              {hiddenSelected > 0 && <span className="dim"> ({hiddenSelected} hidden by filters)</span>}
+              <button type="button" className="button ghost small" onClick={() => dispatch({ type: 'clear' })}>
+                Clear
+              </button>
+            </span>
+          ) : (
+            <span className="dim">Select sessions to export</span>
+          )}
         </span>
         <span className="statusbar-actions">
-          {selectedKeys.length > 0 && (
-            <span className="selection-count">
-              {selectedKeys.length} selected{hiddenSelected > 0 && <span className="dim"> ({hiddenSelected} hidden by filters)</span>}
-            </span>
-          )}
-          <button type="button" className="button primary" disabled={selectedKeys.length === 0} onClick={() => onExport(selectedKeys)}>
+          <button type="button" className="button ghost icon" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setShowShortcuts(true)}>
+            ?
+          </button>
+          <button type="button" className="button" onClick={onImport} title={`Import an archive (${MOD}O)`}>
+            Import…
+          </button>
+          <button type="button" className="button primary export" disabled={selectedKeys.length === 0} onClick={() => onExport(selectedKeys)}>
             {selectedKeys.length > 0 ? `Export ${plural(selectedKeys.length, 'session')}…` : 'Export…'}
             <Kbd>{MOD}E</Kbd>
           </button>
         </span>
       </footer>
+      {showShortcuts && <Shortcuts onClose={() => setShowShortcuts(false)} />}
     </>
   )
 }

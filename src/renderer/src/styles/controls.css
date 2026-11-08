@@ -133,3 +133,81 @@
 .roots code {
   word-break: break-all;
 }
+
+/* Disabled primary reads as empty, not as a dimmed live button. */
+.button.primary:disabled {
+  opacity: 1;
+  color: var(--faint);
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+}
+
+.button.primary:disabled kbd {
+  opacity: 0.8;
+}
+
+.chips,
+.segmented {
+  display: inline-flex;
+  flex: none;
+  height: 30px;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  -webkit-app-region: no-drag;
+}
+
+.chips button,
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+}
+
+.chips button:hover,
+.segmented button:hover {
+  color: var(--text);
+}
+
+.chips button[aria-pressed='true'],
+.segmented button[aria-pressed='true'] {
+  color: var(--text);
+  background: var(--raised);
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+.chips button[aria-pressed='true'] {
+  background: var(--selected);
+  box-shadow: 0 0 0 1px var(--selected-line);
+}
+
+.command {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 8px 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.command code {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  overflow-x: auto;
+  line-height: 1.5;
+  padding-top: 2px;
+}
