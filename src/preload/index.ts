@@ -15,6 +15,10 @@ const api: DesktopApi = {
       ipcRenderer.removeListener(CHANNELS.progress, listener)
     }
   },
+  storeRoots: () => ipcRenderer.invoke(CHANNELS.storeRoots),
+  chooseFolder: (startIn) => ipcRenderer.invoke(CHANNELS.chooseFolder, startIn),
+  revealExport: () => ipcRenderer.invoke(CHANNELS.revealExport),
+  copyText: (text) => ipcRenderer.invoke(CHANNELS.copyText, text),
 }
 
 contextBridge.exposeInMainWorld('api', api)

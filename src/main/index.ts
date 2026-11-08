@@ -1,7 +1,7 @@
 import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
-import { CHANNELS } from '../shared/ipc'
+import { isAbsolute, join } from 'node:path'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { CHANNELS, type StoreRoot } from '../shared/ipc'
 import type { ProgressEvent } from '../shared/sessions'
 import { ARCHIVE_EXTENSION } from './archive/archive'
 import { recoverJournals } from './core/executor'
@@ -10,12 +10,26 @@ import { clearStaging } from './core/import'
 import { providers } from './providers/registry'
 import { createSessionService, type SessionService } from './service'
 
+// Playwright cannot drive native dialogs. e2e/smoke.mts names the files and folders they would
+// return, and a separate userData folder so a test run never touches real backups or journals.
+const e2e = app.isPackaged
+  ? {}
+  : {
+      savePath: process.env.AGENT_SESSIONS_E2E_SAVE_PATH,
+      openPath: process.env.AGENT_SESSIONS_E2E_OPEN_PATH,
+      folderPath: process.env.AGENT_SESSIONS_E2E_FOLDER_PATH,
+      userData: process.env.AGENT_SESSIONS_E2E_USER_DATA,
+    }
+if (e2e.userData) app.setPath('userData', e2e.userData)
+
 function createWindow(): void {
   const window = new BrowserWindow({
-    width: 900,
-    height: 600,
-    minWidth: 760,
-    minHeight: 520,
+    width: 1200,
+    height: 760,
+    minWidth: 880,
+    minHeight: 560,
+    backgroundColor: '#111214',
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 15 } } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -42,12 +56,14 @@ function registerSessionHandlers(service: SessionService): void {
     if (!event.sender.isDestroyed()) event.sender.send(CHANNELS.progress, progress)
   }
   const owner = (event: IpcMainInvokeEvent) => BrowserWindow.fromWebContents(event.sender)
+  let lastExport: string | null = null
 
   ipcMain.handle(CHANNELS.listSessions, () => service.listSessions())
-  ipcMain.handle(CHANNELS.exportSessions, (event, keys: unknown) =>
-    service.exportSessions(
+  ipcMain.handle(CHANNELS.exportSessions, async (event, keys: unknown) => {
+    const result = await service.exportSessions(
       keys,
       async () => {
+        if (e2e.savePath) return e2e.savePath
         const options = { defaultPath: `sessions.${ARCHIVE_EXTENSION}`, filters: [archiveFilter] }
         const window = owner(event)
         const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options)
@@ -55,10 +71,13 @@ function registerSessionHandlers(service: SessionService): void {
         return result.filePath.endsWith(`.${ARCHIVE_EXTENSION}`) ? result.filePath : `${result.filePath}.${ARCHIVE_EXTENSION}`
       },
       emitter(event),
-    ),
-  )
+    )
+    if (result.ok && result.value.kind === 'saved') lastExport = result.value.filePath
+    return result
+  })
   ipcMain.handle(CHANNELS.openArchive, (event) =>
     service.openArchive(async () => {
+      if (e2e.openPath) return e2e.openPath
       const options = { properties: ['openFile' as const], filters: [archiveFilter] }
       const window = owner(event)
       const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
@@ -69,6 +88,28 @@ function registerSessionHandlers(service: SessionService): void {
   ipcMain.handle(CHANNELS.runImport, (event, token: unknown, mappings: unknown, keys: unknown) =>
     service.runImport(token, mappings, keys, emitter(event)),
   )
+  ipcMain.handle(CHANNELS.revealExport, () => {
+    if (lastExport) shell.showItemInFolder(lastExport)
+  })
+}
+
+function registerShellHandlers(context: CoreContext): void {
+  ipcMain.handle(CHANNELS.storeRoots, (): StoreRoot[] =>
+    Object.values(context.providers).map((provider) => ({ agent: provider.agent, path: provider.storeRoot(context.env) })),
+  )
+  ipcMain.handle(CHANNELS.chooseFolder, async (event, startIn: unknown) => {
+    if (e2e.folderPath) return e2e.folderPath
+    const options = {
+      properties: ['openDirectory' as const, 'createDirectory' as const],
+      defaultPath: typeof startIn === 'string' && isAbsolute(startIn) ? startIn : context.env.homeDir,
+    }
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+    return result.canceled ? null : (result.filePaths[0] ?? null)
+  })
+  ipcMain.handle(CHANNELS.copyText, (_event, text: unknown) => {
+    if (typeof text === 'string' && text.length <= 64 * 1024) clipboard.writeText(text)
+  })
 }
 
 app.whenReady().then(async () => {
@@ -87,6 +128,7 @@ app.whenReady().then(async () => {
   app.on('will-quit', () => void service.dispose())
 
   registerSessionHandlers(service)
+  registerShellHandlers(context)
   createWindow()
 
   app.on('activate', () => {
