@@ -40,6 +40,17 @@ To build the installers for your own OS locally, run `pnpm dist`. On a Mac witho
 
 6. Edit the generated notes if needed, then publish with `gh release edit v0.1.0 --draft=false`.
 
+7. Update the Homebrew cask in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) from the published release.
+
+   ```sh
+   gh release download v0.1.0 -p SHA256SUMS -D /tmp/sums --clobber
+   git clone https://github.com/karlhsueh/homebrew-tap /tmp/homebrew-tap
+   scripts/update-cask.sh 0.1.0 /tmp/sums/SHA256SUMS /tmp/homebrew-tap/Casks/agent-sessions.rb
+   git -C /tmp/homebrew-tap commit -am "feat(cask): agent-sessions 0.1.0" && git -C /tmp/homebrew-tap push
+   ```
+
+   `packaging/homebrew/agent-sessions.rb` is the template the tap's copy started from. Keep the two in step when the cask's shape changes.
+
 Re-running the workflow on the same tag replaces the files on the draft. It refuses to touch a release that is already published. To fix a published release, bump the version and tag again.
 
 Users can check a download with `shasum -a 256 -c SHA256SUMS --ignore-missing`.
