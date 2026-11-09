@@ -270,6 +270,16 @@ section h2 {
 .files a { color: var(--muted); text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
 .files a:hover { color: var(--text); text-decoration-color: currentColor; }
 .files a.here { color: var(--accent); }
+.feature { display: grid; grid-template-columns: 4fr 7fr; gap: 56px; align-items: center; }
+.feature.flip { grid-template-columns: 7fr 4fr; }
+.feature.flip .feature-text { order: 2; }
+.feature-text p { margin-top: 16px; color: var(--muted); max-width: 30em; }
+.points { margin-top: 24px; padding: 0; list-style: none; display: grid; gap: 10px; }
+.points li { position: relative; padding-left: 16px; color: var(--muted); font-size: 15px; }
+.points li::before { content: ''; position: absolute; left: 0; top: 0.62em; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.points code { font-size: 13px; color: var(--text); }
+.frame { margin: 0; }
+.frame img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shot-shadow); }
 .closing { padding-block: 168px 0; text-align: center; }
 .closing h2 { margin-inline: auto; font-size: clamp(28px, 4.2vw, 44px); }
 .closing p { margin: 16px auto 0; max-width: 34em; color: var(--muted); }
@@ -295,6 +305,9 @@ footer a:hover { color: var(--text); }
   .top nav a:not(.gh) { display: none; }
   .hero { padding-block: 48px 40px; }
   .closing { padding-block: 112px 0; }
+  .feature { grid-template-columns: 1fr; gap: 32px; }
+  .feature.flip { grid-template-columns: 1fr; }
+  .feature.flip .feature-text { order: 0; }
   .get { margin-top: 28px; }
   .cta { width: 100%; justify-content: center; }
   .brew { width: 100%; }
@@ -368,6 +381,34 @@ footer a:hover { color: var(--text); }
         <code class="token">claude --resume <span class="dim">5c00…0000</span></code>
       </li>
     </ol>
+  </section>
+
+  <section class="wrap feature">
+    <div class="feature-text">
+      <p class="kicker">Import</p>
+      <h2>Point each project at its folder on this computer.</h2>
+      <p>Your code can live at a different path here. Import lists every project folder from the other computer and suggests the same path under your home folder.</p>
+      <ul class="points">
+        <li>Create a missing folder from the preview.</li>
+        <li>The app writes nothing until you start the import.</li>
+        <li>A failed import rolls back, and an update keeps a backup of the copy it replaces.</li>
+      </ul>
+    </div>
+    <figure class="frame"><img src="import-preview.png" width="980" height="540" alt="Import preview mapping each project folder from the other computer to a folder on this one, with Create folder for missing ones"></figure>
+  </section>
+
+  <section class="wrap feature flip">
+    <div class="feature-text">
+      <p class="kicker">Resume</p>
+      <h2>Pick up each session where it stopped.</h2>
+      <p>After the import, every session has its resume command. Copy one, or copy them all at once.</p>
+      <ul class="points">
+        <li>Claude Code resumes with <code>claude --resume</code> from the mapped folder.</li>
+        <li>Codex resumes with <code>codex resume</code>.</li>
+        <li>An export includes the subagents each session started.</li>
+      </ul>
+    </div>
+    <figure class="frame"><img src="import-result.png" width="980" height="540" alt="Import results listing each placed session with its claude --resume command and a Copy all commands button"></figure>
   </section>
 
   <section class="wrap" id="privacy">
