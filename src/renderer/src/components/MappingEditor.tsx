@@ -40,7 +40,7 @@ export function MappingEditor({ token, mappings, sessions, preview, checking, so
     <section className="panel" aria-labelledby="mapping-heading">
       <header className="panel-head">
         <h2 id="mapping-heading">Folders</h2>
-        <p className="dim">Each folder from the other machine becomes a folder here. Sessions are placed by the folder they started in.</p>
+        <p className="dim">Each folder from the other machine becomes a folder here. Sessions are placed by the folder they started in. Bring the project files over first, with git pull or a copy, because a session resumed in an empty folder has no code to work on.</p>
       </header>
       <ul className="mappings">
         {mappings.map((mapping) => (

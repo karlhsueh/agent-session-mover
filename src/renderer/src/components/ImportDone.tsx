@@ -25,7 +25,7 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
           <h1>{placed.length > 0 ? `${plural(placed.length, 'session')} placed` : 'Nothing was imported'}</h1>
           <p className="dim">
             {placed.length > 0 &&
-              `The files are where ${agents.join(' and ')} looks for them. Run a resume command in a terminal to continue. Agent Sessions cannot check that the agent opens them. `}
+              `The files are where ${agents.join(' and ')} looks for them. Pull your latest changes into each folder, then run a resume command in a terminal. Agent Sessions cannot check that the agent opens them. `}
             {failed.length > 0 && `${plural(failed.length, 'session')} did not import.`}
           </p>
         </header>

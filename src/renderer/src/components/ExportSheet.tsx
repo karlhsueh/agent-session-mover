@@ -63,6 +63,7 @@ export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: 
         <li>contents of files and output of commands the agent read</li>
       </ul>
       <p className="dim">Credentials, auth tokens, settings, and prompt history are never included.</p>
+      <p className="dim">The archive holds the conversations, not your project files. Push your latest changes, or copy the project, so the other computer has them too.</p>
       {live.length > 0 && (
         <div className="note">
           <p>
