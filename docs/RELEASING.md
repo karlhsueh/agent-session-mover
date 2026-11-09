@@ -40,14 +40,7 @@ To build the installers for your own OS locally, run `pnpm dist`. On a Mac witho
 
 6. Edit the generated notes if needed, then publish with `gh release edit v0.1.0 --draft=false`.
 
-7. Update the Homebrew cask in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) from the published release.
-
-   ```sh
-   gh release download v0.1.0 -p SHA256SUMS -D /tmp/sums --clobber
-   git clone https://github.com/karlhsueh/homebrew-tap /tmp/homebrew-tap
-   scripts/update-cask.sh 0.1.0 /tmp/sums/SHA256SUMS /tmp/homebrew-tap/Casks/agent-sessions.rb
-   git -C /tmp/homebrew-tap commit -am "feat(cask): agent-sessions 0.1.0" && git -C /tmp/homebrew-tap push
-   ```
+7. Check the Homebrew tap. Publishing runs `.github/workflows/tap.yml`, which writes the new version and dmg hash into `Casks/agent-sessions.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. Watch it with `gh run list --workflow tap.yml`. To run it again for a tag, use `gh workflow run tap.yml -f tag=v0.1.1`.
 
    `packaging/homebrew/agent-sessions.rb` is the template the tap's copy started from. Keep the two in step when the cask's shape changes.
 
@@ -55,7 +48,7 @@ Re-running the workflow on the same tag replaces the files on the draft. It refu
 
 Users can check a download with `shasum -a 256 -c SHA256SUMS --ignore-missing`.
 
-## One-time setup of the macOS secrets
+## One-time setup of the secrets
 
 The workflow reads five repository secrets. GitHub encrypts them and never shows them again, so keep your own copies in a password manager. Run the `gh` commands from this repo's folder, or add `-R karlhsueh/agent-sessions`.
 
@@ -119,6 +112,19 @@ Do these steps on one Mac. Keychain Access creates the private key on the Mac th
 5. Check that all five exist with `gh secret list`.
 
 Keep the `.p12`, its password, the `.p8`, the Key ID, and the Issuer ID in a password manager, then move the local copies to the Trash with `trash DeveloperID.p12 AuthKey_ABC123DEFG.p8`.
+
+### Homebrew tap token
+
+The tap workflow pushes to another repository, so it needs its own token in the `HOMEBREW_TAP_TOKEN` secret. Without it, the workflow fails and the cask keeps the old version.
+
+1. At [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new), create a fine-grained token. Set Repository access to Only select repositories and pick `karlhsueh/homebrew-tap`. Under Repository permissions, set Contents to Read and write. Pick an expiry and note it, because the workflow fails once the token expires.
+2. Store it.
+
+   ```sh
+   gh secret set HOMEBREW_TAP_TOKEN
+   ```
+
+   Paste the token at the prompt.
 
 ### When the macOS job fails
 
