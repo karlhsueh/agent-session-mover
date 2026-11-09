@@ -89,7 +89,11 @@ const selectedTitles = (page: Page) => list(page).locator('.row[aria-selected=tr
 const row = (page: Page, title: string) => rows(page).filter({ hasText: title })
 const titlesByAge = fixtures.map((fixture) => fixture.title)
 const projectsByAge = ['api', 'local-job-manager', 'web', 'tools', 'dotfiles', 'notes', 'infra']
-const shot = (page: Page, name: string) => page.screenshot({ animations: 'disabled', path: `artifacts/${name}.png` })
+// Under xvfb, Chromium sometimes fails a capture with a protocol error. The capture is evidence, not an assertion, so try once more.
+const shot = async (page: Page, name: string) => {
+  const capture = () => page.screenshot({ animations: 'disabled', path: `artifacts/${name}.png` })
+  await capture().catch(capture)
+}
 
 const laptop = await launch(source, { AGENT_SESSIONS_E2E_SAVE_PATH: archivePath })
 try {
