@@ -19,8 +19,8 @@ cask "agent-sessions" do
   app "Agent Sessions.app"
 
   zap trash: [
-    "~/Library/Caches/agent-sessions-updater",
     "~/Library/Application Support/agent-sessions",
+    "~/Library/Caches/agent-sessions-updater",
     "~/Library/Preferences/com.karlhsueh.agent-sessions.plist",
     "~/Library/Saved Application State/com.karlhsueh.agent-sessions.savedState",
   ]
