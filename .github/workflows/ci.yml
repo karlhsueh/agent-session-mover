@@ -31,6 +31,15 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      # GitHub's release CDN sometimes times out on the Electron download, so keep it between runs.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/.cache/electron
+            ~/AppData/Local/electron/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm typecheck
