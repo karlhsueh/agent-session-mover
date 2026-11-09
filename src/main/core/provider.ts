@@ -69,8 +69,27 @@ export type TargetInspection =
     }
   | { kind: 'refused'; targetCwd: string | null; warnings: ImportWarning[]; action: RefusedAction }
 
+/**
+ * Runs `load` once per key and shares the result. Export and import preview share one across their
+ * sessions, so a provider reads its store once per operation instead of once per session.
+ */
+export type ReadOnce = <T>(key: string, load: () => Promise<T>) => Promise<T>
+
+/** Reads every time. Each import gets this, because the import before it changed the store. */
+export const readFresh: ReadOnce = (_key, load) => load()
+
+export function shareReads(): ReadOnce {
+  const reads = new Map<string, Promise<unknown>>()
+  return <T>(key: string, load: () => Promise<T>) => {
+    if (!reads.has(key)) reads.set(key, load())
+    return reads.get(key) as Promise<T>
+  }
+}
+
 export interface ImportContext {
   env: ProviderEnv
+  /** Store reads shared with the other sessions planned in the same pass. */
+  once: ReadOnce
   source: ManifestSource
   /** Already validated, with each existing target resolved to its real path. */
   mappings: readonly PathMapping[]
@@ -110,7 +129,7 @@ export interface Provider {
   /** Read-only. Without a scan, every file is read. */
   discover(root: string, env: ProviderEnv, scan?: Scan): Promise<SessionSummary[]>
   /** Read-only. Throws when the session is missing or ambiguous. */
-  collect(root: string, id: string, env: ProviderEnv): Promise<CollectedSession>
+  collect(root: string, id: string, env: ProviderEnv, once?: ReadOnce): Promise<CollectedSession>
   /** Read-only. Says where each archive file would land and what the provider refuses. */
   inspectTarget(root: string, session: ManifestSession, context: ImportContext): Promise<TargetInspection>
   /** The archive file role that holds a session's main transcript, the one its Conversation preview reads. */

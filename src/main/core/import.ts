@@ -21,7 +21,7 @@ import type { CoreContext } from './export'
 import type { Manifest, ManifestSession, Sha256 } from './manifest'
 import { isNotFound, resolveInside, type StorePath, UnsafePathError } from './paths'
 import { type ComparedFile, planSession, relate, type SessionPlan } from './planner'
-import type { ContentTransform, Provider, TargetFile, TargetInspection } from './provider'
+import { type ContentTransform, type Provider, type ReadOnce, readFresh, shareReads, type TargetFile, type TargetInspection } from './provider'
 import { digest, readRange, sha256File } from './streams'
 
 export interface OpenedArchive {
@@ -112,12 +112,12 @@ function refusal(action: Extract<ImportAction, { kind: 'blocked' | 'conflict' }>
 
 type BlobReader = (sha256: Sha256) => AsyncIterable<Buffer>
 
-async function planOne(context: CoreContext, opened: OpenedArchive, session: ManifestSession, mappings: PathMapping[]): Promise<PlannedSession> {
+async function planOne(context: CoreContext, opened: OpenedArchive, session: ManifestSession, mappings: PathMapping[], once: ReadOnce): Promise<PlannedSession> {
   const key = sessionKey(session.agent, session.id)
   const provider = context.providers[session.agent]
   const root = path.resolve(provider.storeRoot(context.env))
   const readBlob: BlobReader = (sha256) => createReadStream(path.join(opened.blobDir, sha256)) as AsyncIterable<Buffer>
-  const inspection = await provider.inspectTarget(root, session, { env: context.env, source: opened.manifest.source, mappings, sep: path.sep, readBlob })
+  const inspection = await provider.inspectTarget(root, session, { env: context.env, once, source: opened.manifest.source, mappings, sep: path.sep, readBlob })
   if (inspection.kind === 'refused') return { session, key, provider, root, inspection, plan: planSession(inspection, []) }
   try {
     const compared = await Promise.all(inspection.files.map((file) => compare(root, readBlob, file)))
@@ -175,8 +175,9 @@ function selectSessions(opened: OpenedArchive, keys?: readonly SessionKey[]): Ma
 export async function previewImport(context: CoreContext, opened: OpenedArchive, mappings: readonly PathMapping[]): Promise<ImportPreview> {
   const resolved = await resolveMappings(mappings)
   const sessions = []
+  const once = shareReads()
   for (const session of opened.manifest.sessions) {
-    const planned = await planOne(context, opened, session, resolved)
+    const planned = await planOne(context, opened, session, resolved, once)
     sessions.push({
       key: planned.key,
       action: planned.plan.action,
@@ -226,7 +227,7 @@ async function importOne(
   const key = sessionKey(session.agent, session.id)
   let planned: PlannedSession
   try {
-    planned = await planOne(context, opened, session, mappings)
+    planned = await planOne(context, opened, session, mappings, readFresh)
   } catch (error) {
     return { key, status: 'failed', action: { kind: 'blocked', reason: 'invalid-session', message: 'Planning failed.' }, error: messageOf(error), rolledBack: true }
   }

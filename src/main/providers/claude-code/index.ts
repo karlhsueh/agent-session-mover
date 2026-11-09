@@ -5,7 +5,7 @@ import { type ImportWarning, type SessionInfo, type SessionSummary, sessionKey }
 import type { FileRole, ManifestSession, Sha256 } from '../../core/manifest'
 import { NO_CACHE } from '../../core/facts-cache'
 import { joinStorePath, mapPath } from '../../core/paths'
-import type { CollectedSession, ImportContext, Provider, RefusedAction, SnapshotFile, TargetFile, TargetInspection } from '../../core/provider'
+import { type CollectedSession, type ImportContext, type Provider, readFresh, type RefusedAction, type SnapshotFile, type TargetFile, type TargetInspection } from '../../core/provider'
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
 import { LIST_BUDGET, readWindow, terminatedLines } from '../../core/window'
 import { resumeLine } from '../text'
@@ -51,13 +51,13 @@ export const claudeCodeProvider: Provider = {
     return summaries
   },
 
-  async collect(root, id) {
-    const matches = (await findTranscripts(root)).filter((transcript) => transcript.id === id)
+  async collect(root, id, _env, once = readFresh) {
+    const matches = (await once('claude-code:transcripts', () => findTranscripts(root))).filter((transcript) => transcript.id === id)
     if (matches.length === 0) throw new Error(`No Claude Code session ${id}`)
     if (matches.length > 1) throw new Error(`Claude Code session ${id} exists in ${matches.length} project folders`)
     const { facts, files } = await snapshot(matches[0])
     const { key: _key, agent: _agent, sizeBytes: _size, fileCount: _count, ...session } = info(matches[0], facts, files.map((file) => file.size))
-    return { session: { agent: AGENT, ...session }, files, live: (await liveSessionIds(root)).has(id) } satisfies CollectedSession
+    return { session: { agent: AGENT, ...session }, files, live: (await once('claude-code:live', () => liveSessionIds(root))).has(id) } satisfies CollectedSession
   },
 
   async inspectTarget(root, session, context) {
@@ -190,7 +190,7 @@ async function inspect(root: string, session: ManifestSession, context: ImportCo
   if (!targetCwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: `Choose a folder on this machine for ${session.cwd}.` })
   if (!(await stat(targetCwd).then((s) => s.isDirectory(), () => false))) warnings.push({ code: 'target-cwd-missing', path: targetCwd })
 
-  const existing = (await findTranscripts(root)).filter((transcript) => transcript.id === session.id)
+  const existing = (await context.once('claude-code:transcripts', () => findTranscripts(root))).filter((transcript) => transcript.id === session.id)
   if (existing.length > 1) {
     return refuse(
       { kind: 'conflict', reason: 'multiple-copies', message: `This machine already has ${existing.length} copies of the session, so Claude Code cannot resume it by id.` },
@@ -218,5 +218,5 @@ async function inspect(root: string, session: ManifestSession, context: ImportCo
     mtimeMs: file.role === 'transcript' ? lastActivityMs : file.mtimeMs,
   }))
 
-  return { kind: 'ready', targetCwd, warnings, live: (await liveSessionIds(root)).has(session.id), files, effects: [] }
+  return { kind: 'ready', targetCwd, warnings, live: (await context.once('claude-code:live', () => liveSessionIds(root))).has(session.id), files, effects: [] }
 }

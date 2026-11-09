@@ -28,6 +28,7 @@ Create `src/main/providers/<agent>/` and implement `Provider` from `src/main/cor
 
 - `discover`, `collect`, `inspectTarget`, `findTranscript`, and `previewTranscript` only read.
 - `inspectTarget` computes every target path from validated parts. It never uses a path from the archive as is.
+- `collect` and `inspectTarget` read whole-store data, such as a folder walk, through `once` (`ImportContext.once` for `inspectTarget`), so an export or preview of many sessions reads the store once.
 - Anything that is not a whole file, such as a database row, is a `ProviderEffect`. `undoEffect` must be safe when the effect never ran, ran partly, or is undone twice.
 
 ## 3. Register it

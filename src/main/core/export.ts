@@ -3,7 +3,7 @@ import type { AgentId, ExportResult, ProgressEvent, SessionKey } from '../../sha
 import { parseSessionKey } from '../../shared/sessions'
 import { type BlobSource, writeArchive } from '../archive/archive'
 import { MANIFEST_FORMAT, MANIFEST_VERSION, type Manifest, type ManifestSession, type Sha256 } from './manifest'
-import type { ProviderEnv, ProviderRegistry } from './provider'
+import { type ProviderEnv, type ProviderRegistry, shareReads } from './provider'
 
 export interface CoreContext {
   providers: ProviderRegistry
@@ -24,13 +24,14 @@ export async function exportSessions(
   const blobs = new Map<Sha256, BlobSource>()
   const storeRoots: Partial<Record<AgentId, string>> = {}
   const liveKeys: SessionKey[] = []
+  const once = shareReads()
   for (const [index, key] of keys.entries()) {
     const parsed = parseSessionKey(key)
     if (!parsed) throw new Error(`Not a session key: ${key}`)
     const provider = context.providers[parsed.agent]
     const root = provider.storeRoot(context.env)
     storeRoots[parsed.agent] = root
-    const collected = await provider.collect(root, parsed.id, context.env)
+    const collected = await provider.collect(root, parsed.id, context.env, once)
     if (collected.live) liveKeys.push(parsed.key)
     sessions.push({
       ...collected.session,

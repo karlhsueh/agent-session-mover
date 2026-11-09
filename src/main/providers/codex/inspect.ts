@@ -9,9 +9,9 @@ import type { CodexEffect } from './effects'
 import { terminatedLines } from '../../core/window'
 import { hiddenFromPicker, readFacts, type RolloutFacts, type SessionMeta } from './facts'
 import { isNewer, parseRolloutName, type RolloutName } from './rollout-name'
-import { hasLine, INDEX_FILE, parseIndexBlob } from './session-index'
-import { readEdge } from './spawn-edges'
-import { dbPath, readTargetRow, type Row, withSnapshot } from './state-db'
+import { hasLine, INDEX_FILE, parseIndexBlob, readIndexText } from './session-index'
+import { readEdgeChildren } from './spawn-edges'
+import { dbPath, readTargetRows, type Row, withSnapshot } from './state-db'
 import { ARCHIVED_DIR, findRollouts, IMAGES_DIR, lockedThreadIds, type RolloutFile, SESSIONS_DIR, unzstd } from './store'
 import { type RowInput, rowValues } from './thread-row'
 
@@ -133,7 +133,7 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
   if (!targetCwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: `Choose a folder on this machine for ${session.cwd}.` })
   if (!(await stat(targetCwd).then((s) => s.isDirectory(), () => false))) warnings.push({ code: 'target-cwd-missing', path: targetCwd })
 
-  const existing = await findRollouts(root)
+  const existing = await context.once('codex:rollouts', () => findRollouts(root))
   const rollouts = [main, ...layout.subagents, ...layout.linked]
   const archivedIds = new Set(rollouts.map((entry) => entry.name.rolloutId))
   for (const newest of [main, ...layout.subagents]) {
@@ -172,7 +172,12 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
   const effects: CodexEffect[] = []
   const db = dbPath(root, context.env)
   const ids = [session.id, ...subagents.map((sub) => sub.meta.id), ...others.keys()]
-  const target = await withSnapshot(db, (snapshot) => ({ rows: ids.map((id) => readTargetRow(snapshot, id)), edges: ids.map((id) => readEdge(snapshot, id)) }))
+  const state = await context.once('codex:db', () => withSnapshot(db, (snapshot) => ({ table: readTargetRows(snapshot), edgeChildren: readEdgeChildren(snapshot) })))
+  const table = state?.table
+  const target = state && {
+    rows: ids.map((id) => table && { columns: table.columns, current: table.rows.get(id) ?? null }),
+    edges: ids.map((id) => (state.edgeChildren === null ? null : state.edgeChildren.has(id) ? 'present' : 'absent')),
+  }
   if (target?.rows[0]) {
     const realRoot = await realpath(root).catch(() => path.resolve(root))
     const write = (at: number, thread: Thread, fields: { cwd: string; title: string | null; name: string | null }) => {
@@ -205,11 +210,11 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
       write(at, thread, { cwd: ownCwd(thread), title: null, name: null })
     }
   }
-  const present = indexLine === null ? null : await hasLine(root, indexLine)
+  const present = indexLine === null ? null : await hasLine(await context.once('codex:index', () => readIndexText(root)), indexLine)
   if (indexLine !== null && present !== true) effects.push({ kind: 'index-line', line: indexLine, createsFile: present === null })
 
   // Import may replace a linked rollout too, so a lock on any thread it writes for blocks it.
-  const locked = await lockedThreadIds(root)
+  const locked = await context.once('codex:locks', () => lockedThreadIds(root))
   const live = rollouts.some((entry) => locked.has(entry.name.threadId))
   return { kind: 'ready', targetCwd, warnings, live, files, effects: effects as ProviderEffect[] }
 }

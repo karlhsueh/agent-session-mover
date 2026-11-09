@@ -66,7 +66,7 @@ export interface Provider {
   readonly factsVersion: number
   storeRoot(env: ProviderEnv): string
   discover(root: string, env: ProviderEnv, scan?: Scan): Promise<SessionSummary[]>
-  collect(root: string, id: string, env: ProviderEnv): Promise<CollectedSession>
+  collect(root: string, id: string, env: ProviderEnv, once?: ReadOnce): Promise<CollectedSession>
   inspectTarget(root: string, session: ManifestSession, context: ImportContext): Promise<TargetInspection>
   readonly transcriptRole: FileRole
   findTranscript(root: string, id: string, env: ProviderEnv): Promise<TranscriptFile | null>
@@ -79,6 +79,7 @@ export interface Provider {
 - `discover` takes every fact it reads from a file through `scan.facts`, so a later pass can skip the file. See [Listing sessions](#listing-sessions).
 - `discover` and `collect` are read-only. They get the environment because a store can span folders (Codex reads `CODEX_SQLITE_HOME`). `collect` returns snapshot files. For an append-only file, the snapshot stops at the last newline. A snapshot can also be a byte range (`start`), for a blob that is one line of a shared file such as Codex's `session_index.jsonl`. Codex `collect` throws for a subagent that belongs to another session and names that session, so export carries a subagent only inside its owner.
 - `inspectTarget` is read-only too. It returns either a refusal, or the list of `TargetFile`s with the store path each one lands at, an optional `ContentTransform`, and the mtime to set. The provider computes every target path from parts it has validated. A name from the archive is used only after it matches a whitelist. `ImportContext.readBlob` streams a verified archive blob, for a provider that derives an effect from file content (the Codex `threads` row).
+- `ReadOnce` shares store reads across the sessions of one operation. Export passes one shared `once` to every `collect`, and import preview puts one in `ImportContext.once` for every `inspectTarget`, so a provider walks its store, reads its lock files, and copies the Codex database once per operation instead of once per session. Each import gets `readFresh`, because the import before it changed the store. Wrap any read that does not depend on the session, keyed by a name that starts with the agent id, such as `codex:rollouts`.
 - A `TargetFile` can name `supersedes`, a file at another path that holds the current copy in another form, with a `decode` transform. Codex uses it when this machine holds a rollout as `.jsonl.zst` and import writes the plain `.jsonl`.
 - A `ContentTransform` must be deterministic, because preview hashes its output and import checks that the bytes it writes hash the same.
 - `transcriptRole`, `findTranscript`, and `previewTranscript` serve the Conversation preview. See [Previewing a conversation](#previewing-a-conversation).

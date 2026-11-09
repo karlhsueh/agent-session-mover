@@ -1,7 +1,7 @@
 import { createReadStream } from 'node:fs'
 import { appendFile, lstat, open, readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
-import { isNotFound } from '../../core/paths'
+import { isNotFound, unlessMissing } from '../../core/paths'
 import { splitLines } from '../../core/streams'
 import { cleanTitle } from '../text'
 import { parseObject } from './facts'
@@ -55,9 +55,13 @@ export function parseIndexBlob(bytes: Buffer, id: string): string | null {
   return body.toString('utf8')
 }
 
+/** The index file's text, or null when it does not exist. */
+export function readIndexText(root: string): Promise<string | null> {
+  return unlessMissing(readFile(path.join(root, INDEX_FILE), 'utf8'), null)
+}
+
 /** Null when the index file does not exist. */
-export async function hasLine(root: string, line: string): Promise<boolean | null> {
-  const text = await readFile(path.join(root, INDEX_FILE), 'utf8').catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
+export function hasLine(text: string | null, line: string): boolean | null {
   return text === null ? null : text.split('\n').includes(line)
 }
 

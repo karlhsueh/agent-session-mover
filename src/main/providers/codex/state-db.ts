@@ -2,7 +2,7 @@ import { copyFile, lstat, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { isNotFound } from '../../core/paths'
+import { isNotFound, unlessMissing } from '../../core/paths'
 import type { ProviderEnv } from '../../core/provider'
 import { cleanTitle } from '../text'
 
@@ -55,7 +55,25 @@ export interface ThreadSummary {
   updatedMs: number | null
 }
 
-export function readThreadSummaries(db: DatabaseSync): Map<string, ThreadSummary> {
+/**
+ * The rows' summaries, kept while the database and its WAL keep their inode, size, and times. Every window
+ * focus lists the store again, and this saves copying the database each time.
+ */
+let kept: { file: string; stamp: string; summaries: Map<string, ThreadSummary> } | null = null
+
+export async function threadSummaries(file: string): Promise<Map<string, ThreadSummary> | null> {
+  const stampOf = async (target: string) => {
+    const info = await unlessMissing(lstat(target), null)
+    return info ? `${info.ino}:${info.size}:${info.mtimeMs}:${info.ctimeMs}` : '-'
+  }
+  const stamp = `${await stampOf(file)}/${await stampOf(`${file}-wal`)}`
+  if (kept?.file === file && kept.stamp === stamp) return kept.summaries
+  const summaries = await withSnapshot(file, readThreadSummaries)
+  kept = summaries ? { file, stamp, summaries } : null
+  return summaries
+}
+
+function readThreadSummaries(db: DatabaseSync): Map<string, ThreadSummary> {
   const columns = tableColumns(db)
   const wanted = ['id', 'title', 'name', 'cwd', 'archived', 'updated_at'].filter((name) => columns.has(name))
   const summaries = new Map<string, ThreadSummary>()
@@ -73,12 +91,11 @@ export function readThreadSummaries(db: DatabaseSync): Map<string, ThreadSummary
   return summaries
 }
 
-/** The target's `threads` columns and the thread's current row. Null when the store has no table to write. */
-export function readTargetRow(db: DatabaseSync, id: string): { columns: Set<string>; current: Row | null } | null {
+/** The target's `threads` columns and rows by id. Null when the store has no table to write. */
+export function readTargetRows(db: DatabaseSync): { columns: Set<string>; rows: Map<string, Row> } | null {
   const columns = tableColumns(db)
   if (!columns.has('id')) return null
-  const current = (db.prepare('SELECT * FROM threads WHERE id = ?').get(id) as Row | undefined) ?? null
-  return { columns, current }
+  return { columns, rows: new Map((db.prepare('SELECT * FROM threads').all() as Row[]).map((row) => [String(row.id), row])) }
 }
 
 /**

@@ -16,11 +16,14 @@ export interface EdgeChange {
   child: string
 }
 
-/** Null when the database has no edge table. */
-export function readEdge(db: DatabaseSync, child: string): 'absent' | 'present' | null {
-  const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'thread_spawn_edges'").get()
-  if (!table) return null
-  return db.prepare('SELECT 1 FROM thread_spawn_edges WHERE child_thread_id = ?').get(child) ? 'present' : 'absent'
+function hasEdgeTable(db: DatabaseSync): boolean {
+  return db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'thread_spawn_edges'").get() !== undefined
+}
+
+/** The child thread ids that have an edge. Null when the database has no edge table. */
+export function readEdgeChildren(db: DatabaseSync): Set<string> | null {
+  if (!hasEdgeTable(db)) return null
+  return new Set((db.prepare('SELECT child_thread_id FROM thread_spawn_edges').all() as { child_thread_id: string }[]).map((row) => row.child_thread_id))
 }
 
 export async function applyEdge(change: EdgeChange): Promise<void> {
@@ -37,7 +40,7 @@ export async function applyEdge(change: EdgeChange): Promise<void> {
 export async function undoEdge(change: EdgeChange): Promise<void> {
   if (!(await isFile(change.db))) return
   inTransaction(change.db, (db) => {
-    if (readEdge(db, change.child) === null) return
+    if (!hasEdgeTable(db)) return
     db.prepare('DELETE FROM thread_spawn_edges WHERE child_thread_id = ? AND parent_thread_id = ? AND status = ?').run(change.child, change.parent, OPEN)
   })
 }

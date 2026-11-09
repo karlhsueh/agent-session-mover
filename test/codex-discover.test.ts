@@ -1,5 +1,6 @@
 import { mkdir, rename } from 'node:fs/promises'
 import path from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { listSessions } from '../src/main/core/discovery'
 import { codexProvider } from '../src/main/providers/codex'
@@ -52,6 +53,15 @@ describe('Codex discovery', () => {
     expect(byId.get(CX.parent)).toMatchObject({ title: 'Parent by name' })
     expect(byId.get(CX.orphan)).toMatchObject({ client: 'subagent', title: 'Lost task', subagents: [] })
     expect(byId.get(CX.live)).toMatchObject({ live: true })
+  })
+
+  it('reads the database again after Codex changes it', async () => {
+    const title = async () => (await listSessions(machine.context)).sessions.find((s) => s.id === CX.archived)?.title
+    expect(await title()).toBe('Database title for archived')
+    const db = new DatabaseSync(path.join(machine.codexRoot, 'state_5.sqlite'))
+    db.prepare('UPDATE threads SET title = ? WHERE id = ?').run('Retitled in Codex', CX.archived)
+    db.close()
+    expect(await title()).toBe('Retitled in Codex')
   })
 
   it('reports the branch session_meta records, and null outside a repo', async () => {

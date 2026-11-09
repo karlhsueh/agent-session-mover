@@ -1,9 +1,9 @@
 import path from 'node:path'
 import { type SessionInfo, type SessionSummary, type SubagentSummary, sessionKey } from '../../../shared/sessions'
 import type { FileRole } from '../../core/manifest'
-import { joinStorePath, type StorePath } from '../../core/paths'
+import { isNotFound, joinStorePath, type StorePath } from '../../core/paths'
 import { NO_CACHE } from '../../core/facts-cache'
-import type { CollectedSession, Provider, ProviderEnv, Scan, SnapshotFile } from '../../core/provider'
+import { type CollectedSession, type Provider, type ProviderEnv, type ReadOnce, readFresh, type Scan, type SnapshotFile } from '../../core/provider'
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
 import { LIST_BUDGET, readWindow, terminatedLines } from '../../core/window'
 import { resumeLine } from '../text'
@@ -13,7 +13,7 @@ import { families } from './family'
 import { inspectCodexTarget } from './inspect'
 import { previewRollout } from './preview'
 import { INDEX_FILE, type IndexLine, readIndex } from './session-index'
-import { dbPath, readThreadSummaries, type ThreadSummary, withSnapshot } from './state-db'
+import { dbPath, threadSummaries, type ThreadSummary } from './state-db'
 import {
   byRolloutId,
   findRollouts,
@@ -40,7 +40,8 @@ export const codexProvider: Provider = {
 
   factsVersion: 1,
   discover: (root, env, scan = NO_CACHE) => retryOnFlip(() => discover(root, env, scan)),
-  collect: (root, id, env) => retryOnFlip(() => collect(root, id, env)),
+  // A rollout that flipped form since the shared view was read gets one retry from a fresh view.
+  collect: (root, id, env, once = readFresh) => collect(root, id, env, once).catch((error) => (isNotFound(error) ? collect(root, id, env, readFresh) : Promise.reject(error))),
   inspectTarget: inspectCodexTarget,
   transcriptRole: 'rollout',
   resumeCommand: (id, cwd) => resumeLine(`codex resume ${id}`, cwd),
@@ -69,7 +70,7 @@ interface StoreView {
 async function view(root: string, env: ProviderEnv): Promise<StoreView> {
   const rollouts = await findRollouts(root)
   const index = await readIndex(root)
-  const rows = (await withSnapshot(dbPath(root, env), readThreadSummaries).catch(() => null)) ?? new Map()
+  const rows = (await threadSummaries(dbPath(root, env)).catch(() => null)) ?? new Map()
   return { rollouts, byRollout: byRolloutId(rollouts), indexNames: index.names, indexLines: index.lines, rows }
 }
 
@@ -109,14 +110,19 @@ async function discover(root: string, env: ProviderEnv, scan: Scan): Promise<Ses
   return summaries
 }
 
-async function collect(root: string, id: string, env: ProviderEnv): Promise<CollectedSession> {
+/** The store view plus who spawned whom, which takes the first line of every rollout. An export reads it once. */
+async function exportView(root: string, env: ProviderEnv) {
   const store = await view(root, env)
   const mains = newestByThread(store.rollouts)
-  const main = mains.get(id)
-  if (!main) throw new Error(`No Codex session ${id}`)
   const parents = new Map<string, string | null>()
   for (const [threadId, file] of mains) parents.set(threadId, metaOfLine(await readFirstLine(file))?.spawn?.parent ?? null)
-  const family = families(parents)
+  return { store, mains, parents, family: families(parents) }
+}
+
+async function collect(root: string, id: string, env: ProviderEnv, once: ReadOnce): Promise<CollectedSession> {
+  const { store, mains, parents, family } = await once('codex:export-view', () => exportView(root, env))
+  const main = mains.get(id)
+  if (!main) throw new Error(`No Codex session ${id}`)
   const owner = family.rootOf(id)
   if (owner !== id) throw new Error(`Codex session ${id} is a subagent of ${parents.get(id)}. Export session ${owner}, which includes it.`)
   const read = async (file: RolloutFile): Promise<Thread> => ({ main: file, facts: await readFacts(terminatedLines(readRollout(file))) })
@@ -128,7 +134,7 @@ async function collect(root: string, id: string, env: ProviderEnv): Promise<Coll
   const files: SnapshotFile[] = []
   for (const part of parts.files) files.push(await snapshot(part))
   const { key: _key, agent: _agent, sizeBytes: _size, fileCount: _count, ...session } = info(main, thread.facts, store, files.map((file) => file.size))
-  const locked = await lockedThreadIds(root)
+  const locked = await once('codex:locks', () => lockedThreadIds(root))
   return { session: { agent: AGENT, ...session }, files, live: [thread, ...subagents].some((member) => locked.has(member.main.name.threadId)) }
 }
 
