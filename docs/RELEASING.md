@@ -20,7 +20,7 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`. It builds the a
 
 electron-builder names the Linux arch the way each format expects, so the AppImage says `x86_64` and the deb says `amd64`.
 
-The macOS app is signed with the Developer ID certificate and notarized when the five secrets below are set. With none set, the workflow still builds. The app is then ad-hoc signed and not notarized, and the job log shows an "Unsigned macOS build" warning. With only some set, the job fails, so a typo cannot ship an unsigned build by accident. Windows and Linux builds are unsigned. There is no auto-update.
+When the five secrets below are set, the workflow signs the macOS app with the Developer ID certificate and notarizes it. With none set, the workflow still builds. The app is then ad-hoc signed and not notarized, and the job log shows an "Unsigned macOS build" warning. With only some set, the job fails, so a typo cannot ship an unsigned build by accident. Windows and Linux builds are unsigned. There is no auto-update.
 
 To build the installers for your own OS locally, run `pnpm dist`. On a Mac without the certificate, run `CSC_IDENTITY_AUTO_DISCOVERY=false pnpm dist`. The files land in `dist/`.
 
@@ -76,7 +76,7 @@ The workflow reads five repository secrets. GitHub encrypts them and never shows
 
 ### Developer ID certificate
 
-Do these steps on one Mac. The private key is created on the Mac that makes the request, and the certificate only works next to it.
+Do these steps on one Mac. Keychain Access creates the private key on the Mac that makes the request, and the certificate works only alongside that key.
 
 1. Create a certificate request. Open Keychain Access. Spotlight may open the Passwords app instead, so if it does, open `/System/Library/CoreServices/Applications/Keychain Access.app`. From the Keychain Access menu, choose Certificate Assistant, then Request a Certificate From a Certificate Authority. Enter your Apple ID email and a name, leave CA Email empty, choose Saved to disk, and save the `.certSigningRequest`.
 2. At [Certificates, IDs & Profiles](https://developer.apple.com/account/resources/certificates/list), click +, choose Developer ID Application, pick the G2 Sub-CA, upload the request, and download the `.cer`.
@@ -134,4 +134,4 @@ After fixing secrets, rerun the failed job with `gh run rerun <run-id> --failed`
 
 - Windows SmartScreen warns about an unknown publisher. Click More info, then Run anyway.
 - The AppImage needs `chmod +x` before it runs. The deb installs with `sudo apt install ./agent-sessions-linux-amd64.deb`.
-- An ad-hoc signed Mac build is blocked on first open. Open System Settings, then Privacy & Security, and click Open Anyway.
+- macOS blocks an ad-hoc signed build on first open. Open System Settings, then Privacy & Security, and click Open Anyway.

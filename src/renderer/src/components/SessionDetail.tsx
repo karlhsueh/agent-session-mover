@@ -97,7 +97,7 @@ function Tabs({ tab, onTab }: { tab: DetailTab; onTab: (tab: DetailTab) => void 
 function Overview({ session, home, now }: { session: SessionSummary; home: string; now: number }) {
   const otherCwds = session.cwds.filter((cwd) => cwd !== session.cwd)
   const notes: string[] = []
-  if (session.live) notes.push('Running on this machine now. An export snapshots it up to the last complete line.')
+  if (session.live) notes.push('This session is running on this machine now. An export snapshots it up to the last complete line.')
   if (session.hiddenFromPicker) notes.push(pickerNote(session.agent, session.clientDetail))
   if (session.archived) notes.push(`Archived in ${AGENT_LABEL[session.agent]}.`)
   const command = shortCommand(session.resumeCommand, home)

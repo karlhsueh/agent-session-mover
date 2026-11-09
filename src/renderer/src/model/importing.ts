@@ -4,9 +4,9 @@ import { pickerNote } from './format'
 export type Tone = 'good' | 'info' | 'neutral' | 'warn' | 'bad'
 
 export const ACTIONS: { [K in ImportAction['kind']]: { label: string; tone: Tone; describe: (action: Extract<ImportAction, { kind: K }>) => string } } = {
-  create: { label: 'Create', tone: 'good', describe: () => 'Not on this machine yet.' },
-  update: { label: 'Update', tone: 'info', describe: () => 'This machine has an older copy. It is backed up before the newer one replaces it.' },
-  'skip-identical': { label: 'Identical', tone: 'neutral', describe: () => 'Already here, byte for byte. Nothing to import.' },
+  create: { label: 'Create', tone: 'good', describe: () => 'This session is not on this machine yet.' },
+  update: { label: 'Update', tone: 'info', describe: () => 'This machine has an older copy. Agent Sessions backs it up before the newer copy replaces it.' },
+  'skip-identical': { label: 'Identical', tone: 'neutral', describe: () => 'This machine already has a byte-for-byte copy. There is nothing to import.' },
   conflict: { label: 'Conflict', tone: 'warn', describe: (action) => action.message },
   blocked: { label: 'Blocked', tone: 'bad', describe: (action) => action.message },
 }
@@ -47,14 +47,14 @@ export function describeOutcome(outcome: SessionImportOutcome): string | null {
     case 'created':
       return null
     case 'updated':
-      return outcome.backupDir ? 'Files replaced. The old copy is in the backup folder.' : 'Files replaced.'
+      return outcome.backupDir ? 'The import replaced the files. The old copy is in the backup folder.' : 'The import replaced the files.'
     case 'skipped':
-      return 'Already identical on this machine.'
+      return 'This machine already has an identical copy.'
     case 'refused':
-      return `Not imported. ${describeAction(outcome.action)}`
+      return `Agent Sessions did not import this session. ${describeAction(outcome.action)}`
     case 'failed':
       return outcome.rolledBack
-        ? `${outcome.error} Every change for this session was rolled back.`
+        ? `${outcome.error} Agent Sessions rolled back every change for this session.`
         : `${outcome.error} Rollback did not finish. Agent Sessions retries it at the next launch.`
   }
 }

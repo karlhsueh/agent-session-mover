@@ -58,7 +58,7 @@ function summary(label: string, samples: Sample[]) {
 function print(title: string, rows: Record<string, unknown>[]) {
   const cell = (value: unknown) => {
     const s = value as { median: number; min: number; max: number }
-    return `${s.median.toFixed(0)} ms (${s.min.toFixed(0)}–${s.max.toFixed(0)})`
+    return `${s.median.toFixed(0)} ms (${s.min.toFixed(0)} to ${s.max.toFixed(0)})`
   }
   const lines = rows.map((row) => [row.label, ...AGENT_IDS.map((agent) => cell(row[agent])), cell(row.total), cell(row.stall), JSON.stringify(row.sessions)].join(' | '))
   console.log(`\n${title}\nscenario | ${AGENT_IDS.join(' | ')} | total | max stall | sessions\n${lines.join('\n')}`)
@@ -112,7 +112,7 @@ it('times discovery on a synthetic 1 GB store', { timeout: 30 * 60_000 }, async 
   await record('synthetic', rows)
 })
 
-it.runIf(process.env.AGENT_SESSIONS_BENCH_REAL === '1')('times discovery read-only on this machine’s real stores', { timeout: 30 * 60_000 }, async () => {
+it.runIf(process.env.AGENT_SESSIONS_BENCH_REAL === '1')("times discovery read-only on this machine's real stores", { timeout: 30 * 60_000 }, async () => {
   const env: ProviderEnv = { homeDir: homedir(), env: { CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR, CODEX_HOME: process.env.CODEX_HOME }, platform: process.platform }
   const rows = await measure(env, null)
   print('real stores (read-only)', rows)

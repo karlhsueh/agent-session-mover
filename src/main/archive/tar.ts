@@ -31,8 +31,8 @@ export async function* writeTar(entries: AsyncIterable<TarEntryInput> | Iterable
 
 function encodeHeader(name: string, size: number, mtimeMs: number): Buffer {
   const nameBytes = Buffer.from(name, 'utf8')
-  if (nameBytes.length === 0 || nameBytes.length > 100) throw new TarError(`Tar name too long: ${name}`)
-  if (!Number.isSafeInteger(size) || size < 0 || size > MAX_TAR_ENTRY) throw new TarError(`Tar entry too large: ${name}`)
+  if (nameBytes.length === 0 || nameBytes.length > 100) throw new TarError(`Tar name ${name} is too long`)
+  if (!Number.isSafeInteger(size) || size < 0 || size > MAX_TAR_ENTRY) throw new TarError(`Tar entry ${name} is too large`)
   const header = Buffer.alloc(BLOCK)
   nameBytes.copy(header, 0)
   writeOctal(header, 100, 8, 0o644)
@@ -106,7 +106,7 @@ export async function* readTar(source: AsyncIterable<Buffer>): AsyncGenerator<Ta
 
 function decodeHeader(header: Buffer): { name: string; size: number } {
   const stored = parseOctal(header, 148, 8)
-  if (stored !== checksum(header)) throw new TarError('Tar header checksum mismatch')
+  if (stored !== checksum(header)) throw new TarError('Tar header has the wrong checksum')
   if (header.toString('ascii', 257, 263) !== 'ustar\0' || header.toString('ascii', 263, 265) !== '00') {
     throw new TarError('Tar entry is not ustar')
   }

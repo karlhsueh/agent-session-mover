@@ -337,24 +337,24 @@ footer a:hover { color: var(--text); }
 
   <section class="wrap" id="how">
     <p class="kicker">How it works</p>
-    <h2>Three steps, one file. Your history comes with it.</h2>
+    <h2>Export one file, move it, and resume with the full history.</h2>
     <ol class="steps">
       <li class="step">
         <span class="n">01</span>
         <h3>Export</h3>
-        <p>Pick sessions from any project. Subagents come along. They are written to one archive file.</p>
+        <p>Pick sessions from any project. The app writes them and their subagents to one archive file.</p>
         <code class="token">work<span class="dim">.agentsessions</span></code>
       </li>
       <li class="step">
         <span class="n">02</span>
         <h3>Move the file</h3>
-        <p>AirDrop, a USB drive, a synced folder. Any way you move files works, because the app never uploads anything.</p>
+        <p>Use AirDrop, a USB drive, a synced folder, or any other way you move files. The app never uploads anything.</p>
         <code class="token"><span class="dim">~/Downloads/</span>work.agentsessions</code>
       </li>
       <li class="step">
         <span class="n">03</span>
         <h3>Import and resume</h3>
-        <p>Point each project at its folder on this computer. Nothing is written until you start, and a failed import rolls back.</p>
+        <p>Point each project at its folder on this computer. The app writes nothing until you start, and a failed import rolls back.</p>
         <code class="token">claude --resume <span class="dim">5c00…0000</span></code>
       </li>
     </ol>
@@ -365,14 +365,14 @@ footer a:hover { color: var(--text); }
     <h2>Treat an archive like the code it quotes.</h2>
     <ul class="ledger">
       <li class="warn"><b>Full transcripts</b><p>An archive holds each transcript unredacted: the account email recorded in the session, system prompts, every message, and the files and command output the agent read.</p></li>
-      <li class="good"><b>Never credentials</b><p>Auth tokens, API keys, and agent settings are never included.</p></li>
+      <li class="good"><b>Never credentials</b><p>The app never includes auth tokens, API keys, or agent settings.</p></li>
       <li class="good"><b>No network</b><p>The app makes no network requests. The file goes only where you put it.</p></li>
     </ul>
   </section>
 
   <section class="wrap" id="downloads">
     <p class="kicker">Downloads</p>
-    <h2>Every installer, always the latest release.</h2>
+    <h2>Each link downloads the latest release.</h2>
     <ul class="files">
       <li><div class="os">macOS</div><div class="links">
         <a data-key="mac-arm64" href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-arm64.dmg">Apple silicon</a>

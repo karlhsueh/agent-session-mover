@@ -8,7 +8,7 @@ const ERROR_LEAD: Record<ApiError['code'], string> = {
   busy: 'Another export or import is still running.',
   'invalid-archive': 'This file is not a valid Agent Sessions archive.',
   'unknown-archive': 'That archive was closed. Open it again.',
-  'invalid-input': 'The request was rejected.',
+  'invalid-input': 'Agent Sessions rejected the request.',
   io: 'Something went wrong reading or writing files.',
 }
 

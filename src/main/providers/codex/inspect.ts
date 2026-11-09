@@ -116,7 +116,7 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
   const subagentFacts = await Promise.all(layout.subagents.map((entry) => readFacts(terminatedLines(plainBlob(entry))).catch(() => null)))
   if (!facts || unreadable || subagentFacts.includes(null)) return invalid('A compressed rollout in the archive cannot be decompressed.')
   const { meta } = facts
-  if (!meta || meta.id !== session.id) return invalid('The rollout does not start with this session’s metadata.')
+  if (!meta || meta.id !== session.id) return invalid("The rollout does not start with this session's metadata.")
   const family = new Set([main, ...layout.subagents].map((entry) => entry.name.threadId))
   const subagents: Thread[] = []
   for (const [index, entry] of layout.subagents.entries()) {
@@ -130,7 +130,7 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
   if (!session.cwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: 'The session records no working directory.' })
   const mapCwd = (cwd: string | null) => cwd && mapPath(cwd, context.mappings, context.source.sep, context.sep)
   const targetCwd = mapCwd(session.cwd)
-  if (!targetCwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: `No folder on this machine is chosen for ${session.cwd}.` })
+  if (!targetCwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: `Choose a folder on this machine for ${session.cwd}.` })
   if (!(await stat(targetCwd).then((s) => s.isDirectory(), () => false))) warnings.push({ code: 'target-cwd-missing', path: targetCwd })
 
   const existing = await findRollouts(root)

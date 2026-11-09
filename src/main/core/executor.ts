@@ -166,7 +166,7 @@ async function undoStep(step: JournalStep, header: JournalHeader, provider: Prov
       return
     case 'backup':
       if (!(await exists(step.to))) return
-      if (await exists(step.from)) throw new Error(`Cannot restore ${step.from}: a file is in the way. The original is at ${step.to}`)
+      if (await exists(step.from)) throw new Error(`Cannot restore ${step.from} because a file is in the way. The original is at ${step.to}.`)
       await moveFile(step.to, step.from)
       return
     case 'mkdir':

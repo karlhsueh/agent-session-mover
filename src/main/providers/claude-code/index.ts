@@ -186,7 +186,7 @@ async function inspect(root: string, session: ManifestSession, context: ImportCo
   if (!session.cwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: 'The session records no working directory.' })
   const mapCwd = (value: string) => mapPath(value, context.mappings, context.source.sep, context.sep)
   const targetCwd = mapCwd(session.cwd)
-  if (!targetCwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: `No folder on this machine is chosen for ${session.cwd}.` })
+  if (!targetCwd) return refuse({ kind: 'blocked', reason: 'unmapped-cwd', message: `Choose a folder on this machine for ${session.cwd}.` })
   if (!(await stat(targetCwd).then((s) => s.isDirectory(), () => false))) warnings.push({ code: 'target-cwd-missing', path: targetCwd })
 
   const existing = (await findTranscripts(root)).filter((transcript) => transcript.id === session.id)

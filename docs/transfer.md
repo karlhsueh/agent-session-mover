@@ -15,7 +15,7 @@ read_when:
 
 ## Archive format
 
-An archive is one `*.agentsessions` file: a gzip-compressed ustar tar. The first entry is `manifest.json`. Every other entry is `blobs/<sha256>`, one per distinct file content, so two sessions that share a file store it once.
+An archive is one `*.agentsessions` file, a gzip-compressed ustar tar. The first entry is `manifest.json`. Every other entry is `blobs/<sha256>`, one per distinct file content, so two sessions that share a file store it once.
 
 The manifest (`src/main/core/manifest.ts`) is version 1:
 
@@ -37,7 +37,7 @@ The manifest (`src/main/core/manifest.ts`) is version 1:
 }
 ```
 
-`files[].path` is relative to the source store and always uses `/`. `ROLES_BY_AGENT` lists the roles each agent may use: `transcript`, `subagent`, and `tool-result` for Claude Code, and `rollout`, `subagent-rollout`, `linked-rollout`, `generated-image`, and `index-entry` for Codex. A Codex `subagent-rollout` is the newest rollout of a subagent thread that the session's thread spawned, at any depth. `source.storeRoots` was added beyond the original brief. Import needs it to rewrite `toolUseResult.persistedOutputPath`, which names a file inside the source store by absolute path.
+`files[].path` is relative to the source store and always uses `/`. `ROLES_BY_AGENT` lists the roles each agent may use: `transcript`, `subagent`, and `tool-result` for Claude Code, and `rollout`, `subagent-rollout`, `linked-rollout`, `generated-image`, and `index-entry` for Codex. A Codex `subagent-rollout` is the newest rollout of a subagent thread that the session's thread spawned, at any depth. The original brief did not include `source.storeRoots`. Import needs it to rewrite `toolUseResult.persistedOutputPath`, which names a file inside the source store by absolute path.
 
 ### What the reader rejects
 
@@ -52,7 +52,7 @@ The manifest (`src/main/core/manifest.ts`) is version 1:
 
 ### Writing
 
-Export writes to a hidden temp file next to the destination, fsyncs it, and renames it into place. Each blob is re-read and re-hashed while it streams. If a source file changed after it was collected, the export fails rather than writing a manifest that lies.
+Export writes to a hidden temp file next to the destination, fsyncs it, and renames it into place. Each blob is re-read and re-hashed while it streams. If a source file changed after it was collected, the export fails rather than writing a manifest that does not match its blobs.
 
 ## Providers
 
@@ -77,7 +77,7 @@ export interface Provider {
 - `discover` takes every fact it reads from a file through `scan.facts`, so a later pass can skip the file. See [Listing sessions](#listing-sessions).
 - `discover` and `collect` are read-only. They get the environment because a store can span folders (Codex reads `CODEX_SQLITE_HOME`). `collect` returns snapshot files. For an append-only file, the snapshot stops at the last newline. A snapshot can also be a byte range (`start`), for a blob that is one line of a shared file such as Codex's `session_index.jsonl`. Codex `collect` throws for a subagent that belongs to another session and names that session, so export carries a subagent only inside its owner.
 - `inspectTarget` is read-only too. It returns either a refusal, or the list of `TargetFile`s with the store path each one lands at, an optional `ContentTransform`, and the mtime to set. The provider computes every target path from parts it has validated. A name from the archive is used only after it matches a whitelist. `ImportContext.readBlob` streams a verified archive blob, for a provider that derives an effect from file content (the Codex `threads` row).
-- A `TargetFile` can name `supersedes`: a file at another path that holds the current copy in another form, with a `decode` transform. Codex uses it when this machine holds a rollout as `.jsonl.zst` and import writes the plain `.jsonl`.
+- A `TargetFile` can name `supersedes`, a file at another path that holds the current copy in another form, with a `decode` transform. Codex uses it when this machine holds a rollout as `.jsonl.zst` and import writes the plain `.jsonl`.
 - A `ContentTransform` must be deterministic, because preview hashes its output and import checks that the bytes it writes hash the same.
 - `transcriptRole`, `findTranscript`, and `previewTranscript` serve the Conversation preview. See [Previewing a conversation](#previewing-a-conversation).
 - `ProviderEffect` is for writes that are not files, such as the Codex `threads` row. An effect is plain JSON. The journal records it before `applyEffect` runs, so `undoEffect` must work from the JSON alone, must be safe if the effect never ran, and must be safe to run twice. A provider parses the effect again in `undoEffect`, because recovery reads it back from disk.
@@ -92,14 +92,14 @@ Hashes exist for export. `discover` takes sizes from `stat` and reads only the r
 
 ### A long transcript is read in part
 
-`readWindow` in `src/main/core/window.ts` reads a transcript within a `ReadBudget`. Listing uses `LIST_BUDGET`: a transcript up to 32 MB is read whole, and a longer one as its first 28 MB and its last 4 MB. A `.jsonl.zst` rollout has no random access, so it streams through zstd and only that window reaches the parser. A half-written last line is never read.
+`readWindow` in `src/main/core/window.ts` reads a transcript within a `ReadBudget`. Listing uses `LIST_BUDGET`. It reads a transcript up to 32 MB whole, and a longer one as its first 28 MB and its last 4 MB. A `.jsonl.zst` rollout has no random access, so it streams through zstd and only that window reaches the parser. A half-written last line is never read.
 
 The head holds the session id, the first prompt, the first cwd, the client, the version, and Codex `session_meta` with its subagent links. The tail holds the last activity and the latest cwd. Facts that need every line are best-effort for a transcript over the budget:
 
 - `cwds` lists only the folders in the parts read, and `SessionSummary.cwdsComplete` is `false`. The detail panel says so.
 - A title record that appears only in the middle is missed. Claude Code writes `ai-title` records again every few turns, so the tail usually holds the newest one.
 
-`collect` reads every line, so an archive's `cwds` is always complete. On the 1.09 GB benchmark store, 16 MB saved another 150 ms on a cold pass and 64 MB cost 80 ms. 32 MB keeps every transcript under it exact.
+`collect` reads every line, so an archive's `cwds` is always complete. On the 1.09 GB benchmark store, a 16 MB budget saved another 150 ms on a cold pass, and a 64 MB budget cost 80 ms. A 32 MB budget keeps the facts exact for every transcript under that size.
 
 ### Facts are cached per file
 
@@ -147,18 +147,18 @@ interface ScanProgress {
 | Synthetic store, 1.09 GB | 2404 ms | 1754 ms | 37 ms | 50 ms |
 | Real stores on the dev Mac, 7 Claude Code and 47 Codex sessions | 1617 ms | 1293 ms | 11 ms | not run, the benchmark never writes to them |
 
-A cold Codex pass is bound by zstd: decompression alone takes about 60% of it. The longest stall was 7 ms on the synthetic store and 14 ms on the real one, so parsing stays on the main thread.
+A cold Codex pass is bound by zstd. Decompression alone takes about 60% of it. The longest stall was 7 ms on the synthetic store and 14 ms on the real one, so parsing stays on the main thread.
 
 ## Previewing a conversation
 
 The Conversation tab and the import preview show what a session said: its first entry, how many entries are left out, and its newest 24. `SessionPreview` in `src/shared/sessions.ts` is that shape, or `unavailable` with a plain reason. Text is plain and whitespace-collapsed, and a message is capped at 600 characters. A tool call is one line, such as `Read src/main/index.ts` or `Ran pnpm test`. Subagent conversations are not previewed.
 
-One parser per agent serves both sources. For a session on this machine, `findTranscript` names its main transcript, the same file `discover` reads. For a session in an open archive, core picks the session's one file whose role is `transcriptRole` (`transcript` or `rollout`) and hands its verified staged blob to the same `previewTranscript`, with the store path from the manifest so the provider can tell a `.jsonl.zst` from a plain file.
+One parser per agent serves both sources. For a session on this machine, `findTranscript` names its main transcript, the same file `discover` reads. For a session in an open archive, core picks the session's one file whose role is `transcriptRole` (`transcript` or `rollout`) and hands its verified staged blob to the same `previewTranscript`. Core also passes the store path from the manifest, so the provider can tell a `.jsonl.zst` from a plain file.
 
-`readPreview` in `src/main/core/preview.ts` feeds the provider's line reader through `readWindow` within `PREVIEW_BUDGET`. A transcript up to 64 MB is read whole, so its counts are exact. Parsing every line of a 36 MB real rollout took about 76 ms. A longer plain file is read as its first 60 MB and its last 4 MB, by range. A `.jsonl.zst` rollout has no random access, so it streams through zstd and only the same window reaches the parser. When the middle is skipped, `complete` is false and the counts are lower bounds. A half-written last line and the cut lines at either edge of a window are left out. A line the reader cannot use gives no entries, and a reader that throws on a line is treated the same way, so a transcript of garbage is `unavailable`, never an error. A damaged `.zst` is `unavailable` too.
+`readPreview` in `src/main/core/preview.ts` feeds the provider's line reader through `readWindow` within `PREVIEW_BUDGET`. A transcript up to 64 MB is read whole, so its counts are exact. Parsing every line of a 36 MB real rollout took about 76 ms. A longer plain file is read as its first 60 MB and its last 4 MB, by range. A `.jsonl.zst` rollout has no random access, so it streams through zstd and only the same window reaches the parser. When the middle is skipped, `complete` is false and the counts are lower bounds. A half-written last line and the cut lines at either edge of a window are left out. A line the reader cannot use gives no entries. A line that makes the reader throw counts the same way. So a transcript of garbage is `unavailable`, never an error. A damaged `.zst` is `unavailable` too.
 
-- **Claude Code** (`providers/claude-code/preview.ts`). `user` and `assistant` records only. Meta, sidechain, and compact-summary records are skipped, and so are user records that hold tool results or start with a tag (slash commands, hook output, reminders). An assistant record gives its text blocks as one reply and each `tool_use` as a line built from the tool's most telling input: `file_path` (relative to the record's `cwd`), the first line of `command`, `pattern`, `url`, `query`, or `description`.
-- **Codex** (`providers/codex/preview.ts`). `response_item` records only, since `event_msg` repeats them. User `input_text` parts that start with a tag are injected context and are skipped. Developer messages and reasoning are skipped. `function_call`, `custom_tool_call`, `local_shell_call`, and `web_search_call` each give one line: the shell command, the files an `apply_patch` touches, the first `cmd` in a code-mode `exec` script, or the search. A subagent rollout starts with a copy of its parent's history, so records below `subagent_history_start_ordinal` are skipped.
+- **Claude Code** (`providers/claude-code/preview.ts`). The parser reads only `user` and `assistant` records. It skips meta, sidechain, and compact-summary records, and also user records that hold tool results or start with a tag (slash commands, hook output, reminders). An assistant record gives its text blocks as one reply and each `tool_use` as a line built from the tool's most telling input: `file_path` (relative to the record's `cwd`), the first line of `command`, `pattern`, `url`, `query`, or `description`.
+- **Codex** (`providers/codex/preview.ts`). The parser reads only `response_item` records, since `event_msg` repeats them. User `input_text` parts that start with a tag are injected context and are skipped. Developer messages and reasoning are skipped. `function_call`, `custom_tool_call`, `local_shell_call`, and `web_search_call` each give one line: the shell command, the files an `apply_patch` touches, the first `cmd` in a code-mode `exec` script, or the search. A subagent rollout starts with a copy of its parent's history, so records below `subagent_history_start_ordinal` are skipped.
 
 ## Planning an import
 
@@ -180,7 +180,7 @@ For each write:
 1. Create missing folders one by one, journaling each before it is made.
 2. Stream the blob through the transform into `.<name>.<runId>.tmp` in the target folder. Then fsync it, check its hash against the plan, and set its mtime.
 3. For an update, re-hash the existing file, journal the backup, and move the file to `<userData>/backups/<runId>/<agent>/<store path>`. The move is a rename, or a copy and delete across volumes. Then re-hash the backup. When the update replaces a superseded file, that file is the one backed up, under its own store path.
-4. Journal the publish, `link(temp, final)` (atomic, never overwrites), unlink the temp, and fsync the folder.
+4. Journal the publish, then call `link(temp, final)`, which is atomic and never overwrites. Unlink the temp and fsync the folder.
 
 Provider effects run after the files. Deleting the journal is the commit point.
 

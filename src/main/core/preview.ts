@@ -64,7 +64,7 @@ function previewBuilder() {
       recent = []
     },
     finish(): SessionPreview {
-      if (!first) return { kind: 'unavailable', reason: complete ? 'The transcript holds no messages to show.' : 'No messages were found in the parts of this long transcript that preview reads.' }
+      if (!first) return { kind: 'unavailable', reason: complete ? 'The transcript holds no messages to show.' : 'Preview reads only part of this long transcript, and that part holds no messages.' }
       return { kind: 'ok', first, recent, omitted, counts, complete }
     },
   }

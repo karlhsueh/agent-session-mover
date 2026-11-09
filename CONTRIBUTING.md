@@ -1,6 +1,6 @@
 # Contributing
 
-Bug reports and fixes are welcome. Agent Sessions is maintained by one person in their spare time, so replies can take a while, and a pull request may be closed or reworked rather than merged.
+Bug reports and fixes are welcome. One person maintains Agent Sessions in their spare time, so replies can take a while, and a pull request may be closed or reworked rather than merged.
 
 - **Bug fixes.** Send a pull request. For anything beyond a small fix, open an issue first that shows the failure.
 - **Features and other agents.** Open an issue before you write code, so we can agree it fits. The tool stays focused on moving sessions between machines. It does not convert sessions between agents. To add an agent, read [Adding an agent](docs/adding-an-agent.md).
@@ -28,7 +28,7 @@ pnpm dev
 
 ## Read first
 
-- [Moving sessions between machines](docs/transfer.md) covers the archive format, the import executor, and the IPC surface.
+- [Moving sessions between machines](docs/transfer.md) covers the archive format, the import executor, and the IPC calls.
 - [Session storage and transfer rules](docs/session-storage.md) is the spec for where Claude Code and Codex keep sessions and what a transfer may rewrite.
 - [Releasing](docs/RELEASING.md) covers tags, installers, and signing.
 - [Adding an agent](docs/adding-an-agent.md) covers what a new agent needs, from storage research to tests.

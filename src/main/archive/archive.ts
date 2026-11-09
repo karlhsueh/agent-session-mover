@@ -137,7 +137,7 @@ async function extractInto(
   const stream = file.pipe(gunzip).pipe(counter)
   const fail = (error: Error) => counter.destroy(error)
   file.on('error', fail)
-  gunzip.on('error', (error) => fail(new ArchiveError(`Archive is not valid gzip: ${error.message}`)))
+  gunzip.on('error', (error) => fail(new ArchiveError(`This file is not a valid archive. The gzip reader reported "${error.message}".`)))
 
   let manifest: Manifest | null = null
   let expected = new Map<string, number>()

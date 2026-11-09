@@ -94,7 +94,7 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
       </div>
 
       <footer className="statusbar">
-        <span className="dim">Files are written only after you start the import. An update keeps a backup of the copy it replaces.</span>
+        <span className="dim">Agent Sessions writes files only after you start the import. An update keeps a backup of the copy it replaces.</span>
         <span className="statusbar-actions">
           <button type="button" className="button" onClick={onBack}>
             Cancel

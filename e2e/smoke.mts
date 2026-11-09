@@ -115,7 +115,7 @@ try {
   assert.equal(await row(page, fanout.title).locator('.subcount').textContent(), '+8', 'a session with subagents shows their count')
 
   await scope(page, 'web').click()
-  assert.deepEqual(await rowTitles(page), [fixtures[3]!.title, fixtures[4]!.title], 'a project scope lists only that folder’s sessions')
+  assert.deepEqual(await rowTitles(page), [fixtures[3]!.title, fixtures[4]!.title], "a project scope lists only that folder's sessions")
   assert.equal(await page.locator('.list-head').textContent(), `${join('~', 'code', 'web')}2`, 'the list header names the folder and its count')
   assert.equal(await list(page).locator('.row-project').count(), 0, 'a project scope drops the project column')
   await page.keyboard.press('ArrowDown')
@@ -295,7 +295,7 @@ try {
   await fanoutRow.getByRole('button', { name: /^Preview the conversation/ }).click()
   const archived = fanoutRow.getByRole('list', { name: 'Conversation' })
   await archived.waitFor()
-  assert.equal(await archived.locator('.turn').first().textContent(), fanout.title, 'import preview shows an archived session’s conversation')
+  assert.equal(await archived.locator('.turn').first().textContent(), fanout.title, "import preview shows an archived session's conversation")
   assert.equal(await archived.locator('.turn-tool').first().textContent(), `Read ${join('src', 'index.ts')}`, 'the archived conversation lists its tool calls')
   await fanoutRow.getByRole('button', { name: /^Hide the conversation/ }).click()
   assert.equal(await archived.count(), 0, 'Hide folds the conversation away')
@@ -328,7 +328,7 @@ try {
   assert.deepEqual((await rowTitles(page)).sort(), titlesByAge.filter((title) => title !== skipped.title).sort(), 'the target machine now lists the imported sessions')
   assert.equal(await row(page, fanout.title).locator('.subcount').textContent(), '+8', 'subagents travelled with their parent')
   const placed = await readdir(join(target.claude, 'projects', encode(chosenWebFolder)))
-  assert.deepEqual(placed.sort(), [`${byTitle(titlesByAge[3]!).id}.jsonl`, `${byTitle(titlesByAge[4]!).id}.jsonl`], 'web sessions landed in the chosen folder’s project')
+  assert.deepEqual(placed.sort(), [`${byTitle(titlesByAge[3]!).id}.jsonl`, `${byTitle(titlesByAge[4]!).id}.jsonl`], "web sessions landed in the chosen folder's project")
   assert.deepEqual(problems, [], 'target machine logged no console errors')
   console.log('smoke passed')
 } finally {
