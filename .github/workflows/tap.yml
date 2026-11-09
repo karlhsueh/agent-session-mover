@@ -55,6 +55,7 @@ jobs:
         run: |
           if git diff --quiet; then
             echo "The cask already matches $TAG."
+            git push --dry-run origin HEAD
             exit 0
           fi
           git config user.name 'github-actions[bot]'
