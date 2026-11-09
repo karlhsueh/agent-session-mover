@@ -13,7 +13,6 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`. It builds the a
 | File | Platform |
 | --- | --- |
 | `agent-sessions-mac-arm64.dmg`, `.zip` | macOS on Apple silicon |
-| `agent-sessions-mac-x64.dmg`, `.zip` | macOS on Intel |
 | `agent-sessions-win-x64.exe` | Windows x64 (NSIS installer) |
 | `agent-sessions-linux-x86_64.AppImage` | Linux x64 |
 | `agent-sessions-linux-amd64.deb` | Debian and Ubuntu x64 |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: scripts/update-cask.sh <version> <SHA256SUMS path> [cask path]
-# Writes the version and the arm64 and x64 dmg hashes into a Homebrew cask.
+# Writes the version and the Apple silicon dmg hash into a Homebrew cask.
 set -euo pipefail
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
@@ -27,18 +27,16 @@ hash_for() {
   printf '%s' "$hash"
 }
 
-arm="$(hash_for agent-sessions-mac-arm64.dmg)"
-intel="$(hash_for agent-sessions-mac-x64.dmg)"
+sha="$(hash_for agent-sessions-mac-arm64.dmg)"
 
 tmp="$(mktemp "${cask}.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT
 sed -E \
   -e "s/^( *version )\"[^\"]*\"/\\1\"$version\"/" \
-  -e "s/^( *sha256 arm: +)\"[0-9a-f]{64}\"/\\1\"$arm\"/" \
-  -e "s/^( *intel: +)\"[0-9a-f]{64}\"/\\1\"$intel\"/" \
+  -e "s/^( *sha256 )\"[0-9a-f]{64}\"/\\1\"$sha\"/" \
   "$cask" > "$tmp"
 
-for expected in "version \"$version\"" "\"$arm\"" "\"$intel\""; do
+for expected in "version \"$version\"" "\"$sha\""; do
   if ! grep -qF "$expected" "$tmp"; then
     echo "error: $cask has no line to take $expected" >&2
     exit 1
@@ -47,5 +45,4 @@ done
 
 cat "$tmp" > "$cask"
 echo "Updated $cask to $version"
-echo "  arm:   $arm"
-echo "  intel: $intel"
+echo "  sha256: $sha"
