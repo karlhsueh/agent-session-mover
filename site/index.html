@@ -80,7 +80,7 @@ a { color: inherit; }
 code, .mono { font-family: var(--mono); font-size: 13px; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
 
-.wrap { max-width: 1040px; margin-inline: auto; padding-inline: 24px; }
+.wrap { max-width: 1240px; margin-inline: auto; padding-inline: 24px; }
 
 .top {
   display: flex;
@@ -94,16 +94,19 @@ code, .mono { font-family: var(--mono); font-size: 13px; }
 .top nav a { color: var(--muted); text-decoration: none; }
 .top nav a:hover { color: var(--text); }
 
-.hero { padding-block: 72px 56px; }
+.hero { padding-block: 104px 72px; text-align: center; }
 .hero h1 {
-  max-width: 17em;
-  font-size: clamp(30px, 5.2vw, 52px);
+  max-width: 15.5em;
+  margin-inline: auto;
+  font-size: clamp(32px, 5.8vw, 66px);
   line-height: 1.08;
   font-weight: 600;
   letter-spacing: -0.032em;
   text-wrap: balance;
 }
 .hero h1 .then { color: var(--muted); }
+.lede { max-width: 36em; margin: 26px auto 0; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; color: var(--muted); text-wrap: balance; }
+.lede code { font-size: 0.88em; color: var(--text); }
 .agent { white-space: nowrap; }
 .agent::before {
   content: '';
@@ -118,7 +121,7 @@ code, .mono { font-family: var(--mono); font-size: 13px; }
 .agent.claude { --dot: var(--claude); }
 .agent.codex { --dot: var(--codex); }
 
-.get { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: 40px; }
+.get { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px 22px; margin-top: 40px; }
 .cta {
   display: inline-flex;
   align-items: center;
@@ -145,7 +148,7 @@ code, .mono { font-family: var(--mono); font-size: 13px; }
   display: flex;
   align-items: center;
   max-width: 100%;
-  margin-top: 18px;
+  margin: 18px auto 0;
   width: fit-content;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -241,7 +244,7 @@ section h2 {
 .ledger { margin-top: 40px; border-top: 1px solid var(--line); }
 .ledger li {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 280px 1fr;
   gap: 24px;
   padding: 20px 0;
   border-bottom: 1px solid var(--line);
@@ -258,7 +261,7 @@ section h2 {
 }
 .ledger .warn { --state: var(--warn); }
 .ledger .good { --state: var(--good); }
-.ledger p { color: var(--muted); max-width: 40em; }
+.ledger p { color: var(--muted); max-width: 52em; }
 
 .files { margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 28px; }
 .files li { padding: 18px 0; border-top: 1px solid var(--line); }
@@ -267,6 +270,11 @@ section h2 {
 .files a { color: var(--muted); text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
 .files a:hover { color: var(--text); text-decoration-color: currentColor; }
 .files a.here { color: var(--accent); }
+.closing { padding-block: 168px 0; text-align: center; }
+.closing h2 { margin-inline: auto; font-size: clamp(28px, 4.2vw, 44px); }
+.closing p { margin: 16px auto 0; max-width: 34em; color: var(--muted); }
+.source { font-size: 14px; color: var(--text); text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+.source:hover { text-decoration-color: currentColor; }
 .note { margin-top: 20px; font-size: 13px; color: var(--faint); max-width: 46em; }
 .note code { font-size: 12px; }
 
@@ -285,7 +293,8 @@ footer a:hover { color: var(--text); }
 @media (max-width: 760px) {
   .wrap { padding-inline: 16px; }
   .top nav a:not(.gh) { display: none; }
-  .hero { padding-block: 40px; }
+  .hero { padding-block: 48px 40px; }
+  .closing { padding-block: 112px 0; }
   .get { margin-top: 28px; }
   .cta { width: 100%; justify-content: center; }
   .brew { width: 100%; }
@@ -312,11 +321,12 @@ footer a:hover { color: var(--text); }
 <main>
   <div class="wrap hero">
     <h1>Move your <span class="agent claude">Claude Code</span> and <span class="agent codex">Codex</span> sessions to another computer, <span class="then">and pick up where you left off.</span></h1>
+    <p class="lede">Export the sessions you pick to one file. Open it on the other computer, point each project at its folder there, and resume with <code>claude --resume</code> or <code>codex resume</code>.</p>
 
     <div class="get">
-      <a class="cta" id="cta" href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-arm64.dmg">
+      <a class="cta" data-cta href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-arm64.dmg">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5v9M5 8l4 4 4-4M3 15.5h12"/></svg>
-        <span class="cta-label"><b id="cta-title">Download for macOS</b><span id="cta-detail">Apple silicon · .dmg</span></span>
+        <span class="cta-label"><b class="cta-title">Download for macOS</b><span class="cta-detail">Apple silicon · .dmg</span></span>
       </a>
       <p class="alt" id="alt">
         <a id="alt-link" href="#downloads" hidden></a>
@@ -387,6 +397,18 @@ footer a:hover { color: var(--text); }
     </ul>
     <p class="note">The macOS app needs an Apple silicon Mac with macOS 13 or later. Windows and Linux builds are not code-signed yet, so SmartScreen asks you to confirm the first launch. On Linux, run <code>chmod +x</code> on the AppImage before you open it. Check any download against <a href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/SHA256SUMS">SHA256SUMS</a> with <code>shasum -a 256 -c SHA256SUMS --ignore-missing</code>.</p>
   </section>
+
+  <section class="wrap closing">
+    <h2>Free and open source.</h2>
+    <p>MIT licensed. Read the code, report a bug, or add support for another agent.</p>
+    <div class="get">
+      <a class="cta" data-cta href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-arm64.dmg">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5v9M5 8l4 4 4-4M3 15.5h12"/></svg>
+        <span class="cta-label"><b class="cta-title">Download for macOS</b><span class="cta-detail">Apple silicon · .dmg</span></span>
+      </a>
+      <a class="source" href="https://github.com/karlhsueh/agent-sessions">View the source on GitHub</a>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -430,11 +452,17 @@ footer a:hover { color: var(--text); }
     return 'mac-arm64';
   }
 
+  function setCta(href, title, detail) {
+    for (const cta of document.querySelectorAll('[data-cta]')) {
+      cta.href = href;
+      cta.querySelector('.cta-title').textContent = title;
+      cta.querySelector('.cta-detail').textContent = detail;
+    }
+  }
+
   function show(key) {
     const build = builds[key];
-    document.getElementById('cta').href = base + build.file;
-    document.getElementById('cta-title').textContent = build.title;
-    document.getElementById('cta-detail').textContent = build.detail;
+    setCta(base + build.file, build.title, build.detail);
     const altLink = document.getElementById('alt-link');
     altLink.hidden = !build.alt;
     altLink.nextElementSibling.hidden = !build.alt;
@@ -446,10 +474,7 @@ footer a:hover { color: var(--text); }
   }
 
   function showAll() {
-    const cta = document.getElementById('cta');
-    cta.href = '#downloads';
-    document.getElementById('cta-title').textContent = 'Get Agent Sessions';
-    document.getElementById('cta-detail').textContent = 'For macOS, Windows, and Linux';
+    setCta('#downloads', 'Get Agent Sessions', 'For macOS, Windows, and Linux');
     document.getElementById('alt').hidden = true;
   }
 
