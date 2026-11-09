@@ -377,7 +377,7 @@ footer a:hover { color: var(--text); }
       <li class="step">
         <span class="n">03</span>
         <h3>Import and resume</h3>
-        <p>Point each project at its folder on this computer. The app writes nothing until you start, and a failed import rolls back.</p>
+        <p>Open the file on the other computer, confirm where each project lives, and run the resume command.</p>
         <code class="token">claude --resume <span class="dim">5c00…0000</span></code>
       </li>
     </ol>
@@ -389,6 +389,7 @@ footer a:hover { color: var(--text); }
       <h2>Point each project at its folder on this computer.</h2>
       <p>Your code can live at a different path here. Import lists every project folder from the other computer and suggests the same path under your home folder.</p>
       <ul class="points">
+        <li>Each folder shows the git branch its sessions were on, so you know what to check out.</li>
         <li>Create a missing folder from the preview.</li>
         <li>The app writes nothing until you start the import.</li>
         <li>A failed import rolls back, and an update keeps a backup of the copy it replaces.</li>

@@ -40,7 +40,7 @@ export function MappingEditor({ token, mappings, sessions, preview, checking, so
     <section className="panel" aria-labelledby="mapping-heading">
       <header className="panel-head">
         <h2 id="mapping-heading">Folders</h2>
-        <p className="dim">Each folder from the other machine becomes a folder here. Sessions are placed by the folder they started in. Bring the project files over first, with git pull or a copy, because a session resumed in an empty folder has no code to work on.</p>
+        <p className="dim">Pull or copy each project into its folder here before you resume, so the agent finds its code. Sessions are placed by the folder they started in.</p>
       </header>
       <ul className="mappings">
         {mappings.map((mapping) => {
@@ -123,8 +123,15 @@ function MappingRow({
         <span className="mapping-name">
           {folderName(mapping.source)} <span className="dim">· {plural(uses, 'session')}</span>
         </span>
-        <code className="truncate dim">{tildePath(mapping.source, sourceHome)}</code>
-        {branches && <span className="mapping-branches truncate dim">{branches}</span>}
+        <span className="mapping-path truncate dim" title={branches ? `${mapping.source} on ${branches}` : mapping.source}>
+          <code>{tildePath(mapping.source, sourceHome)}</code>
+          {branches && (
+            <>
+              {' on '}
+              <code className="mapping-branches">{branches}</code>
+            </>
+          )}
+        </span>
       </div>
       <span className="mapping-arrow" aria-hidden="true">
         →

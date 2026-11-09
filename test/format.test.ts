@@ -35,8 +35,8 @@ describe('folder branches', () => {
   const on = (...branches: (string | null)[]) => branches.map((gitBranch) => ({ gitBranch }))
   it('names the distinct branches, sorted, at most three', () => {
     expect(branchesLabel(on(null, null))).toBeNull()
-    expect(branchesLabel(on('main', null, 'main'))).toBe('branch main')
-    expect(branchesLabel(on('main', 'feature/x'))).toBe('branches feature/x, main')
-    expect(branchesLabel(on('e', 'd', 'c', 'b', 'a'))).toBe('branches a, b, c +2')
+    expect(branchesLabel(on('main', null, 'main'))).toBe('main')
+    expect(branchesLabel(on('main', 'feature/x'))).toBe('feature/x, main')
+    expect(branchesLabel(on('e', 'd', 'c', 'b', 'a'))).toBe('a, b, c +2')
   })
 })
