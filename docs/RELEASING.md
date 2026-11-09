@@ -113,18 +113,25 @@ Do these steps on one Mac. Keychain Access creates the private key on the Mac th
 
 Keep the `.p12`, its password, the `.p8`, the Key ID, and the Issuer ID in a password manager, then move the local copies to the Trash with `trash DeveloperID.p12 AuthKey_ABC123DEFG.p8`.
 
-### Homebrew tap token
+### Homebrew tap deploy key
 
-The tap workflow pushes to another repository, so it needs its own token in the `HOMEBREW_TAP_TOKEN` secret. Without it, the workflow fails and the cask keeps the old version.
+The tap workflow pushes to another repository, so it needs a deploy key: an SSH key that can write to `karlhsueh/homebrew-tap` and nothing else. It is not tied to a GitHub account and does not expire. Without it, the workflow fails and the cask keeps the old version.
 
-1. At [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new), create a fine-grained token. Set Repository access to Only select repositories and pick `karlhsueh/homebrew-tap`. Under Repository permissions, set Contents to Read and write. Pick an expiry and note it, because the workflow fails once the token expires.
-2. Store it.
+1. Create a key pair in a temporary folder.
 
    ```sh
-   gh secret set HOMEBREW_TAP_TOKEN
+   ssh-keygen -t ed25519 -N '' -C 'agent-sessions tap workflow' -f /tmp/tap-deploy
    ```
 
-   Paste the token at the prompt.
+2. Give the public key write access to the tap, and store the private key as a secret in this repo.
+
+   ```sh
+   gh repo deploy-key add /tmp/tap-deploy.pub -R karlhsueh/homebrew-tap --allow-write --title 'agent-sessions tap workflow'
+   gh secret set HOMEBREW_TAP_DEPLOY_KEY < /tmp/tap-deploy
+   trash /tmp/tap-deploy /tmp/tap-deploy.pub
+   ```
+
+To rotate the key, delete it under the tap's Settings, then Deploy keys, and repeat both steps. Nothing else needs a copy of the private key.
 
 ### When the macOS job fails
 
