@@ -57,7 +57,7 @@ Users can check a download with `shasum -a 256 -c SHA256SUMS --ignore-missing`.
 
 ## One-time setup of the macOS secrets
 
-The workflow reads five repository secrets. Run the `gh` commands from this repo's folder, or add `-R karlhsueh/agent-sessions`.
+The workflow reads five repository secrets. GitHub encrypts them and never shows them again, so keep your own copies in a password manager. Run the `gh` commands from this repo's folder, or add `-R karlhsueh/agent-sessions`.
 
 | Secret | Holds |
 | --- | --- |
@@ -69,27 +69,43 @@ The workflow reads five repository secrets. Run the `gh` commands from this repo
 
 `APPLE_API_KEY` holds the file's text, not a path. The workflow writes it to a temporary `.p8` file on the runner and points electron-builder at that file.
 
+### Before you start
+
+- Sign in at [developer.apple.com/account](https://developer.apple.com/account) and accept any updated agreement shown in the banner. Until you do, Apple refuses certificate and key requests with "PLA Update available".
+- Check Membership details. Only the Account Holder can create a Developer ID certificate. An Individual enrollment makes you the Account Holder. In an Organization enrollment, ask the Account Holder to create the certificate and send you the `.p12`.
+
 ### Developer ID certificate
 
-Only the Apple Developer account holder can create a Developer ID Application certificate.
+Do these steps on one Mac. The private key is created on the Mac that makes the request, and the certificate only works next to it.
 
-1. In Xcode, open Settings, then Accounts. Select your team, click Manage Certificates, click +, and choose Developer ID Application. Xcode creates the private key in your login keychain and installs the certificate.
+1. Create a certificate request. Open Keychain Access. Spotlight may open the Passwords app instead, so if it does, open `/System/Library/CoreServices/Applications/Keychain Access.app`. From the Keychain Access menu, choose Certificate Assistant, then Request a Certificate From a Certificate Authority. Enter your Apple ID email and a name, leave CA Email empty, choose Saved to disk, and save the `.certSigningRequest`.
+2. At [Certificates, IDs & Profiles](https://developer.apple.com/account/resources/certificates/list), click +, choose Developer ID Application, pick the G2 Sub-CA, upload the request, and download the `.cer`.
+3. Double-click the `.cer` to install it in the login keychain. Then check that macOS can sign with it.
 
-   Without Xcode, open Keychain Access, choose Certificate Assistant, then Request a Certificate From a Certificate Authority, and save the request to disk. Upload it at developer.apple.com under Certificates, IDs & Profiles, as a Developer ID Application certificate with the G2 Sub-CA. Download the `.cer` and double-click it to install it beside its key.
+   ```sh
+   security find-identity -v -p codesigning
+   ```
 
-2. In Keychain Access, open the login keychain, then My Certificates. Right-click "Developer ID Application: <your name> (<TEAM_ID>)" and choose Export. Save it as `DeveloperID.p12` with a strong password. The certificate must show a disclosure triangle with its private key, or the export has no key.
-3. Store both secrets.
+   It should list `Developer ID Application: <your name> (<TEAM_ID>)` as 1 valid identity. If it shows 0 valid identities while `security find-identity -p codesigning` lists the certificate, the Mac lacks Apple's intermediate certificate. Download [Developer ID - G2](https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer) from Apple and double-click it.
+
+   Xcode can do steps 1 to 3 in Settings, then Accounts, then Manage Certificates. It sometimes shows an Account Holder as Admin and refuses with "This operation can only be performed by the Account Holder". The website steps above avoid that.
+4. In Keychain Access, open the login keychain, then My Certificates. Right-click the Developer ID Application certificate and choose Export. Save it as `DeveloperID.p12` with a strong password. The certificate must show a disclosure triangle with its private key, or the export has no key.
+5. Check that the file opens with that password before you store it. Keychain Access exports with an older cipher, so OpenSSL needs `-legacy`.
+
+   ```sh
+   openssl pkcs12 -legacy -in DeveloperID.p12 -noout && echo PASSWORD-OK
+   ```
+
+6. Store both secrets. The second command prompts for the password, so paste it from your password manager rather than typing it.
 
    ```sh
    base64 -i DeveloperID.p12 | gh secret set CSC_LINK
    gh secret set CSC_KEY_PASSWORD
    ```
 
-   The second command prompts for the password.
-
 ### App Store Connect API key
 
-1. In App Store Connect, open Users and Access, then Integrations, then App Store Connect API. Under Team Keys, click + and create a key with the Developer role.
+1. In [App Store Connect](https://appstoreconnect.apple.com), open Users and Access, then Integrations, then App Store Connect API. Under Team Keys, click + and create a key with the Developer role. Any name works.
 2. Download `AuthKey_<KEY_ID>.p8`. Apple lets you download it only once.
 3. Copy the Key ID from the key's row and the Issuer ID from above the table.
 4. Store the three secrets.
@@ -102,7 +118,17 @@ Only the Apple Developer account holder can create a Developer ID Application ce
 
 5. Check that all five exist with `gh secret list`.
 
-Keep the `.p12`, its password, and the `.p8` in a password manager, then move the local copies to the Trash with `trash DeveloperID.p12 AuthKey_ABC123DEFG.p8`.
+Keep the `.p12`, its password, the `.p8`, the Key ID, and the Issuer ID in a password manager, then move the local copies to the Trash with `trash DeveloperID.p12 AuthKey_ABC123DEFG.p8`.
+
+### When the macOS job fails
+
+| Log line | Cause | Fix |
+| --- | --- | --- |
+| `Only N of the 5 macOS signing secrets are set` | A secret is missing or misnamed | Compare `gh secret list` with the table above. |
+| `MAC verification failed during PKCS12 import (wrong password?)` | `CSC_KEY_PASSWORD` does not open the `.p12` in `CSC_LINK` | Run step 5 of the certificate setup, then set both secrets again from the same file. |
+| A notarization error that names the API key | The key was revoked, or the key, Key ID, and Issuer ID do not belong together | Create a new key and set all three `APPLE_API_*` secrets again. |
+
+After fixing secrets, rerun the failed job with `gh run rerun <run-id> --failed`. A rerun reads the current secrets.
 
 ## What users see from unsigned builds
 
