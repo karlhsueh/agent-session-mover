@@ -31,6 +31,7 @@
     "dist": "pnpm build && electron-builder --publish never"
   },
   "dependencies": {
+    "electron-updater": "6.8.11",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
@@ -51,7 +52,12 @@
     "appId": "com.karlhsueh.agent-sessions",
     "productName": "Agent Sessions",
     "artifactName": "${name}-${os}-${arch}.${ext}",
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "owner": "karlhsueh",
+      "repo": "agent-sessions",
+      "releaseType": "release"
+    },
     "directories": {
       "output": "dist",
       "buildResources": "build"

@@ -44,6 +44,12 @@ Or download the installer for your system. These links always fetch the latest r
 
 The macOS app is signed and notarized. The Windows and Linux builds are not code-signed yet, so Windows SmartScreen asks you to confirm the first launch. On Linux, run `chmod +x` on the AppImage before you open it. Each [release](https://github.com/karlhsueh/agent-sessions/releases/latest) lists the SHA-256 of every file in `SHA256SUMS`.
 
+### Updates
+
+From version 0.1.4, the app checks GitHub for a new release when it opens and every 4 hours. It downloads the update in the background, then shows **Restart to update** in the status bar. Quitting the app installs it too. To check now, choose **Check for Updates…** in the app menu on macOS, or in the Help menu on Windows and Linux. On Linux, only the AppImage and the deb update themselves, and the deb asks for your password.
+
+Versions before 0.1.4 cannot update themselves. Run `brew upgrade --cask agent-sessions`, or download the installer again and install it over the old version.
+
 ## Supported agents
 
 | Agent | Where sessions live | Resume after import |
