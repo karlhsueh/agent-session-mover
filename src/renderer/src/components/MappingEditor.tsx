@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ArchiveToken, ImportPreview, PathMapping, SessionInfo } from '../../../shared/sessions'
 import { useHomeDir } from '../hooks'
-import { expandTilde, folderName, plural, tildePath } from '../model/format'
+import { branchesLabel, expandTilde, folderName, plural, tildePath } from '../model/format'
 
 interface Props {
   token: ArchiveToken
@@ -43,19 +43,23 @@ export function MappingEditor({ token, mappings, sessions, preview, checking, so
         <p className="dim">Each folder from the other machine becomes a folder here. Sessions are placed by the folder they started in. Bring the project files over first, with git pull or a copy, because a session resumed in an empty folder has no code to work on.</p>
       </header>
       <ul className="mappings">
-        {mappings.map((mapping) => (
-          <MappingRow
-            key={mapping.source}
-            token={token}
-            mapping={mapping}
-            sourceHome={sourceHome}
-            home={home}
-            uses={sessions.filter((session) => session.cwds.includes(mapping.source)).length}
-            status={folderStatus(mapping, sessions, preview)}
-            checking={checking}
-            onChange={onChange}
-          />
-        ))}
+        {mappings.map((mapping) => {
+          const users = sessions.filter((session) => session.cwds.includes(mapping.source))
+          return (
+            <MappingRow
+              key={mapping.source}
+              token={token}
+              mapping={mapping}
+              sourceHome={sourceHome}
+              home={home}
+              uses={users.length}
+              branches={branchesLabel(users)}
+              status={folderStatus(mapping, sessions, preview)}
+              checking={checking}
+              onChange={onChange}
+            />
+          )
+        })}
       </ul>
     </section>
   )
@@ -67,6 +71,7 @@ function MappingRow({
   sourceHome,
   home,
   uses,
+  branches,
   status,
   checking,
   onChange,
@@ -77,6 +82,8 @@ function MappingRow({
   /** This machine's home folder. The field shows it as ~ and expands ~ back before sending a path to main. */
   home: string
   uses: number
+  /** The branches the folder's sessions were on, so the user knows what to check out here. */
+  branches: string | null
   status: FolderStatus
   checking: boolean
   onChange: Props['onChange']
@@ -117,6 +124,7 @@ function MappingRow({
           {folderName(mapping.source)} <span className="dim">· {plural(uses, 'session')}</span>
         </span>
         <code className="truncate dim">{tildePath(mapping.source, sourceHome)}</code>
+        {branches && <span className="mapping-branches truncate dim">{branches}</span>}
       </div>
       <span className="mapping-arrow" aria-hidden="true">
         →

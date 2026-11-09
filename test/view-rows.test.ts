@@ -20,6 +20,7 @@ function session(id: string, cwd: string | null, title: string, day: number, sub
     createdAt: lastActivity,
     lastActivity,
     cliVersion: null,
+    gitBranch: null,
     sizeBytes: 1,
     fileCount: 1,
     live: false,

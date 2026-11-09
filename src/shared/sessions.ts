@@ -47,6 +47,8 @@ export interface SessionInfo {
   createdAt: string
   lastActivity: string
   cliVersion: string | null
+  /** The git branch at the session's last record that names one. Null outside a repo or when unrecorded. */
+  gitBranch: string | null
   sizeBytes: number
   fileCount: number
 }

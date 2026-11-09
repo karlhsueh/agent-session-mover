@@ -61,6 +61,7 @@ describe('export', () => {
     for (const content of entries.values()) expect(content.includes(NEVER_EXPORT)).toBe(false)
     const manifest = JSON.parse(entries.get('manifest.json')!.toString())
     const s1 = manifest.sessions.find((s: { id: string }) => s.id === S1)
+    expect(s1.gitBranch).toBe('main')
     const enc = encodeProjectDir(srcProj)
     expect(s1.files.map((f: { role: string; path: string }) => `${f.role} ${f.path}`).sort()).toEqual([
       `subagent projects/${enc}/${S1}/subagents/agent-a1b2c3.jsonl`,
@@ -86,6 +87,7 @@ describe('import into an empty store', () => {
     const dstProj = path.join(b.home, 'code', 'proj')
     const dstLong = path.join(b.home, ...Array.from({ length: 8 }, (_, i) => `deeply-nested-folder-number-${i}`))
     expect(mappings).toEqual(expect.arrayContaining([{ source: srcProj, target: dstProj }, { source: srcLong, target: dstLong }]))
+    expect(opened.manifest.sessions.map((s) => s.gitBranch)).toEqual(['main', 'main', 'main'])
 
     const preview = await previewImport(b.context, opened, mappings)
     expect(preview.sessions.map((s) => [s.key, s.action.kind])).toEqual([[key(S1), 'create'], [key(S2), 'create'], [key(S3), 'create']])

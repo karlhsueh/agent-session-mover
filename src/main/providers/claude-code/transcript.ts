@@ -12,6 +12,7 @@ export interface TranscriptFacts {
   firstPrompt: string | null
   entrypoint: string | null
   version: string | null
+  gitBranch: string | null
   /**
    * False when the transcript was too long to read whole and its middle was skipped. `cwds` then
    * holds only the folders in the parts read, and a title set only in the middle is missed.
@@ -48,6 +49,7 @@ export async function readFacts(lines: AsyncIterable<WindowLine>): Promise<Trans
     firstPrompt: null,
     entrypoint: null,
     version: null,
+    gitBranch: null,
     complete: true,
   }
   for await (const line of lines) {
@@ -72,6 +74,7 @@ function absorb(facts: TranscriptFacts, record: Record<string, unknown>): void {
   }
   if (typeof record.entrypoint === 'string' && record.entrypoint !== '' && facts.entrypoint === null) facts.entrypoint = record.entrypoint
   if (typeof record.version === 'string' && record.version !== '') facts.version = record.version
+  if (typeof record.gitBranch === 'string' && record.gitBranch !== '') facts.gitBranch = record.gitBranch
   if (record.type === 'custom-title' && typeof record.customTitle === 'string') facts.customTitle = cleanTitle(record.customTitle)
   if (record.type === 'ai-title' && typeof record.aiTitle === 'string') facts.aiTitle = cleanTitle(record.aiTitle)
   if (record.type === 'user' && facts.firstPrompt === null && record.isMeta !== true && record.isSidechain !== true) {

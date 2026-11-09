@@ -30,12 +30,14 @@ The manifest (`src/main/core/manifest.ts`) is version 1:
     {
       "agent": "claude-code", "id": "<uuid>", "title": "…", "client": "cli", "clientDetail": "cli",
       "cwd": "/Users/alice/proj", "cwds": ["/Users/alice/proj"],
-      "createdAt": "…", "lastActivity": "…", "cliVersion": "2.1.319",
+      "createdAt": "…", "lastActivity": "…", "cliVersion": "2.1.319", "gitBranch": "main",
       "files": [{ "role": "transcript", "path": "projects/-Users-alice-proj/<uuid>.jsonl", "sha256": "…", "size": 1234, "mtimeMs": 0 }]
     }
   ]
 }
 ```
+
+`gitBranch` is the branch the session was on at its last record that names one, so the user knows what to check out before resuming. It is null outside a repo, and an archive written before the field existed reads as null. The reader accepts a non-empty string up to the 4096-character cap every text field has.
 
 `files[].path` is relative to the source store and always uses `/`. `ROLES_BY_AGENT` lists the roles each agent may use: `transcript`, `subagent`, and `tool-result` for Claude Code, and `rollout`, `subagent-rollout`, `linked-rollout`, `generated-image`, and `index-entry` for Codex. A Codex `subagent-rollout` is the newest rollout of a subagent thread that the session's thread spawned, at any depth. The original brief did not include `source.storeRoots`. Import needs it to rewrite `toolUseResult.persistedOutputPath`, which names a file inside the source store by absolute path.
 

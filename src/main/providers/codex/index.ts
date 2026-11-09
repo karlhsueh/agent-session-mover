@@ -240,6 +240,7 @@ function info(main: RolloutFile, facts: ListedFacts, store: StoreView, sizes: nu
     createdAt: new Date(createdMs).toISOString(),
     lastActivity: new Date(facts.lastMs ?? row?.updatedMs ?? fallbackMs).toISOString(),
     cliVersion: meta?.cliVersion ?? null,
+    gitBranch: meta?.git.branch ?? null,
     sizeBytes: sizes.reduce((sum, size) => sum + size, 0),
     fileCount: sizes.length,
   }

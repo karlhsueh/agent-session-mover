@@ -43,7 +43,7 @@ const fixtures: Fixture[] = [
   { id: '5a000000-0000-4000-8000-000000000001', title: 'Fix flaky retry in the payment client', project: 'code/api', entrypoint: 'cli', ageMinutes: 4, live: true },
   { id: '5a000000-0000-4000-8000-000000000002', title: 'Plan the job queue rewrite', project: 'code/local-job-manager', entrypoint: 'cli', ageMinutes: 40, subagents: AGENT_TASKS },
   { id: '5a000000-0000-4000-8000-000000000003', title: 'Add cursor pagination to the orders endpoint', project: 'code/api', entrypoint: 'claude-desktop', ageMinutes: 95 },
-  { id: '5a000000-0000-4000-8000-000000000004', title: 'Migrate the settings page to the new form library', project: 'code/web', entrypoint: 'claude-vscode', ageMinutes: 26 * HOUR },
+  { id: '5a000000-0000-4000-8000-000000000004', title: 'Migrate the settings page to the new form library', project: 'code/web', entrypoint: 'claude-vscode', ageMinutes: 26 * HOUR, branch: 'feature/settings-form' },
   { id: '5a000000-0000-4000-8000-000000000005', title: 'Investigate the hydration warning on checkout', project: 'code/web', entrypoint: 'cli', ageMinutes: 50 * HOUR },
   { id: '5a000000-0000-4000-8000-000000000006', title: 'Why is the localhost socket refusing connections', project: 'code/local-job-manager', entrypoint: 'cli', ageMinutes: 60 * HOUR },
   { id: '5a000000-0000-4000-8000-000000000007', title: 'Nightly changelog summary', project: 'code/tools', entrypoint: 'sdk-cli', ageMinutes: 74 * HOUR },
@@ -200,6 +200,7 @@ try {
   assert.ok(((await detail.locator('.command-block').textContent()) ?? '').startsWith(resumeCd), 'the resume command cds into the session folder, relative to home where the shell allows')
   await row(page, fixtures[6]!.title).click({ modifiers: ['ControlOrMeta'] })
   assert.match((await detail.textContent()) ?? '', /resume picker and --continue skip/, 'detail explains an sdk-cli session is hidden from the picker')
+  assert.equal(await detail.locator('dt:has-text("Branch") + dd .mono').textContent(), 'main', 'detail shows the branch the session was on')
   await shot(page, 'browse-dark')
 
   const conversationTab = detail.getByRole('tab', { name: 'Conversation' })
@@ -288,6 +289,7 @@ try {
   assert.equal(await page.getByText(/Bring the project files over first/).count(), 1, 'import preview reminds to bring the project files')
   assert.equal(await webTarget.getAttribute('title'), join(target.home, 'code', 'web'), 'the field keeps the absolute folder in its tooltip')
   const webRow = page.locator('.mapping', { has: webTarget })
+  assert.equal(await webRow.locator('.mapping-branches').textContent(), 'branches feature/settings-form, main', 'the folder row names the branches to check out')
   assert.equal(await webRow.locator('.mapping-status').textContent(), 'Folder does not exist yet', 'mapping flags a missing folder')
   await webRow.getByRole('button', { name: 'Choose…' }).click()
   await page.locator(`.plan:not(.stale) .plan-target[title="${chosenWebFolder.replace(/[\\"]/g, '\\$&')}"]`).first().waitFor()

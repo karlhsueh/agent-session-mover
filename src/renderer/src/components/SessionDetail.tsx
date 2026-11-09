@@ -135,6 +135,11 @@ function Overview({ session, home, now }: { session: SessionSummary; home: strin
             {!session.cwdsComplete && <span className="dim block">{otherCwds.length > 0 ? 'Maybe more.' : 'Not known.'} The list reads only the start and end of a transcript this long. An export reads all of it.</span>}
           </Field>
         )}
+        {session.gitBranch && (
+          <Field label="Branch">
+            <Copyable shown={session.gitBranch} copy={session.gitBranch} />
+          </Field>
+        )}
         <Field label="Version">{session.cliVersion ?? 'Unknown'}</Field>
         <Field label="Started">{absoluteTime(session.createdAt)}</Field>
         <Field label="Last active">{absoluteTime(session.lastActivity)}</Field>

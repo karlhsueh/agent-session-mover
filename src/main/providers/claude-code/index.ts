@@ -26,7 +26,7 @@ export const claudeCodeProvider: Provider = {
     return path.resolve(configured ? configured.normalize('NFC') : path.join(homeDir, '.claude'))
   },
 
-  factsVersion: 1,
+  factsVersion: 2,
 
   async discover(root, _env, scan = NO_CACHE) {
     const live = await liveSessionIds(root)
@@ -141,6 +141,7 @@ function info(transcript: TranscriptLocation, facts: TranscriptFacts, sizes: num
     createdAt: facts.firstMs === null ? fallback : new Date(facts.firstMs).toISOString(),
     lastActivity: facts.lastMs === null ? fallback : new Date(facts.lastMs).toISOString(),
     cliVersion: facts.version,
+    gitBranch: facts.gitBranch,
     sizeBytes: sizes.reduce((sum, size) => sum + size, 0),
     fileCount: sizes.length,
   }

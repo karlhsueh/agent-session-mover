@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { expandTilde, platformLabel, tildePath } from '../src/renderer/src/model/format'
+import { branchesLabel, expandTilde, platformLabel, tildePath } from '../src/renderer/src/model/format'
 
 describe('mapping field paths', () => {
   it('shows a folder under home as ~ and expands it back to the same absolute path', () => {
@@ -28,5 +28,15 @@ describe('mapping field paths', () => {
 describe('platformLabel', () => {
   it('names the platforms people know and passes others through', () => {
     expect(['darwin', 'win32', 'linux', 'freebsd'].map(platformLabel)).toEqual(['macOS', 'Windows', 'Linux', 'freebsd'])
+  })
+})
+
+describe('folder branches', () => {
+  const on = (...branches: (string | null)[]) => branches.map((gitBranch) => ({ gitBranch }))
+  it('names the distinct branches, sorted, at most three', () => {
+    expect(branchesLabel(on(null, null))).toBeNull()
+    expect(branchesLabel(on('main', null, 'main'))).toBe('branch main')
+    expect(branchesLabel(on('main', 'feature/x'))).toBe('branches feature/x, main')
+    expect(branchesLabel(on('e', 'd', 'c', 'b', 'a'))).toBe('branches a, b, c +2')
   })
 })

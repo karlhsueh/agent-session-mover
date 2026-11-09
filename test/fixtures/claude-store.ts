@@ -31,6 +31,8 @@ export interface FixtureSession {
   /** Minutes after 2026-11-01T10:00:00Z for the first record. */
   startMinute?: number
   turns?: number
+  /** `gitBranch` on the last record, as after a checkout mid-session. Defaults to `main`, like every other record. */
+  finalBranch?: string
 }
 
 export interface FixtureSubagent {
@@ -92,7 +94,11 @@ export function transcriptRecords(root: string, session: FixtureSession): { line
   if (session.resumedFrom) {
     chain(session.resumedFrom, { type: 'user', message: { role: 'user', content: 'Continue from the other checkout' } })
   }
-  chain(session.cwd, { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: `Done. See ${session.cwd}/test/tokenizer.test.ts` }] } })
+  chain(session.cwd, {
+    type: 'assistant',
+    message: { role: 'assistant', content: [{ type: 'text', text: `Done. See ${session.cwd}/test/tokenizer.test.ts` }] },
+    ...(session.finalBranch === undefined ? {} : { gitBranch: session.finalBranch }),
+  })
   return { lines, lastTimestamp: at(minute - 1), toolResultPath }
 }
 

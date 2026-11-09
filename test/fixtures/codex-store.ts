@@ -48,6 +48,8 @@ export interface FixtureRollout {
   inherit?: string[]
   /** The message the parent agent sent the subagent. */
   task?: string
+  /** Defaults to `main`. Null leaves out `git`, as outside a repo. */
+  branch?: string | null
 }
 
 export interface BuiltRollout {
@@ -89,7 +91,7 @@ export function rolloutLines(r: FixtureRollout): string[] {
     history_mode: 'paginated',
     base_instructions: { text: 'synthetic instructions' },
     creator_user_id: 'user-synthetic',
-    git: { commit_hash: 'a1b2c3d', branch: 'main', repository_url: 'https://example.invalid/repo.git' },
+    ...(r.branch === null ? {} : { git: { commit_hash: 'a1b2c3d', branch: r.branch ?? 'main', repository_url: 'https://example.invalid/repo.git' } }),
     ...(r.historyBase ? { history_base: { thread_id: r.historyBase.rolloutId, end_ordinal_exclusive: r.historyBase.endOrdinal, end_byte_offset: r.historyBase.endByteOffset } } : {}),
   })
   for (const line of r.inherit ?? []) lines.push(JSON.stringify({ ...JSON.parse(line), ordinal: lines.length }))

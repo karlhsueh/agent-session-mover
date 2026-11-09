@@ -38,6 +38,8 @@ export interface ManifestSession {
   createdAt: string
   lastActivity: string
   cliVersion: string | null
+  /** Absent in archives written before it existed. */
+  gitBranch: string | null
   files: ManifestFile[]
 }
 
@@ -140,6 +142,7 @@ function parseSession(input: unknown, where: string): ManifestSession {
     createdAt: time(value.createdAt, `${where}.createdAt`),
     lastActivity: time(value.lastActivity, `${where}.lastActivity`),
     cliVersion: nullable(value.cliVersion, (v) => text(v, `${where}.cliVersion`)),
+    gitBranch: nullable(value.gitBranch ?? null, (v) => text(v, `${where}.gitBranch`)),
     files: files.map((file, index) => parseFile(file, agent, `${where}.files[${index}]`)),
   }
 }

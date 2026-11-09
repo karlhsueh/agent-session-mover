@@ -63,8 +63,18 @@ describe('parseManifest', () => {
     ['an unknown agent', manifest({ session: { agent: 'cursor' } })],
     ['a session id with a slash', manifest({ session: { id: '../x' } })],
     ['a malformed time', manifest({ session: { lastActivity: 'yesterday' } })],
+    ['a branch that is not a string', manifest({ session: { gitBranch: 42 } })],
+    ['an empty branch', manifest({ session: { gitBranch: '' } })],
+    ['a branch over 4096 characters', manifest({ session: { gitBranch: 'b'.repeat(4097) } })],
   ])('rejects %s', (_name, input) => {
     expect(() => parseManifest(input)).toThrow(ManifestError)
+  })
+
+  it('keeps the branch through a round trip, and reads an archive written before it as null', () => {
+    const written = parseManifest(manifest({ session: { gitBranch: 'feature/x' } }))
+    expect(parseManifest(JSON.parse(JSON.stringify(written))).sessions[0].gitBranch).toBe('feature/x')
+    expect(parseManifest(manifest()).sessions[0].gitBranch).toBeNull()
+    expect(parseManifest(manifest({ session: { gitBranch: null } })).sessions[0].gitBranch).toBeNull()
   })
 
   it('rejects the same session listed twice', () => {

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { listSessions } from '../src/main/core/discovery'
 import { codexProvider } from '../src/main/providers/codex'
 import { removeTempDir, treeHash } from './fixtures/claude-store'
-import { buildCodexStore, type CodexStore, CX, writeNeverExportFiles } from './fixtures/codex-store'
+import { buildCodexStore, type CodexStore, CX, writeNeverExportFiles, writeRollout } from './fixtures/codex-store'
 import { type Machine, makeMachine, shellQuoted } from './fixtures/machine'
 
 let machine: Machine
@@ -37,6 +37,7 @@ describe('Codex discovery', () => {
       createdAt: '2026-11-01T10:00:00.000Z',
       lastActivity: store.rollouts[CX.plain].lastTimestamp,
       cliVersion: '0.162.1',
+      gitBranch: 'main',
       fileCount: 3,
       live: false,
       archived: false,
@@ -51,6 +52,16 @@ describe('Codex discovery', () => {
     expect(byId.get(CX.parent)).toMatchObject({ title: 'Parent by name' })
     expect(byId.get(CX.orphan)).toMatchObject({ client: 'subagent', title: 'Lost task', subagents: [] })
     expect(byId.get(CX.live)).toMatchObject({ live: true })
+  })
+
+  it('reports the branch session_meta records, and null outside a repo', async () => {
+    const ids = { feature: '019a0000-0000-7000-8000-0000000000b1', none: '019a0000-0000-7000-8000-0000000000b2' }
+    await writeRollout(machine.codexRoot, { id: ids.feature, cwd, startMinute: 300, branch: 'feature/x' })
+    await writeRollout(machine.codexRoot, { id: ids.none, cwd, startMinute: 320, branch: null })
+    const listed = new Map((await codexProvider.discover(machine.codexRoot, machine.context.env)).map((s) => [s.id, s.gitBranch]))
+    expect([listed.get(ids.feature), listed.get(ids.none)]).toEqual(['feature/x', null])
+    expect((await codexProvider.collect(machine.codexRoot, ids.feature, machine.context.env)).session.gitBranch).toBe('feature/x')
+    expect((await codexProvider.collect(machine.codexRoot, ids.none, machine.context.env)).session.gitBranch).toBeNull()
   })
 
   it('returns nothing for a store that does not exist', async () => {

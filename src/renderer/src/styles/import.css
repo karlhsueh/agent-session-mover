@@ -93,7 +93,8 @@
   font-weight: 500;
 }
 
-.mapping-source code {
+.mapping-source code,
+.mapping-branches {
   margin-top: 2px;
 }
 

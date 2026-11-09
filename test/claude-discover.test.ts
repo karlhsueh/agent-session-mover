@@ -52,6 +52,7 @@ describe('Claude Code discovery', () => {
       cwds: [proj],
       createdAt: '2026-11-01T10:00:00.000Z',
       cliVersion: '2.1.319',
+      gitBranch: 'main',
       live: false,
       archived: false,
       fileCount: 4,
@@ -75,6 +76,23 @@ describe('Claude Code discovery', () => {
     await writeFile(file, kept.join('\n'))
     const [session] = await claudeCodeProvider.discover(machine.root, machine.context.env)
     expect(session.title).toBe('Add a unit test for the tokenizer')
+  })
+
+  it('reports the branch at the last record that names one, in the listing and in an export', async () => {
+    const { readFile, writeFile } = await import('node:fs/promises')
+    const ids = { switched: '2a000000-0000-4000-8000-000000000001', emptyLast: '2b000000-0000-4000-8000-000000000002', none: '2c000000-0000-4000-8000-000000000003' }
+    await writeSession(machine.root, { id: ids.switched, cwd: '/w', finalBranch: 'feature/x' })
+    await writeSession(machine.root, { id: ids.emptyLast, cwd: '/w', finalBranch: '' })
+    await writeSession(machine.root, { id: ids.none, cwd: '/w' })
+    const file = path.join(machine.root, 'projects', '-w', `${ids.none}.jsonl`)
+    await writeFile(file, (await readFile(file, 'utf8')).replaceAll('"gitBranch":"main",', ''))
+
+    const listed = new Map((await claudeCodeProvider.discover(machine.root, machine.context.env)).map((s) => [s.id, s.gitBranch]))
+    const expected = { [ids.switched]: 'feature/x', [ids.emptyLast]: 'main', [ids.none]: null }
+    expect(Object.fromEntries(listed)).toEqual(expected)
+    for (const [id, branch] of Object.entries(expected)) {
+      expect((await claudeCodeProvider.collect(machine.root, id, machine.context.env)).session.gitBranch).toBe(branch)
+    }
   })
 
   it('returns nothing for a store that does not exist', async () => {

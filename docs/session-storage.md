@@ -61,6 +61,7 @@ Each line is one JSON object. Conversation records (`user`, `assistant`, `attach
 - **Title.** Use `custom-title`, then `ai-title`, then the first user prompt.
 - **Client.** `entrypoint` is `cli`, `claude-desktop`, `claude-vscode`, `sdk-cli` (`claude -p`), or `sdk-ts`.
 - **Hidden sessions.** The `/resume` picker and plain `--continue` hide `sdk-cli` sessions. `claude --resume <id>` still finds them. Verified.
+- **Branch.** The last non-empty `gitBranch` among the records. A checkout mid-session changes it, so the last one is where the session ended.
 - **Several working directories.** A resume from another folder appends records with the new `cwd`, so one transcript can hold several.
 
 ### Resume rules
@@ -109,6 +110,7 @@ Codex compresses a rollout that has been idle for 7 days into `.jsonl.zst`. It t
 Every line is `{timestamp, ordinal, type, payload}`. The first line is `session_meta`, which carries `id`, `cwd`, `originator`, `cli_version`, `source`, `git`, and `history_base`. The model is in `turn_context.model`. File names and date folders use local time. Record timestamps use UTC.
 
 - **Client.** `originator` is `codex-tui`, `codex_cli_rs`, `codex_exec`, `Codex Desktop`, or `codex_work_desktop`. `source` is `cli`, `exec`, `vscode`, or a subagent object. The desktop app reports `vscode`.
+- **Branch.** `session_meta.git.branch`. Codex leaves out `git` outside a repo.
 - **Title.** Use the `session_index.jsonl` name, then the database `title`, then the first user message. For a subagent, use the task text instead of the title and first message, which belong to its parent (see Subagents).
 
 ### Subagents
