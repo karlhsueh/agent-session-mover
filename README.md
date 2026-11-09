@@ -6,6 +6,8 @@
 
 <p align="center"><a href="https://github.com/karlhsueh/agent-sessions/releases/latest"><strong>Download for macOS, Windows, or Linux</strong></a></p>
 
+<p align="center"><sub>Early release. Expect rough edges, and please <a href="https://github.com/karlhsueh/agent-sessions/issues/new/choose">report what breaks</a>.</sub></p>
+
 <p align="center"><img src="docs/assets/screenshot.png" width="900" alt="Agent Sessions listing sessions by project, with one session's resume command in the detail panel" /></p>
 
 ## What it does
@@ -49,9 +51,13 @@ The macOS app is signed and notarized. The Windows and Linux builds are not code
 
 The app works with what each CLI writes to disk. A new CLI version can change that format, so if a session does not list or resume, please [open an issue](https://github.com/karlhsueh/agent-sessions/issues) with both CLI versions.
 
+## Support
+
+Agent Sessions is maintained by one person in their spare time. [Open an issue](https://github.com/karlhsueh/agent-sessions/issues/new/choose) for a bug or an idea, with the app version and the `claude --version` or `codex --version` output. Leave out transcript text. Report security problems privately, as [SECURITY.md](SECURITY.md) describes.
+
 ## Contributing
 
-Built with Electron, React, and TypeScript. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, the docs to read first, and the test commands.
+Built with Electron, React, and TypeScript. Bug fixes are welcome. For a feature or another agent, open an issue first. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, the docs to read first, and the test commands.
 
 ## License
 

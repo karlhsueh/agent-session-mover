@@ -1,6 +1,12 @@
 # Contributing
 
-Bug reports and pull requests are welcome. For a larger change, open an issue first so we can agree on the approach. The tool stays focused on moving sessions between machines. It does not convert sessions between agents.
+Bug reports and fixes are welcome. Agent Sessions is maintained by one person in their spare time, so replies can take a while, and a pull request may be closed or reworked rather than merged.
+
+- **Bug fixes.** Send a pull request. For anything beyond a small fix, open an issue first that shows the failure.
+- **Features and other agents.** Open an issue before you write code, so we can agree it fits. The tool stays focused on moving sessions between machines. It does not convert sessions between agents. To add an agent, read [Adding an agent](docs/adding-an-agent.md).
+- **Security problems.** Report them privately, as [SECURITY.md](SECURITY.md) describes.
+
+Never attach real transcripts or archives to an issue or pull request. They hold private conversations.
 
 ## Set up
 
@@ -25,6 +31,7 @@ pnpm dev
 - [Moving sessions between machines](docs/transfer.md) covers the archive format, the import executor, and the IPC surface.
 - [Session storage and transfer rules](docs/session-storage.md) is the spec for where Claude Code and Codex keep sessions and what a transfer may rewrite.
 - [Releasing](docs/RELEASING.md) covers tags, installers, and signing.
+- [Adding an agent](docs/adding-an-agent.md) covers what a new agent needs, from storage research to tests.
 
 ## Before you open a pull request
 

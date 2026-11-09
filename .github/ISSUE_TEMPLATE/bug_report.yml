@@ -1,0 +1,52 @@
+name: Bug report
+description: A session that does not list, export, import, or resume as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste transcript text, archive files, or screenshots that show private conversations. Session ids and folder names are enough.
+  - type: input
+    id: app_version
+    attributes:
+      label: Agent Sessions version
+      description: On macOS, Agent Sessions > About Agent Sessions.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      description: For a transfer, the system of each computer.
+      multiple: true
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options:
+        - Claude Code
+        - Codex
+        - Both
+    validations:
+      required: true
+  - type: input
+    id: cli_version
+    attributes:
+      label: CLI version
+      description: The output of `claude --version` or `codex --version` on each computer. A new CLI version can change the format on disk.
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. Include any error the app showed.
+    validations:
+      required: true

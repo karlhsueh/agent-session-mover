@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest a change or another agent to support
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Agent Sessions stays focused on moving sessions between computers. It does not convert sessions between agents. To propose another agent, read docs/adding-an-agent.md first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: The change you have in mind, if any.
