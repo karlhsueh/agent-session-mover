@@ -58,7 +58,8 @@ function createWindow(): void {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event) => event.preventDefault())
 
-  const devServerUrl = process.env.ELECTRON_RENDERER_URL
+  // A packaged app ignores the dev server variable, so the environment cannot point it at another page.
+  const devServerUrl = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL
   if (devServerUrl) {
     window.loadURL(devServerUrl)
   } else {

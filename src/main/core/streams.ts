@@ -42,18 +42,31 @@ export interface Line {
   terminated: boolean
 }
 
-/** Splits a byte stream on `\n`. The yielded bytes exclude the newline. */
-export async function* splitLines(chunks: AsyncIterable<Buffer>): AsyncGenerator<Line> {
+/** V8 cannot make a string much longer than this, so no reader could parse a longer line anyway. */
+export const MAX_LINE_BYTES = 512 * 1024 * 1024
+
+/**
+ * Splits a byte stream on `\n`. The yielded bytes exclude the newline. A line longer than `maxLine`
+ * throws, so a crafted file with no newline cannot exhaust memory.
+ */
+export async function* splitLines(chunks: AsyncIterable<Buffer>, maxLine = MAX_LINE_BYTES): AsyncGenerator<Line> {
   let pending: Buffer[] = []
+  let pendingBytes = 0
   for await (const chunk of chunks) {
     let start = 0
     for (let newline = chunk.indexOf(0x0a); newline !== -1; newline = chunk.indexOf(0x0a, start)) {
+      if (pendingBytes + newline - start > maxLine) throw new Error(`A line is longer than ${maxLine} bytes.`)
       pending.push(chunk.subarray(start, newline))
       yield { bytes: pending.length === 1 ? pending[0] : Buffer.concat(pending), terminated: true }
       pending = []
+      pendingBytes = 0
       start = newline + 1
     }
-    if (start < chunk.length) pending.push(chunk.subarray(start))
+    if (start < chunk.length) {
+      pendingBytes += chunk.length - start
+      if (pendingBytes > maxLine) throw new Error(`A line is longer than ${maxLine} bytes.`)
+      pending.push(chunk.subarray(start))
+    }
   }
   if (pending.length > 0) yield { bytes: Buffer.concat(pending), terminated: false }
 }

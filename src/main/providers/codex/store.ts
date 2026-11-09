@@ -105,11 +105,32 @@ export async function generatedImages(root: string, threadId: string): Promise<P
   return files
 }
 
+/**
+ * Real rollouts compress about 8 to 1. A stream that expands far past that is a zstd bomb from a
+ * crafted archive, and decoding it would fill the disk, so it stops with an error instead.
+ */
+const MAX_EXPANSION = 64
+const EXPANSION_FLOOR = 64 * 1024 * 1024
+
 /** Streams zstd-compressed bytes as the plain bytes they hold. Deterministic, so it can be a `ContentTransform`. */
 export const unzstd: ContentTransform = (input) => {
+  let consumed = 0
+  const counted = (async function* () {
+    for await (const chunk of input) {
+      consumed += chunk.length
+      yield chunk
+    }
+  })()
   const decoder = createZstdDecompress()
-  pipeline(Readable.from(input), decoder, () => {})
-  return decoder as AsyncIterable<Buffer>
+  pipeline(Readable.from(counted), decoder, () => {})
+  return (async function* () {
+    let produced = 0
+    for await (const chunk of decoder as AsyncIterable<Buffer>) {
+      produced += chunk.length
+      if (produced > EXPANSION_FLOOR + MAX_EXPANSION * consumed) throw new Error(`The compressed data expands more than ${MAX_EXPANSION} times its size.`)
+      yield chunk
+    }
+  })()
 }
 
 /** The rollout's plain bytes, whichever form it is stored in. */

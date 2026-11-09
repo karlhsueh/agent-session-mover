@@ -1,5 +1,6 @@
 import { mkdir, readdir, symlink } from 'node:fs/promises'
 import path from 'node:path'
+import { zstdCompressSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createSessionService } from '../src/main/service'
 import { type RawEntry, sha256, writeRawArchive } from './fixtures/archive'
@@ -80,6 +81,7 @@ describe('Codex import of a valid archive with hostile intent', () => {
     ['a subagent rollout of the session itself', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('subagent-rollout', rolloutRel({ id: ID, cwd: CWD, startMinute: 5 }), rollout)]],
     ['a subagent rollout that no thread of the session spawned', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('subagent-rollout', rolloutRel(strayAgent), strayRollout)]],
     ['a subagent rollout that is not a subagent', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('subagent-rollout', rolloutRel({ id: CX.archived, cwd: CWD }), otherRollout)]],
+    ['a compressed rollout that expands far past any real rollout', () => [entry('rollout', rolloutRel({ id: ID, cwd: CWD, compressed: true }), zstdCompressSync(Buffer.concat([rollout, Buffer.alloc(80 * 1024 * 1024, 'x')])))]],
     ['an index entry at another path',() => [entry('rollout', rolloutRel({ id: ID, cwd: CWD }), rollout), entry('index-entry', 'config.toml', index(ID))]],
   ])('blocks %s and writes nothing', async (_name, files) => {
     const before = await treeHash(b.home)
