@@ -28,6 +28,9 @@ export const CHANNELS = {
   revealBackups: 'import:reveal-backups',
   copyText: 'clipboard:write',
   homeDir: 'env:home',
+  updateStatus: 'update:status',
+  updateChanged: 'update:changed',
+  installUpdate: 'update:install',
 } as const
 
 export type ApiErrorCode =
@@ -86,7 +89,18 @@ export interface DesktopApi {
   copyText(text: string): Promise<void>
   /** This machine's home folder, so paths can show as `~/…`. */
   homeDir(): Promise<string>
+  /** Returns the unsubscribe function. */
+  onUpdateStatus(callback: (status: UpdateStatus) => void): () => void
+  updateStatus(): Promise<UpdateStatus>
+  /** Quits and installs a downloaded update. Does nothing unless the status is `ready`. */
+  installUpdate(): Promise<void>
 }
+
+/** What the renderer shows about an update. Checking, no update, errors, and unpackaged builds are all `idle`: a background updater does not nag. */
+export type UpdateStatus =
+  | { kind: 'idle' }
+  | { kind: 'downloading'; version: string; percent: number }
+  | { kind: 'ready'; version: string }
 
 export interface StoreRoot {
   agent: AgentId

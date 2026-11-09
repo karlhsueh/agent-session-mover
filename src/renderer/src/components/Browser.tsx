@@ -7,7 +7,7 @@ import type { PendingScan } from '../model/listing'
 import { matchSessions, searchNeedle } from '../model/rows'
 import { ALL, countByProject, inScope, projectsOf, type Scope } from '../model/scope'
 import { focusedKey, NO_SELECTION, selectionReducer } from '../model/selection'
-import { useHomeDir, usePreviews, useStored, type Theme } from '../hooks'
+import { useHomeDir, usePreviews, useStored, useUpdateStatus, type Theme } from '../hooks'
 import { Kbd, RefreshButton } from './common'
 import { ScanLine } from './ScanStatus'
 import { EmptyStore, Problems } from './EmptyStore'
@@ -58,6 +58,7 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
   const versions = useMemo(() => new Map(list.sessions.map((session) => [session.key, `${session.lastActivity} ${session.sizeBytes}`])), [list.sessions])
   const [preview, requestPreview] = usePreviews(loadPreview, 'store', useCallback((key: SessionKey) => versions.get(key) ?? '', [versions]))
   const home = useHomeDir()
+  const update = useUpdateStatus()
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
@@ -281,6 +282,11 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
           )}
         </span>
         <span className="statusbar-actions">
+          {update.kind === 'ready' && (
+            <button type="button" className="button small" onClick={() => void window.api.installUpdate()}>
+              Restart to update to {update.version}
+            </button>
+          )}
           <button type="button" className="button ghost icon" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setShowShortcuts(true)}>
             ?
           </button>

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { CHANNELS, type DesktopApi } from '../shared/ipc'
+import { CHANNELS, type DesktopApi, type UpdateStatus } from '../shared/ipc'
 import type { ProgressEvent } from '../shared/sessions'
 
 const api: DesktopApi = {
@@ -24,6 +24,15 @@ const api: DesktopApi = {
   revealBackups: () => ipcRenderer.invoke(CHANNELS.revealBackups),
   copyText: (text) => ipcRenderer.invoke(CHANNELS.copyText, text),
   homeDir: () => ipcRenderer.invoke(CHANNELS.homeDir),
+  onUpdateStatus: (callback) => {
+    const listener = (_event: IpcRendererEvent, status: UpdateStatus) => callback(status)
+    ipcRenderer.on(CHANNELS.updateChanged, listener)
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.updateChanged, listener)
+    }
+  },
+  updateStatus: () => ipcRenderer.invoke(CHANNELS.updateStatus),
+  installUpdate: () => ipcRenderer.invoke(CHANNELS.installUpdate),
 }
 
 contextBridge.exposeInMainWorld('api', api)

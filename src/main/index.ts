@@ -9,6 +9,7 @@ import type { CoreContext } from './core/export'
 import { clearStaging } from './core/import'
 import { providers } from './providers/registry'
 import { createSessionService, type SessionService } from './service'
+import { createUpdater, type Updater } from './updater'
 
 // Playwright cannot drive native dialogs. e2e/smoke.mts names the files and folders they would
 // return, and a separate userData folder so a test run never touches real backups or journals.
@@ -21,6 +22,8 @@ const e2e = app.isPackaged
       userData: process.env.AGENT_SESSIONS_E2E_USER_DATA,
       // `claude-code:100,codex:300` waits that long after each file a listing reads, so a test can watch the scan.
       scanPace: process.env.AGENT_SESSIONS_E2E_SCAN_PACE,
+      // `0.9.9` starts the update status at ready for that version, so a test can see the restart notice.
+      update: process.env.AGENT_SESSIONS_E2E_UPDATE,
     }
 const APP_NAME = 'Agent Sessions'
 // Journals and backups live in userData, and its default folder follows the app name. Pinning it
@@ -69,11 +72,32 @@ function createWindow(): void {
 
 /**
  * Electron's default menu, without its View > Reload. That item takes Cmd/Ctrl+R, which would reload
- * the page and drop the selection. The window uses the key to look for new sessions instead.
+ * the page and drop the selection. The window uses the key to look for new sessions instead. The macOS
+ * app menu is spelled out so Check for Updates can sit under About.
  */
-function setMenu(): void {
+function setMenu(updater: Updater): void {
+  const checkForUpdates: MenuItemConstructorOptions[] = updater.enabled ? [{ label: 'Check for Updates…', click: () => void updater.checkFromMenu() }] : []
+  const mac = process.platform === 'darwin'
   const template: MenuItemConstructorOptions[] = [
-    ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
+    ...(mac
+      ? [
+          {
+            label: APP_NAME,
+            submenu: [
+              { role: 'about' as const },
+              ...checkForUpdates,
+              { type: 'separator' as const },
+              { role: 'services' as const },
+              { type: 'separator' as const },
+              { role: 'hide' as const },
+              { role: 'hideOthers' as const },
+              { role: 'unhide' as const },
+              { type: 'separator' as const },
+              { role: 'quit' as const },
+            ],
+          },
+        ]
+      : []),
     { role: 'fileMenu' },
     { role: 'editMenu' },
     {
@@ -90,6 +114,7 @@ function setMenu(): void {
       ],
     },
     { role: 'windowMenu' },
+    ...(!mac && checkForUpdates.length > 0 ? [{ role: 'help' as const, submenu: checkForUpdates }] : []),
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
@@ -186,8 +211,12 @@ app.whenReady().then(async () => {
 
   registerSessionHandlers(service)
   registerShellHandlers(context)
-  setMenu()
+  const updater = createUpdater({ packaged: app.isPackaged, forcedVersion: e2e.update })
+  ipcMain.handle(CHANNELS.updateStatus, () => updater.status())
+  ipcMain.handle(CHANNELS.installUpdate, () => updater.install())
+  setMenu(updater)
   createWindow()
+  updater.start()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

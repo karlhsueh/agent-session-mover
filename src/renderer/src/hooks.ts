@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ApiResult } from '../../shared/ipc'
+import type { ApiResult, UpdateStatus } from '../../shared/ipc'
 import type { ProgressEvent, SessionPreview } from '../../shared/sessions'
 import type { Loadable } from './state'
 
@@ -131,4 +131,20 @@ export function usePreviews<K extends string>(
     [load, generation, version],
   )
   return [(key) => byKey?.get(slot(key)) ?? null, request]
+}
+
+export function useUpdateStatus(): UpdateStatus {
+  const [status, setStatus] = useState<UpdateStatus>({ kind: 'idle' })
+  useEffect(() => {
+    let pushed = false
+    const unsubscribe = window.api.onUpdateStatus((next) => {
+      pushed = true
+      setStatus(next)
+    })
+    void window.api.updateStatus().then((current) => {
+      if (!pushed) setStatus(current)
+    })
+    return unsubscribe
+  }, [])
+  return status
 }

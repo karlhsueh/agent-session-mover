@@ -102,7 +102,7 @@ try {
   assert.equal(await page.title(), 'Agent Sessions', 'window has the default title')
   assert.deepEqual(
     await page.evaluate('Object.keys(window.api)'),
-    ['listSessions', 'previewSession', 'exportSessions', 'openArchive', 'previewImport', 'previewArchiveSession', 'runImport', 'createFolder', 'onProgress', 'storeRoots', 'chooseFolder', 'revealExport', 'revealBackups', 'copyText', 'homeDir'],
+    ['listSessions', 'previewSession', 'exportSessions', 'openArchive', 'previewImport', 'previewArchiveSession', 'runImport', 'createFolder', 'onProgress', 'storeRoots', 'chooseFolder', 'revealExport', 'revealBackups', 'copyText', 'homeDir', 'onUpdateStatus', 'updateStatus', 'installUpdate'],
     'window.api exposes exactly the declared capabilities',
   )
   assert.deepEqual(await page.evaluate('[typeof process, typeof require]'), ['undefined', 'undefined'], 'page has no process or require')
@@ -110,6 +110,8 @@ try {
   assert.deepEqual([badImport.ok, badImport.error.code], [false, 'invalid-input'], 'main rejects malformed import input')
 
   await rows(page).first().waitFor()
+  assert.deepEqual(await page.evaluate('window.api.updateStatus()'), { kind: 'idle' }, 'an unpackaged build never checks for updates')
+  assert.equal(await page.getByRole('button', { name: /^Restart to update/ }).count(), 0, 'with no update the status bar shows no restart button')
   assert.deepEqual(await scopeNames(page), ['All sessions', ...projectsByAge], 'the sidebar lists All sessions, then projects newest first')
   assert.deepEqual(await sidebar(page).locator('.scope-count').allTextContents(), ['10', '2', '2', '2', '1', '1', '1', '1'], 'each project counts its sessions')
   assert.equal(await scope(page, 'api').getAttribute('title'), join('~', 'code', 'api'), 'the full folder is in the tooltip, relative to home')
@@ -268,7 +270,7 @@ try {
   await laptop.app.close()
 }
 
-const desktop = await launch(target, { AGENT_SESSIONS_E2E_OPEN_PATH: archivePath, AGENT_SESSIONS_E2E_FOLDER_PATH: chosenWebFolder })
+const desktop = await launch(target, { AGENT_SESSIONS_E2E_OPEN_PATH: archivePath, AGENT_SESSIONS_E2E_FOLDER_PATH: chosenWebFolder, AGENT_SESSIONS_E2E_UPDATE: '0.9.9' })
 try {
   const { app, page, problems } = desktop
   await page.getByRole('heading', { name: 'No sessions on this machine' }).waitFor()
@@ -339,6 +341,17 @@ try {
   assert.equal(await row(page, fanout.title).locator('.subcount').textContent(), '+8', 'subagents travelled with their parent')
   const placed = await readdir(join(target.claude, 'projects', encode(chosenWebFolder)))
   assert.deepEqual(placed.sort(), [`${byTitle(titlesByAge[3]!).id}.jsonl`, `${byTitle(titlesByAge[4]!).id}.jsonl`], "web sessions landed in the chosen folder's project")
+  const restart = page.locator('.statusbar').getByRole('button', { name: 'Restart to update to 0.9.9' })
+  await restart.waitFor({ timeout: 5000 })
+  await shot(page, 'update-ready-dark')
+  await page.getByRole('button', { name: 'Use light theme' }).click()
+  await shot(page, 'update-ready-light')
+  await page.getByRole('button', { name: 'Use dark theme' }).click()
+  const mainLog: string[] = []
+  app.process().stdout?.on('data', (chunk: Buffer) => mainLog.push(chunk.toString()))
+  await restart.click()
+  for (let i = 0; i < 50 && !mainLog.join('').includes('Would restart to install 0.9.9.'); i++) await page.waitForTimeout(100)
+  assert.match(mainLog.join(''), /Would restart to install 0\.9\.9\./, 'the restart button asks main to install the update')
   assert.deepEqual(problems, [], 'target machine logged no console errors')
   console.log('smoke passed')
 } finally {
