@@ -282,6 +282,16 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
           )}
         </span>
         <span className="statusbar-actions">
+          {update.kind === 'available' && (
+            <button type="button" className="button small" onClick={() => void window.api.downloadUpdate()}>
+              Update to {update.version}
+            </button>
+          )}
+          {update.kind === 'downloading' && (
+            <span className="dim">
+              Downloading {update.version}… {update.percent}%
+            </span>
+          )}
           {update.kind === 'ready' && (
             <button type="button" className="button small" onClick={() => void window.api.installUpdate()}>
               Restart to update to {update.version}

@@ -10,7 +10,7 @@ Agent Sessions never puts credentials, auth tokens, settings, or prompt history 
 
 Import treats every archive as untrusted input. It checks the manifest version and the SHA-256 of every file, rejects paths that would land outside the agent's store, caps sizes, and writes nothing until you start the import. An import that fails partway rolls back, and an update keeps a backup of the copy it replaced. [Moving sessions between machines](docs/transfer.md) has the details.
 
-The app works offline. It makes no network requests.
+The app sends nothing about your sessions over the network. Its only request is the check for a new version, which reads the release metadata on GitHub. It downloads and installs an update only when you click to.
 
 ## Reporting a vulnerability
 

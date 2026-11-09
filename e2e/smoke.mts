@@ -102,7 +102,7 @@ try {
   assert.equal(await page.title(), 'Agent Sessions', 'window has the default title')
   assert.deepEqual(
     await page.evaluate('Object.keys(window.api)'),
-    ['listSessions', 'previewSession', 'exportSessions', 'openArchive', 'previewImport', 'previewArchiveSession', 'runImport', 'createFolder', 'onProgress', 'storeRoots', 'chooseFolder', 'revealExport', 'revealBackups', 'copyText', 'homeDir', 'onUpdateStatus', 'updateStatus', 'installUpdate'],
+    ['listSessions', 'previewSession', 'exportSessions', 'openArchive', 'previewImport', 'previewArchiveSession', 'runImport', 'createFolder', 'onProgress', 'storeRoots', 'chooseFolder', 'revealExport', 'revealBackups', 'copyText', 'homeDir', 'onUpdateStatus', 'updateStatus', 'downloadUpdate', 'installUpdate'],
     'window.api exposes exactly the declared capabilities',
   )
   assert.deepEqual(await page.evaluate('[typeof process, typeof require]'), ['undefined', 'undefined'], 'page has no process or require')
@@ -111,7 +111,7 @@ try {
 
   await rows(page).first().waitFor()
   assert.deepEqual(await page.evaluate('window.api.updateStatus()'), { kind: 'idle' }, 'an unpackaged build never checks for updates')
-  assert.equal(await page.getByRole('button', { name: /^Restart to update/ }).count(), 0, 'with no update the status bar shows no restart button')
+  assert.equal(await page.getByRole('button', { name: /^(Update to|Restart to update)/ }).count(), 0, 'with no update the status bar shows no update button')
   assert.deepEqual(await scopeNames(page), ['All sessions', ...projectsByAge], 'the sidebar lists All sessions, then projects newest first')
   assert.deepEqual(await sidebar(page).locator('.scope-count').allTextContents(), ['10', '2', '2', '2', '1', '1', '1', '1'], 'each project counts its sessions')
   assert.equal(await scope(page, 'api').getAttribute('title'), join('~', 'code', 'api'), 'the full folder is in the tooltip, relative to home')
@@ -341,6 +341,11 @@ try {
   assert.equal(await row(page, fanout.title).locator('.subcount').textContent(), '+8', 'subagents travelled with their parent')
   const placed = await readdir(join(target.claude, 'projects', encode(chosenWebFolder)))
   assert.deepEqual(placed.sort(), [`${byTitle(titlesByAge[3]!).id}.jsonl`, `${byTitle(titlesByAge[4]!).id}.jsonl`], "web sessions landed in the chosen folder's project")
+  const offer = page.locator('.statusbar').getByRole('button', { name: 'Update to 0.9.9' })
+  await offer.waitFor({ timeout: 5000 })
+  assert.equal(await page.getByRole('button', { name: /^Restart to update/ }).count(), 0, 'a found update waits for the user before it downloads')
+  await shot(page, 'update-available-dark')
+  await offer.click()
   const restart = page.locator('.statusbar').getByRole('button', { name: 'Restart to update to 0.9.9' })
   await restart.waitFor({ timeout: 5000 })
   await shot(page, 'update-ready-dark')

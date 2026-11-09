@@ -40,7 +40,7 @@ To build the installers for your own OS locally, run `pnpm dist`. On a Mac witho
 4. Watch the run with `gh run watch`. Check the macOS job log for the signing line or the unsigned warning.
 5. Review the draft with `gh release view v0.1.0`. Download the installer for each OS you can and open it. On a Mac, open the dmg and check notarization of the app inside it with `spctl -a -vv "/Volumes/<dmg volume>/Agent Sessions.app"`. A notarized app reports `source=Notarized Developer ID`.
 
-6. Edit the generated notes if needed, then publish with `gh release edit v0.1.0 --draft=false`. Publishing ships the update. Installed apps from 0.1.4 on read the update metadata of the latest published release, so a draft reaches no one. On macOS the updater installs only an update signed by the same Developer ID, which an unsigned build from a run without the secrets is not.
+6. Edit the generated notes if needed, then publish with `gh release edit v0.1.0 --draft=false`. Publishing offers the update. Installed apps from 0.1.4 on read the update metadata of the latest published release and show an Update button, so a draft reaches no one. On macOS the updater installs only an update signed by the same Developer ID, which an unsigned build from a run without the secrets is not.
 
 7. Check the Homebrew tap. Publishing runs `.github/workflows/tap.yml`, which writes the new version and dmg hash into `Casks/agent-sessions.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. Watch it with `gh run list --workflow tap.yml`. To run it again for a tag, use `gh workflow run tap.yml -f tag=v0.1.1`.
 

@@ -30,6 +30,7 @@ export const CHANNELS = {
   homeDir: 'env:home',
   updateStatus: 'update:status',
   updateChanged: 'update:changed',
+  downloadUpdate: 'update:download',
   installUpdate: 'update:install',
 } as const
 
@@ -92,13 +93,16 @@ export interface DesktopApi {
   /** Returns the unsubscribe function. */
   onUpdateStatus(callback: (status: UpdateStatus) => void): () => void
   updateStatus(): Promise<UpdateStatus>
+  /** Downloads the update the last check found. Does nothing unless the status is `available`. */
+  downloadUpdate(): Promise<void>
   /** Quits and installs a downloaded update. Does nothing unless the status is `ready`. */
   installUpdate(): Promise<void>
 }
 
-/** What the renderer shows about an update. Checking, no update, errors, and unpackaged builds are all `idle`: a background updater does not nag. */
+/** What the renderer shows about an update. Checking, no update, a failed check, and unpackaged builds are all `idle`, so a background check never interrupts. */
 export type UpdateStatus =
   | { kind: 'idle' }
+  | { kind: 'available'; version: string }
   | { kind: 'downloading'; version: string; percent: number }
   | { kind: 'ready'; version: string }
 

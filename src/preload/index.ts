@@ -32,6 +32,7 @@ const api: DesktopApi = {
     }
   },
   updateStatus: () => ipcRenderer.invoke(CHANNELS.updateStatus),
+  downloadUpdate: () => ipcRenderer.invoke(CHANNELS.downloadUpdate),
   installUpdate: () => ipcRenderer.invoke(CHANNELS.installUpdate),
 }
 

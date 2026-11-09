@@ -18,7 +18,7 @@ Coding agents keep each session on the machine where it ran. Agent Sessions list
 - **Map folders.** Your code may live at a different path on the other computer. Import asks where each project lives there, and can create a folder that is missing.
 - **Safe import.** The app writes nothing until you start the import. An import that fails partway rolls back, and replacing an existing session keeps a backup of the old copy.
 - **Subagents included.** An export includes the subagents each session started.
-- **Local only.** The app makes no network requests. You move the file however you like.
+- **Local only.** Your sessions never leave this computer unless you move the archive yourself. The only network request is the check for a new version on GitHub.
 
 The archive moves conversations, not code. Push your changes before you export and pull them on the other computer before you resume, or copy the project folder if it is not in git. A session resumed in an empty or outdated folder reads and edits the wrong files.
 
@@ -46,7 +46,7 @@ The macOS app is signed and notarized. The Windows and Linux builds are not code
 
 ### Updates
 
-From version 0.1.4, the app checks GitHub for a new release when it opens and every 4 hours. It downloads the update in the background, then shows **Restart to update** in the status bar. Quitting the app installs it too. To check now, choose **Check for Updates…** in the app menu on macOS, or in the Help menu on Windows and Linux. On Linux, only the AppImage and the deb update themselves, and the deb asks for your password.
+From version 0.1.4, the app checks GitHub for a new release when it opens and every 4 hours. When one exists, the status bar shows **Update to** and the version. Nothing downloads until you click it. After the download, click **Restart to update** to install it. Ignore the button and you stay on your version. To check now, choose **Check for Updates…** in the app menu on macOS, or in the Help menu on Windows and Linux. On Linux, only the AppImage and the deb update themselves, and the deb asks for your password.
 
 Versions before 0.1.4 cannot update themselves. Run `brew upgrade --cask agent-sessions`, or download the installer again and install it over the old version.
 

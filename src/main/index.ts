@@ -22,7 +22,7 @@ const e2e = app.isPackaged
       userData: process.env.AGENT_SESSIONS_E2E_USER_DATA,
       // `claude-code:100,codex:300` waits that long after each file a listing reads, so a test can watch the scan.
       scanPace: process.env.AGENT_SESSIONS_E2E_SCAN_PACE,
-      // `0.9.9` starts the update status at ready for that version, so a test can see the restart notice.
+      // `0.9.9` starts the update status at available for that version, so a test can see the update notice.
       update: process.env.AGENT_SESSIONS_E2E_UPDATE,
     }
 const APP_NAME = 'Agent Sessions'
@@ -213,6 +213,7 @@ app.whenReady().then(async () => {
   registerShellHandlers(context)
   const updater = createUpdater({ packaged: app.isPackaged, forcedVersion: e2e.update, busy: service.busy })
   ipcMain.handle(CHANNELS.updateStatus, () => updater.status())
+  ipcMain.handle(CHANNELS.downloadUpdate, () => updater.download())
   ipcMain.handle(CHANNELS.installUpdate, () => updater.install())
   setMenu(updater)
   createWindow()
