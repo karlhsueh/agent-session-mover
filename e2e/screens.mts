@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { _electron as electron, type Page } from 'playwright'
 import { encode, writeClaudeSession } from './claude-fixture.mts'
 import { homeEnv } from './home.mts'
+import { scaleArgs, sizeWindow } from './scale.mts'
 import { FANOUT_TITLE, LIVE_TITLE, SCREEN_FIXTURES, SELECTED_TITLES, SINGLE_PROJECT_FIXTURES } from './screens-fixture.mts'
 
 /** `pnpm screens [prefix]` writes artifacts/compare/<prefix>-<state>.png for whichever layout the build has. */
@@ -19,7 +20,7 @@ await mkdir(join(home, '.codex'), { recursive: true })
 const archive = join(root, 'screens.agentsessions')
 const launch = async (at: string, extra: Record<string, string> = {}) =>
   electron.launch({
-    args: ['.'],
+    args: [...scaleArgs(), '.'],
     env: { ...process.env, ...(await homeEnv(at)), CLAUDE_CONFIG_DIR: join(at, '.claude'), CODEX_HOME: join(at, '.codex'), AGENT_SESSIONS_E2E_USER_DATA: join(at, 'userdata'), ...extra },
   })
 const app = await launch(home, { AGENT_SESSIONS_E2E_SAVE_PATH: archive, AGENT_SESSIONS_E2E_OPEN_PATH: archive })
@@ -101,6 +102,7 @@ const SIDEBAR: Record<string, State> = {
 
 async function shoot(page: Page, name: string) {
   await page.waitForTimeout(150)
+  await page.mouse.move(0, 0)
   const path = join(outDir, `${prefix}-${name}.png`)
   await page.screenshot({ animations: 'disabled', path })
   console.log(path)
@@ -108,7 +110,7 @@ async function shoot(page: Page, name: string) {
 
 try {
   const page = await app.firstWindow()
-  await page.setViewportSize({ width: 1200, height: 760 })
+  await sizeWindow(app, page, 1200, 760)
   await page.evaluate(() => localStorage.clear())
   await page.reload()
   await list(page).locator('.row').first().waitFor()
@@ -117,6 +119,7 @@ try {
   for (const [name, run] of Object.entries(states)) {
     await run(page)
     await page.waitForTimeout(150)
+    await page.mouse.move(0, 0)
     const path = join(outDir, `${prefix}-${name}.png`)
     await page.screenshot({ animations: 'disabled', path })
     const listRows = await visibleRows(page, '[aria-label="Sessions"]', '.row, .group-row, .sub-row')
@@ -156,7 +159,7 @@ await mkdir(join(single, '.codex'), { recursive: true })
 const singleApp = await launch(single)
 try {
   const page = await singleApp.firstWindow()
-  await page.setViewportSize({ width: 1200, height: 760 })
+  await sizeWindow(singleApp, page, 1200, 760)
   await list(page).locator('.row').first().waitFor()
   await shoot(page, 'single-project')
 } finally {

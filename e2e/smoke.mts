@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright'
 import { encode, HOUR, writeClaudeSession, type Fixture } from './claude-fixture.mts'
 import { homeEnv } from './home.mts'
+import { scaleArgs, sizeWindow } from './scale.mts'
 
 const root = await realpath(await mkdtemp(join(tmpdir(), 'agent-sessions-smoke-')))
 const archivePath = join(root, 'handoff.agentsessions')
@@ -63,7 +64,7 @@ await mkdir(chosenWebFolder, { recursive: true })
 
 async function launch(on: Machine, extra: Record<string, string>): Promise<{ app: ElectronApplication; page: Page; problems: string[] }> {
   const app = await electron.launch({
-    args: ['.'],
+    args: [...scaleArgs(), '.'],
     env: { ...process.env, ...(await homeEnv(on.home)), CLAUDE_CONFIG_DIR: on.claude, CODEX_HOME: on.codex, AGENT_SESSIONS_E2E_USER_DATA: on.userData, ...extra },
   })
   const page = await app.firstWindow()
@@ -73,7 +74,7 @@ async function launch(on: Machine, extra: Record<string, string>): Promise<{ app
   })
   page.on('pageerror', (error) => problems.push(error.message))
   await page.reload()
-  await page.setViewportSize({ width: 1200, height: 760 })
+  await sizeWindow(app, page, 1200, 760)
   return { app, page, problems }
 }
 
