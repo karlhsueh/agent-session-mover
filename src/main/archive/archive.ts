@@ -6,7 +6,7 @@ import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { createGunzip, createGzip } from 'node:zlib'
 import { isSha256, type Manifest, parseManifest, type Sha256 } from '../core/manifest'
-import { readRange } from '../core/streams'
+import { readAll, readRange, writeHashed } from '../core/streams'
 import { MAX_TAR_ENTRY, readTar, type TarEntryInput, writeTar } from './tar'
 
 export const ARCHIVE_EXTENSION = 'agentsessions'
@@ -154,7 +154,7 @@ async function extractInto(
       if (!manifest) {
         if (entry.name !== MANIFEST_ENTRY) throw new ArchiveError('Archive does not start with manifest.json')
         if (entry.size > limits.manifestBytes) throw new ArchiveError('manifest.json is larger than the size limit')
-        manifest = parseManifest(JSON.parse((await collect(entry.body)).toString('utf8')))
+        manifest = parseManifest(JSON.parse((await readAll(entry.body)).toString('utf8')))
         expected = new Map(manifest.sessions.flatMap((session) => session.files.map((file) => [file.sha256, file.size])))
         let declared = 0
         for (const size of expected.values()) {
@@ -187,23 +187,9 @@ async function extractInto(
   return manifest
 }
 
-async function collect(body: AsyncIterable<Buffer>): Promise<Buffer> {
-  const chunks: Buffer[] = []
-  for await (const chunk of body) chunks.push(chunk)
-  return Buffer.concat(chunks)
-}
-
 async function writeBlob(body: AsyncIterable<Buffer>, finalPath: string, sha: string): Promise<void> {
   const temp = `${finalPath}.partial`
-  const hash = createHash('sha256')
-  const hashing = new Transform({
-    transform(chunk: Buffer, _encoding, callback) {
-      hash.update(chunk)
-      callback(null, chunk)
-    },
-  })
-  await pipeline(Readable.from(body), hashing, createWriteStream(temp, { flags: 'wx' }))
-  if (hash.digest('hex') !== sha) {
+  if ((await writeHashed(body, temp)) !== sha) {
     await unlink(temp)
     throw new ArchiveError(`Blob ${sha} does not match its hash`)
   }

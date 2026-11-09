@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
+import { createReadStream, createWriteStream } from 'node:fs'
 import { open } from 'node:fs/promises'
+import { Readable, Transform } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import type { Sha256 } from './manifest'
 
 export async function* readRange(absPath: string, length: number, start = 0): AsyncGenerator<Buffer> {
@@ -30,6 +32,25 @@ export async function digest(chunks: AsyncIterable<Buffer>, prefixAt?: number): 
     size += chunk.length
   }
   return { sha256: full.digest('hex') as Sha256, size, prefixSha256 }
+}
+
+export async function readAll(chunks: AsyncIterable<Buffer>): Promise<Buffer> {
+  const parts: Buffer[] = []
+  for await (const chunk of chunks) parts.push(chunk)
+  return Buffer.concat(parts)
+}
+
+/** Writes the stream to a new file, failing if one exists, and returns the SHA-256 of what it wrote. */
+export async function writeHashed(content: AsyncIterable<Buffer>, file: string): Promise<Sha256> {
+  const hash = createHash('sha256')
+  const hashing = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      hash.update(chunk)
+      callback(null, chunk)
+    },
+  })
+  await pipeline(Readable.from(content), hashing, createWriteStream(file, { flags: 'wx' }))
+  return hash.digest('hex') as Sha256
 }
 
 export async function sha256File(absPath: string): Promise<Sha256> {

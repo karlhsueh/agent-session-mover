@@ -71,6 +71,16 @@ export function unlessMissing<T, F>(operation: Promise<T>, fallback: F): Promise
   return operation.catch((error) => (isNotFound(error) ? fallback : Promise.reject(error)))
 }
 
+/** Runs `retry` once when `first` fails because a path vanished, such as a file another process moved mid-read. */
+export async function retryIfMissing<T>(first: () => Promise<T>, retry: () => Promise<T> = first): Promise<T> {
+  try {
+    return await first()
+  } catch (error) {
+    if (!isNotFound(error)) throw error
+    return retry()
+  }
+}
+
 /** The names in a folder, or none when it is missing or is a file. */
 export async function listNames(dir: string): Promise<string[]> {
   try {

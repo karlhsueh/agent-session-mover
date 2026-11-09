@@ -3,7 +3,7 @@ import path from 'node:path'
 import type { ImportWarning } from '../../../shared/sessions'
 import type { ManifestFile, ManifestSession } from '../../core/manifest'
 import { joinStorePath, mapPath } from '../../core/paths'
-import { digest } from '../../core/streams'
+import { digest, readAll } from '../../core/streams'
 import type { ImportContext, ProviderEffect, RefusedAction, TargetFile, TargetInspection } from '../../core/provider'
 import type { CodexEffect } from './effects'
 import { terminatedLines } from '../../core/window'
@@ -94,12 +94,6 @@ async function firstUnreadable(reads: (() => Promise<unknown>)[]): Promise<boole
     if (await read().then(() => false, () => true)) return true
   }
   return false
-}
-
-async function readAll(chunks: AsyncIterable<Buffer>): Promise<Buffer> {
-  const parts: Buffer[] = []
-  for await (const chunk of chunks) parts.push(chunk)
-  return Buffer.concat(parts)
 }
 
 export async function inspectCodexTarget(root: string, session: ManifestSession, context: ImportContext): Promise<TargetInspection> {

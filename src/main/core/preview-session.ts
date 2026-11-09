@@ -2,7 +2,7 @@ import path from 'node:path'
 import { type AgentId, type SessionKey, type SessionPreview, sessionKey } from '../../shared/sessions'
 import type { CoreContext } from './export'
 import type { OpenedArchive } from './import'
-import { isNotFound } from './paths'
+import { retryIfMissing } from './paths'
 
 /** Read-only. A session listed on this machine, read from its store. */
 export async function previewStoredSession(context: CoreContext, agent: AgentId, id: string): Promise<SessionPreview> {
@@ -14,7 +14,7 @@ export async function previewStoredSession(context: CoreContext, agent: AgentId,
     return (await provider.previewTranscript(file)).preview
   }
   // Codex compresses an idle rollout and decompresses it on the next write, so the file can move once mid-read.
-  return attempt().catch((error) => (isNotFound(error) ? attempt() : Promise.reject(error)))
+  return retryIfMissing(attempt)
 }
 
 /** Read-only. A session in an open archive, read from its verified staged blob. */

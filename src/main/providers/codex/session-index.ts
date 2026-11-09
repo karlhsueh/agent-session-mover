@@ -1,7 +1,7 @@
 import { createReadStream } from 'node:fs'
 import { appendFile, lstat, open, readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
-import { isNotFound, unlessMissing } from '../../core/paths'
+import { unlessMissing } from '../../core/paths'
 import { splitLines } from '../../core/streams'
 import { cleanTitle } from '../text'
 import { parseObject } from './facts'
@@ -23,7 +23,7 @@ export async function readIndex(root: string): Promise<{ names: Map<string, stri
   const absPath = path.join(root, INDEX_FILE)
   const names = new Map<string, string>()
   const lines = new Map<string, IndexLine>()
-  const info = await lstat(absPath).catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
+  const info = await unlessMissing(lstat(absPath), null)
   if (!info?.isFile()) return { names, lines }
   let start = 0
   for await (const line of splitLines(createReadStream(absPath) as AsyncIterable<Buffer>)) {
@@ -68,7 +68,7 @@ export function hasLine(text: string | null, line: string): boolean | null {
 /** Appends the line unless it is already there. Refuses a file whose last line is unfinished, since a writer is mid-append. */
 export async function appendIndexLine(root: string, line: string): Promise<void> {
   const file = path.join(root, INDEX_FILE)
-  const text = await readFile(file, 'utf8').catch((error) => (isNotFound(error) ? '' : Promise.reject(error)))
+  const text = await unlessMissing(readFile(file, 'utf8'), '')
   if (text.split('\n').includes(line)) return
   if (text !== '' && !text.endsWith('\n')) throw new Error(`${INDEX_FILE} ends with an unfinished line`)
   await appendFile(file, line + '\n')
@@ -78,7 +78,7 @@ export async function appendIndexLine(root: string, line: string): Promise<void>
 export async function removeIndexLine(root: string, line: string, createdFile: boolean): Promise<void> {
   const file = path.join(root, INDEX_FILE)
   const tail = Buffer.from(line + '\n', 'utf8')
-  const handle = await open(file, 'r+').catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
+  const handle = await unlessMissing(open(file, 'r+'), null)
   if (!handle) return
   try {
     const { size } = await handle.stat()

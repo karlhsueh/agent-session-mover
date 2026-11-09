@@ -3,7 +3,7 @@ import { lstat } from 'node:fs/promises'
 import path from 'node:path'
 import { pipeline, Readable } from 'node:stream'
 import { createZstdDecompress } from 'node:zlib'
-import { isNotFound, joinStorePath, listNames, parseStorePath, type StorePath, unlessMissing } from '../../core/paths'
+import { joinStorePath, listNames, parseStorePath, type StorePath, unlessMissing } from '../../core/paths'
 import type { ContentTransform } from '../../core/provider'
 import { splitLines } from '../../core/streams'
 import type { TranscriptSource } from '../../core/window'
@@ -150,15 +150,3 @@ export async function readFirstLine(file: RolloutFile): Promise<Buffer | null> {
   return null
 }
 
-/**
- * Runs a read once more when a file vanished under it. Codex compresses an idle rollout and turns it
- * back into plain text on the next write, so a path can disappear between the scan and the read.
- */
-export async function retryOnFlip<T>(read: () => Promise<T>): Promise<T> {
-  try {
-    return await read()
-  } catch (error) {
-    if (!isNotFound(error)) throw error
-    return read()
-  }
-}

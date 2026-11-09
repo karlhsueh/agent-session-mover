@@ -2,7 +2,7 @@ import { copyFile, lstat, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { isNotFound, unlessMissing } from '../../core/paths'
+import { unlessMissing } from '../../core/paths'
 import type { ProviderEnv } from '../../core/provider'
 import { cleanTitle } from '../text'
 
@@ -30,7 +30,7 @@ export async function withSnapshot<T>(file: string, read: (db: DatabaseSync) => 
   try {
     const copy = path.join(dir, DB_FILE)
     await copyFile(file, copy)
-    await copyFile(`${file}-wal`, `${copy}-wal`).catch((error) => (isNotFound(error) ? undefined : Promise.reject(error)))
+    await unlessMissing(copyFile(`${file}-wal`, `${copy}-wal`), undefined)
     const db = new DatabaseSync(copy)
     try {
       return read(db)
@@ -178,9 +178,6 @@ function quote(name: string): string {
   return `"${name}"`
 }
 
-export async function isFile(file: string): Promise<boolean> {
-  return lstat(file).then(
-    (info) => info.isFile(),
-    (error) => (isNotFound(error) ? false : Promise.reject(error)),
-  )
+export function isFile(file: string): Promise<boolean> {
+  return unlessMissing(lstat(file).then((info) => info.isFile()), false)
 }

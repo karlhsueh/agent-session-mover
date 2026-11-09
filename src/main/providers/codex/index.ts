@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { type SessionInfo, type SessionSummary, type SubagentSummary, sessionKey } from '../../../shared/sessions'
 import type { FileRole } from '../../core/manifest'
-import { isNotFound, joinStorePath, type StorePath } from '../../core/paths'
+import { joinStorePath, retryIfMissing, type StorePath } from '../../core/paths'
 import { NO_CACHE } from '../../core/facts-cache'
 import { type CollectedSession, type Provider, type ProviderEnv, type ReadOnce, readFresh, type Scan, type SnapshotFile } from '../../core/provider'
 import { digest, lengthToLastNewline, readRange } from '../../core/streams'
@@ -23,7 +23,6 @@ import {
   newestByThread,
   readFirstLine,
   readRollout,
-  retryOnFlip,
   rolloutSource,
   type RolloutFile,
 } from './store'
@@ -39,9 +38,10 @@ export const codexProvider: Provider = {
   },
 
   factsVersion: 1,
-  discover: (root, env, scan = NO_CACHE) => retryOnFlip(() => discover(root, env, scan)),
-  // A rollout that flipped form since the shared view was read gets one retry from a fresh view.
-  collect: (root, id, env, once = readFresh) => collect(root, id, env, once).catch((error) => (isNotFound(error) ? collect(root, id, env, readFresh) : Promise.reject(error))),
+  // Codex compresses an idle rollout and turns it back into plain text on the next write, so a path can vanish mid-read.
+  discover: (root, env, scan = NO_CACHE) => retryIfMissing(() => discover(root, env, scan)),
+  // A shared view read before a rollout flipped form is stale, so the retry reads a fresh one.
+  collect: (root, id, env, once = readFresh) => retryIfMissing(() => collect(root, id, env, once), () => collect(root, id, env, readFresh)),
   inspectTarget: inspectCodexTarget,
   transcriptRole: 'rollout',
   resumeCommand: (id, cwd) => resumeLine(`codex resume ${id}`, cwd),

@@ -1,17 +1,14 @@
-import { createHash } from 'node:crypto'
-import { constants, createReadStream, createWriteStream } from 'node:fs'
+import { constants, createReadStream } from 'node:fs'
 import { copyFile, link, lstat, mkdir, rename, rmdir, stat, unlink, utimes } from 'node:fs/promises'
 import path from 'node:path'
-import { Readable, Transform } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
 import { fsyncPath } from '../archive/archive'
 import { Journal, type JournalHeader, type JournalStep, listJournals, readJournal, syncDir } from './journal'
 import type { Sha256 } from './manifest'
-import { isNotFound, resolveInside } from './paths'
+import { resolveInside, unlessMissing } from './paths'
 import type { SessionPlan } from './planner'
 import type { AgentId } from '../../shared/sessions'
 import type { Provider, ProviderRegistry } from './provider'
-import { sha256File } from './streams'
+import { sha256File, writeHashed } from './streams'
 
 /** Test hook: stop after the Nth published file, either as an error (rolled back) or as a crash (journal left behind). */
 export interface Fault {
@@ -108,23 +105,16 @@ function blob(options: ExecuteOptions, sha256: Sha256): AsyncIterable<Buffer> {
 }
 
 async function stageFile(temp: string, content: AsyncIterable<Buffer>, expected: Sha256): Promise<void> {
-  const hash = createHash('sha256')
-  const hashing = new Transform({
-    transform(chunk: Buffer, _encoding, callback) {
-      hash.update(chunk)
-      callback(null, chunk)
-    },
-  })
-  await pipeline(Readable.from(content), hashing, createWriteStream(temp, { flags: 'wx' }))
+  const actual = await writeHashed(content, temp)
   await fsyncPath(temp)
-  if (hash.digest('hex') !== expected) throw new Error(`${temp} does not match the planned content`)
+  if (actual !== expected) throw new Error(`${temp} does not match the planned content`)
 }
 
 async function ensureDir(dir: string, root: string, journal: Journal): Promise<void> {
   const missing: string[] = []
   // resolveInside already proved the real path stays in the store, so a symlinked folder on the way is fine.
   for (let current = dir; ; current = path.dirname(current)) {
-    const info = await stat(current).catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
+    const info = await unlessMissing(stat(current), null)
     if (info) {
       if (!info.isDirectory()) throw new Error(`${current} is not a directory`)
       break
@@ -149,17 +139,14 @@ async function moveFile(from: string, to: string): Promise<void> {
   }
 }
 
-async function exists(target: string): Promise<boolean> {
-  return lstat(target).then(
-    () => true,
-    (error) => (isNotFound(error) ? false : Promise.reject(error)),
-  )
+function exists(target: string): Promise<boolean> {
+  return unlessMissing(lstat(target).then(() => true), false)
 }
 
 async function undoStep(step: JournalStep, header: JournalHeader, provider: Provider): Promise<void> {
   switch (step.kind) {
     case 'temp':
-      await unlink(step.path).catch((error) => (isNotFound(error) ? undefined : Promise.reject(error)))
+      await unlessMissing(unlink(step.path), undefined)
       return
     case 'publish':
       // Only remove the file if it is the one this run wrote. A no-clobber link that failed leaves someone else's file.
@@ -208,7 +195,7 @@ export async function rollbackJournal(file: string, providerFor: (agent: AgentId
       errors.push(error instanceof Error ? error.message : String(error))
     }
   }
-  if (errors.length === 0) await unlink(file).catch((error) => (isNotFound(error) ? undefined : Promise.reject(error)))
+  if (errors.length === 0) await unlessMissing(unlink(file), undefined)
   return { ok: errors.length === 0, errors }
 }
 

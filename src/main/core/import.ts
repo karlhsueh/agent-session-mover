@@ -19,7 +19,7 @@ import { type ArchiveLimits, DEFAULT_LIMITS, extractArchive } from '../archive/a
 import { ExecutionError, executePlan, type Fault } from './executor'
 import type { CoreContext } from './export'
 import type { Manifest, ManifestSession, Sha256 } from './manifest'
-import { isNotFound, resolveInside, type StorePath, UnsafePathError } from './paths'
+import { resolveInside, type StorePath, UnsafePathError, unlessMissing } from './paths'
 import { type ComparedFile, planSession, relate, type SessionPlan } from './planner'
 import { type ContentTransform, type Provider, type ReadOnce, readFresh, shareReads, type TargetFile, type TargetInspection } from './provider'
 import { digest, readRange, sha256File } from './streams'
@@ -157,7 +157,7 @@ async function existingCopy(root: string, file: TargetFile): Promise<{ absPath: 
 
 async function regularFile(root: string, rel: StorePath): Promise<{ absPath: string; rawSize: number } | null> {
   const absPath = await resolveInside(root, rel)
-  const info = await lstat(absPath).catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
+  const info = await unlessMissing(lstat(absPath), null)
   if (info && !info.isFile()) throw new UnsafePathError(`${rel} exists and is not a regular file`)
   return info && { absPath, rawSize: info.size }
 }
