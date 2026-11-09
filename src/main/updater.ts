@@ -42,7 +42,7 @@ export interface Updater {
  * `forcedVersion` comes from AGENT_SESSIONS_E2E_UPDATE in unpackaged builds only. It starts the
  * status at ready so a test can see the notice, and install then logs instead of quitting.
  */
-export function createUpdater(options: { packaged: boolean; forcedVersion?: string }): Updater {
+export function createUpdater(options: { packaged: boolean; forcedVersion?: string; busy: () => boolean }): Updater {
   let status: UpdateStatus = options.forcedVersion ? { kind: 'ready', version: options.forcedVersion } : IDLE
   const apply = (event: UpdaterEvent) => {
     const next = nextStatus(status, event)
@@ -68,6 +68,11 @@ export function createUpdater(options: { packaged: boolean; forcedVersion?: stri
 
   const install = () => {
     if (status.kind !== 'ready') return
+    if (options.busy()) {
+      // Quitting mid-import would leave a journal to roll back. Quitting later installs the update anyway.
+      void dialog.showMessageBox({ type: 'info', message: 'Finish the export or import first.', detail: 'The update also installs when you quit Agent Sessions.' })
+      return
+    }
     if (!options.packaged) {
       console.log(`Would restart to install ${status.version}.`)
       return

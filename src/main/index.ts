@@ -211,7 +211,7 @@ app.whenReady().then(async () => {
 
   registerSessionHandlers(service)
   registerShellHandlers(context)
-  const updater = createUpdater({ packaged: app.isPackaged, forcedVersion: e2e.update })
+  const updater = createUpdater({ packaged: app.isPackaged, forcedVersion: e2e.update, busy: service.busy })
   ipcMain.handle(CHANNELS.updateStatus, () => updater.status())
   ipcMain.handle(CHANNELS.installUpdate, () => updater.install())
   setMenu(updater)

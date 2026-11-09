@@ -36,6 +36,8 @@ export interface SessionService {
   runImport(token: unknown, mappings: unknown, keys: unknown, emit: Emit): Promise<ApiResult<ImportResult>>
   /** Creates a mapping target and its missing parents, only while that archive is open. */
   createFolder(token: unknown, target: unknown): Promise<ApiResult<void>>
+  /** True while an export, archive open, or import runs. */
+  busy(): boolean
   dispose(): Promise<void>
 }
 
@@ -147,6 +149,8 @@ export function createSessionService(
         await createFolder(parseFolder(targetInput))
       })
     },
+
+    busy: () => busy,
 
     async dispose() {
       if (current) await closeArchive(current)
