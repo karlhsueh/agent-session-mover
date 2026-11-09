@@ -1,6 +1,6 @@
-import { lstat, readdir, readFile } from 'node:fs/promises'
+import { lstat, readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { isNotFound } from '../../core/paths'
+import { listNames, unlessMissing } from '../../core/paths'
 
 const TRANSCRIPT = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\.jsonl$/
 export const SIDECAR_FOLDERS = ['subagents', 'tool-results'] as const
@@ -25,13 +25,13 @@ export async function findTranscripts(root: string): Promise<TranscriptLocation[
   const found: TranscriptLocation[] = []
   for (const projectDir of await listNames(projects)) {
     const dir = path.join(projects, projectDir)
-    if (!(await lstat(dir)).isDirectory()) continue
+    if (!(await unlessMissing(lstat(dir), null))?.isDirectory()) continue
     for (const name of await listNames(dir)) {
       const match = TRANSCRIPT.exec(name)
       if (!match) continue
       const absPath = path.join(dir, name)
-      const info = await lstat(absPath)
-      if (info.isFile()) found.push({ id: match[1], projectDir, absPath, size: info.size, mtimeMs: info.mtimeMs })
+      const info = await unlessMissing(lstat(absPath), null)
+      if (info?.isFile()) found.push({ id: match[1], projectDir, absPath, size: info.size, mtimeMs: info.mtimeMs })
     }
   }
   return found
@@ -54,8 +54,8 @@ export async function findSidecars(transcript: TranscriptLocation): Promise<Side
     for (const name of await listNames(dir)) {
       if (!SIDECAR_NAME.test(name)) continue
       const absPath = path.join(dir, name)
-      const info = await lstat(absPath)
-      if (info.isFile()) found.push({ folder, name, absPath, size: info.size, mtimeMs: info.mtimeMs })
+      const info = await unlessMissing(lstat(absPath), null)
+      if (info?.isFile()) found.push({ folder, name, absPath, size: info.size, mtimeMs: info.mtimeMs })
     }
   }
   return found
@@ -92,14 +92,5 @@ export function processIsAlive(pid: number): boolean {
     return true
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === 'EPERM'
-  }
-}
-
-async function listNames(dir: string): Promise<string[]> {
-  try {
-    return await readdir(dir)
-  } catch (error) {
-    if (isNotFound(error) || (error as NodeJS.ErrnoException).code === 'ENOTDIR') return []
-    throw error
   }
 }

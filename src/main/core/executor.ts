@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { constants, createReadStream, createWriteStream } from 'node:fs'
-import { copyFile, link, lstat, mkdir, rename, rmdir, unlink, utimes } from 'node:fs/promises'
+import { copyFile, link, lstat, mkdir, rename, rmdir, stat, unlink, utimes } from 'node:fs/promises'
 import path from 'node:path'
 import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -122,8 +122,9 @@ async function stageFile(temp: string, content: AsyncIterable<Buffer>, expected:
 
 async function ensureDir(dir: string, root: string, journal: Journal): Promise<void> {
   const missing: string[] = []
+  // resolveInside already proved the real path stays in the store, so a symlinked folder on the way is fine.
   for (let current = dir; ; current = path.dirname(current)) {
-    const info = await lstat(current).catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
+    const info = await stat(current).catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
     if (info) {
       if (!info.isDirectory()) throw new Error(`${current} is not a directory`)
       break

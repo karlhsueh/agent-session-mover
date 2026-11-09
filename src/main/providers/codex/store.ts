@@ -1,9 +1,9 @@
 import { createReadStream } from 'node:fs'
-import { lstat, readdir } from 'node:fs/promises'
+import { lstat } from 'node:fs/promises'
 import path from 'node:path'
 import { pipeline, Readable } from 'node:stream'
 import { createZstdDecompress } from 'node:zlib'
-import { isNotFound, joinStorePath, parseStorePath, type StorePath } from '../../core/paths'
+import { isNotFound, joinStorePath, listNames, parseStorePath, type StorePath, unlessMissing } from '../../core/paths'
 import type { ContentTransform } from '../../core/provider'
 import { splitLines } from '../../core/streams'
 import type { TranscriptSource } from '../../core/window'
@@ -37,14 +37,15 @@ export async function findRollouts(root: string): Promise<RolloutFile[]> {
       const segments = stack.pop()!
       const dir = path.join(root, ...segments)
       const names = await listNames(dir)
+      const nameSet = new Set(names)
       for (const entry of names) {
         if (!parseStorePath(entry)) continue
         const absPath = path.join(dir, entry)
-        const info = await lstat(absPath).catch((error) => (isNotFound(error) ? null : Promise.reject(error)))
+        const info = await unlessMissing(lstat(absPath), null)
         if (info?.isDirectory()) stack.push([...segments, entry])
         if (!info?.isFile()) continue
         const name = parseRolloutName(entry)
-        if (!name || (name.compressed && names.includes(name.plain))) continue
+        if (!name || (name.compressed && nameSet.has(name.plain))) continue
         found.push({ name, rel: joinStorePath(...segments, entry), absPath, archived: top === ARCHIVED_DIR, size: info.size, mtimeMs: info.mtimeMs })
       }
     }
@@ -99,8 +100,8 @@ export async function generatedImages(root: string, threadId: string): Promise<P
   for (const name of await listNames(dir)) {
     if (name.startsWith('.') || !parseStorePath(name)) continue
     const absPath = path.join(dir, name)
-    const info = await lstat(absPath)
-    if (info.isFile()) files.push({ name, absPath, size: info.size, mtimeMs: info.mtimeMs })
+    const info = await unlessMissing(lstat(absPath), null)
+    if (info?.isFile()) files.push({ name, absPath, size: info.size, mtimeMs: info.mtimeMs })
   }
   return files
 }
@@ -159,14 +160,5 @@ export async function retryOnFlip<T>(read: () => Promise<T>): Promise<T> {
   } catch (error) {
     if (!isNotFound(error)) throw error
     return read()
-  }
-}
-
-export async function listNames(dir: string): Promise<string[]> {
-  try {
-    return await readdir(dir)
-  } catch (error) {
-    if (isNotFound(error) || (error as NodeJS.ErrnoException).code === 'ENOTDIR') return []
-    throw error
   }
 }

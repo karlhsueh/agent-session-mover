@@ -1,4 +1,4 @@
-import { lstat, realpath } from 'node:fs/promises'
+import { lstat, readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
 
 declare const storePathBrand: unique symbol
@@ -64,6 +64,21 @@ async function realpathOfExisting(target: string): Promise<string> {
 
 export function isNotFound(error: unknown): boolean {
   return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT'
+}
+
+/** Resolves to `fallback` when the path does not exist, and rethrows any other error. */
+export function unlessMissing<T, F>(operation: Promise<T>, fallback: F): Promise<T | F> {
+  return operation.catch((error) => (isNotFound(error) ? fallback : Promise.reject(error)))
+}
+
+/** The names in a folder, or none when it is missing or is a file. */
+export async function listNames(dir: string): Promise<string[]> {
+  try {
+    return await readdir(dir)
+  } catch (error) {
+    if (isNotFound(error) || (error as NodeJS.ErrnoException).code === 'ENOTDIR') return []
+    throw error
+  }
 }
 
 /** Maps an absolute source path through the longest matching mapping, or returns null. */

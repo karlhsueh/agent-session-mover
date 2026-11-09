@@ -1,4 +1,4 @@
-import { appendFile, readFile, stat, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, stat, symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { listSessions } from '../src/main/core/discovery'
@@ -82,6 +82,17 @@ describe('export', () => {
 })
 
 describe('import into an empty store', () => {
+  it('imports into a store root that is a symlink, as when ~/.claude lives in a dotfiles folder', async () => {
+    const linked = path.join(b.dir, 'dotfiles', 'claude')
+    await mkdir(linked, { recursive: true })
+    await symlink(linked, b.root, 'junction')
+    const { opened, mappings } = await openIn(b, await exportFrom(a, [key(S1)]))
+    const result = await runImport(b.context, opened, mappings, [key(S1)])
+    expect(result.outcomes.map((o) => o.status)).toEqual(['created'])
+    const dstDir = path.join(linked, 'projects', encodeProjectDir(path.join(b.home, 'code', 'proj')))
+    expect(await stat(path.join(dstDir, `${S1}.jsonl`)).then(() => true)).toBe(true)
+  })
+
   it('places, rewrites, and dates each session so this machine can resume it', async () => {
     const { opened, mappings } = await openIn(b, await exportFrom(a, [key(S1), key(S2), key(S3)]))
     const dstProj = path.join(b.home, 'code', 'proj')
