@@ -62,7 +62,7 @@ export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: 
         <li>system prompts and every message</li>
         <li>contents of files and output of commands the agent read</li>
       </ul>
-      <p className="dim">Credentials, auth tokens, settings, prompt history, and your project files are never included. Push or copy the project so the other computer has your latest changes.</p>
+      <p className="dim">The archive never includes credentials, auth tokens, settings, prompt history, or your project files. Push or copy the project so the other computer has your latest changes.</p>
       {live.length > 0 && (
         <div className="note">
           <p>

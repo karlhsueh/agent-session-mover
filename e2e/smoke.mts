@@ -237,7 +237,7 @@ try {
   const confirm = page.getByRole('dialog', { name: `Export ${fixtures.length} sessions` })
   await confirm.waitFor()
   assert.match((await confirm.textContent()) ?? '', /account email/, 'export confirm warns about private content')
-  assert.match((await confirm.textContent()) ?? '', /your project files are never included\. Push or copy the project/, 'export confirm reminds that project files travel separately')
+  assert.match((await confirm.textContent()) ?? '', /or your project files\. Push or copy the project/, 'export confirm reminds that project files travel separately')
   assert.match((await confirm.textContent()) ?? '', /payment client/, 'export confirm lists the live session it will snapshot')
   await shot(page, 'export-confirm-dark')
   await confirm.getByRole('button', { name: 'Choose location…' }).click()

@@ -40,7 +40,7 @@ export function MappingEditor({ token, mappings, sessions, preview, checking, so
     <section className="panel" aria-labelledby="mapping-heading">
       <header className="panel-head">
         <h2 id="mapping-heading">Folders</h2>
-        <p className="dim">Pull or copy each project into its folder here before you resume, so the agent finds its code. Sessions are placed by the folder they started in.</p>
+        <p className="dim">Pull or copy each project into its folder here before you resume, so the agent finds its code. Import places each session by the folder it started in.</p>
       </header>
       <ul className="mappings">
         {mappings.map((mapping) => {

@@ -61,7 +61,7 @@ Each line is one JSON object. Conversation records (`user`, `assistant`, `attach
 - **Title.** Use `custom-title`, then `ai-title`, then the first user prompt.
 - **Client.** `entrypoint` is `cli`, `claude-desktop`, `claude-vscode`, `sdk-cli` (`claude -p`), or `sdk-ts`.
 - **Hidden sessions.** The `/resume` picker and plain `--continue` hide `sdk-cli` sessions. `claude --resume <id>` still finds them. Verified.
-- **Branch.** The last non-empty `gitBranch` among the records. A checkout mid-session changes it, so the last one is where the session ended.
+- **Branch.** The last non-empty `gitBranch` among the records. A checkout mid-session changes it, so the last one is the branch the session ended on.
 - **Several working directories.** A resume from another folder appends records with the new `cwd`, so one transcript can hold several.
 
 ### Resume rules

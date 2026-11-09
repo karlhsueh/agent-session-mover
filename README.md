@@ -20,7 +20,7 @@ Coding agents keep each session on the machine where it ran. Agent Sessions list
 - **Subagents included.** An export includes the subagents each session started.
 - **Local only.** The app makes no network requests. You move the file however you like.
 
-The archive moves conversations, not code. Push your changes before you export and pull them on the other computer before you resume, or copy the project folder if it is not in git. A session resumed in an empty or outdated folder works against the wrong files.
+The archive moves conversations, not code. Push your changes before you export and pull them on the other computer before you resume, or copy the project folder if it is not in git. A session resumed in an empty or outdated folder reads and edits the wrong files.
 
 ## Before you share an archive
 

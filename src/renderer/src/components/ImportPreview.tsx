@@ -187,7 +187,7 @@ export function OpeningSheet({ progress }: { progress: ProgressEvent | null }) {
     <Sheet label="Verifying archive">
       <h2>Verifying archive</h2>
       <ProgressBar value={progress.bytesTotal > 0 ? progress.bytesRead / progress.bytesTotal : null} label="Verify progress" />
-      <p className="dim">Every file is checked against its hash before anything is shown.</p>
+      <p className="dim">The app checks every file against its hash before it shows anything.</p>
     </Sheet>
   )
 }

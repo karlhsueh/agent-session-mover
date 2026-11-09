@@ -115,7 +115,7 @@ Keep the `.p12`, its password, the `.p8`, the Key ID, and the Issuer ID in a pas
 
 ### Homebrew tap deploy key
 
-The tap workflow pushes to another repository, so it needs a deploy key: an SSH key that can write to `karlhsueh/homebrew-tap` and nothing else. It is not tied to a GitHub account and does not expire. Without it, the workflow fails and the cask keeps the old version.
+The tap workflow pushes to another repository, so it needs a deploy key. A deploy key is an SSH key that can write to `karlhsueh/homebrew-tap` and nothing else. It is not tied to a GitHub account and does not expire. Without it, the workflow fails and the cask keeps the old version.
 
 1. Create a key pair in a temporary folder.
 
