@@ -248,7 +248,8 @@ try {
   assert.match((await saved.textContent()) ?? '', /handoff\.agentsessions/, 'export result names the saved file')
   assert.ok(existsSync(archivePath), 'export wrote the archive')
   await saved.getByRole('button', { name: 'Done' }).click()
-  await page.keyboard.press('Escape')
+  await saved.waitFor({ state: 'detached' })
+  assert.equal(await selectedCount(page), 0, 'a saved export clears the selection')
 
   await page.getByRole('button', { name: 'Use light theme' }).click()
   assert.equal(await page.evaluate('document.documentElement.dataset.theme'), 'light', 'theme toggle switches to light')
