@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import type { StoreRoot } from '../../../shared/ipc'
-import type { SessionKey, SessionList as List } from '../../../shared/sessions'
+import type { ExportResult, SessionKey, SessionList as List } from '../../../shared/sessions'
 import { EMPTY_QUERY, isFiltered, type BrowseQuery } from '../model/browse'
 import { MOD, plural, tildePath } from '../model/format'
 import type { PendingScan } from '../model/listing'
@@ -29,6 +29,8 @@ interface Props {
   /** False while a sheet covers the browser, so its shortcuts stay with the sheet. */
   active: boolean
   onExport: (keys: SessionKey[]) => void
+  /** Each new saved export clears the selection, so the next export starts empty. */
+  lastExport: ExportResult | null
   onImport: () => void
   theme: Theme
   onToggleTheme: () => void
@@ -45,7 +47,7 @@ const keepOpen = (open: boolean) => String(open)
 const keepTab = (tab: DetailTab) => tab
 const loadPreview = (key: SessionKey) => window.api.previewSession(key)
 
-export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, active, onExport, onImport, theme, onToggleTheme, notice }: Props) {
+export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, active, onExport, lastExport, onImport, theme, onToggleTheme, notice }: Props) {
   const [query, setQuery] = useState<BrowseQuery>(EMPTY_QUERY)
   const [wantedScope, setScope] = useState<Scope>(ALL)
   const [sidebarPreferred, setSidebarPreferred] = useStored('agent-sessions.sidebar', parseOpen, keepOpen)
@@ -86,6 +88,10 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
   useEffect(() => {
     dispatch({ type: 'retain', existing: new Set(list.sessions.map((session) => session.key)) })
   }, [list.sessions])
+
+  useEffect(() => {
+    if (lastExport) dispatch({ type: 'clear' })
+  }, [lastExport])
 
   useEffect(() => {
     listRef.current?.focus()

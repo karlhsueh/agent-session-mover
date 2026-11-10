@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { StoreRoot } from '../../shared/ipc'
-import type { PathMapping, SessionKey } from '../../shared/sessions'
+import type { ExportResult, PathMapping, SessionKey } from '../../shared/sessions'
 import { Browser } from './components/Browser'
 import { ErrorBanner } from './components/common'
 import { ExportSheet } from './components/ExportSheet'
@@ -23,6 +23,7 @@ export function App() {
   const { listings, list, settled, scans, refreshing, refresh } = useListings()
   const [storeRoots, setStoreRoots] = useState<StoreRoot[]>([])
   const [screen, setScreen] = useState<Screen>(BROWSE)
+  const [lastExport, setLastExport] = useState<ExportResult | null>(null)
 
   useEffect(() => {
     void window.api.storeRoots().then(setStoreRoots)
@@ -72,7 +73,9 @@ export function App() {
     setScreen({ kind: 'exporting', keys })
     const result = await window.api.exportSessions(keys)
     if (!result.ok) return setScreen({ kind: 'export-confirm', keys, error: result.error })
-    setScreen(result.value.kind === 'saved' ? { kind: 'export-done', result: result.value } : BROWSE)
+    if (result.value.kind === 'cancelled') return setScreen(BROWSE)
+    setScreen({ kind: 'export-done', result: result.value })
+    setLastExport(result.value)
   }
 
   function updatePreview(change: (current: PreviewScreen) => PreviewScreen) {
@@ -140,6 +143,7 @@ export function App() {
           now={now}
           active={screen.kind === 'browse'}
           onExport={startExport}
+          lastExport={lastExport}
           onImport={() => void startImport()}
           theme={theme}
           onToggleTheme={toggleTheme}
