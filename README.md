@@ -8,7 +8,7 @@
 
 <p align="center"><sub>Early release. Expect rough edges, and please <a href="https://github.com/karlhsueh/agent-sessions/issues/new/choose">report what breaks</a>.</sub></p>
 
-<p align="center"><img src="docs/assets/screenshot.png" width="900" alt="Agent Sessions listing sessions by project, with one session's resume command in the detail panel" /></p>
+<p align="center"><img src="docs/assets/demo.gif" width="900" alt="Exporting three Claude Code sessions on a laptop, importing the file on another computer, and getting a claude --resume command for each" /></p>
 
 ## What it does
 
