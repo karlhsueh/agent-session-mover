@@ -66,7 +66,13 @@ Versions before 0.1.4 cannot update themselves. Run `brew upgrade --cask agent-s
 | Claude Code | `~/.claude/projects`, or `CLAUDE_CONFIG_DIR` | `claude --resume <id>` from the mapped folder |
 | Codex | `~/.codex/sessions`, or `CODEX_HOME` | `codex resume <id>` |
 
-The app works with what each CLI writes to disk. A new CLI version can change that format, so if a session does not list or resume, please [open an issue](https://github.com/karlhsueh/agent-sessions/issues) with both CLI versions.
+### A session is missing
+
+Claude Code deletes a session's transcript 30 days after its last activity. It keeps the project's folder under `~/.claude/projects`, so a project can have a folder there with only `memory/` inside and no sessions to export. To keep sessions longer, set `cleanupPeriodDays` in `~/.claude/settings.json`, for example to `365`. Codex keeps its sessions and compresses ones that have been idle for a week, which the app reads as usual.
+
+If you set `CLAUDE_CONFIG_DIR` or `CODEX_HOME` in your shell profile, an app opened from the Dock or a desktop launcher may not see it, and then looks in the default folder. Open the app from that shell instead, for example with `open -a "Agent Sessions"` on macOS.
+
+The app works with what each CLI writes to disk. A new CLI version can change that format, so if a session still does not list or resume, and `claude --resume` or `codex resume` shows it, please [open an issue](https://github.com/karlhsueh/agent-sessions/issues) with both CLI versions.
 
 ## Support
 
