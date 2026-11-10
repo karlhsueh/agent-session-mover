@@ -1,6 +1,7 @@
 import type { ProgressEvent, SessionSummary } from '../../../shared/sessions'
 import type { Screen } from '../state'
-import { formatBytes, plural, REVEAL_LABEL, sessionTitle } from '../model/format'
+import { useHomeDir } from '../hooks'
+import { formatBytes, plural, REVEAL_LABEL, sessionTitle, tildePath } from '../model/format'
 import { ErrorBanner, ProgressBar, Sheet } from './common'
 
 type ExportScreen = Extract<Screen, { kind: 'export-confirm' | 'exporting' | 'export-done' }>
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: Props) {
+  const home = useHomeDir()
   if (screen.kind === 'export-done') {
     const { result } = screen
     return (
@@ -22,7 +24,9 @@ export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: 
         <p className="dim">
           {plural(result.sessionCount, 'session')} · {plural(result.fileCount, 'file')} · {formatBytes(result.bytes)}
         </p>
-        <code className="path-block">{result.filePath}</code>
+        <code className="path-block" title={result.filePath}>
+          {tildePath(result.filePath, home)}
+        </code>
         {result.liveKeys.length > 0 && (
           <p className="note">{plural(result.liveKeys.length, 'session was', 'sessions were')} running. Their snapshot ends at the last complete line.</p>
         )}
