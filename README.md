@@ -28,6 +28,15 @@ An archive holds each full transcript, unredacted: the account email recorded in
 
 After an import, the app shows the resume command for each session. It checks that the files are where the agent looks for them, but it cannot start the agent to confirm that the session opens.
 
+## After the move
+
+The export leaves the sessions on the old computer, and the app does not delete them. Once each session resumes on the new computer, you can remove the old copies with the agent's own commands. Each command takes the session id that the app shows.
+
+- **Codex.** `codex archive <id>` hides a session and `codex unarchive <id>` brings it back. `codex delete <id>` removes it for good.
+- **Claude Code.** `claude purge <project folder>` deletes all of one project's sessions, tasks, and file history. Add `--dry-run` to see the list first. Claude Code has no command that deletes a single session. To remove one, delete `<id>.jsonl` and the `<id>` folder next to it in the project's folder under `~/.claude/projects`, and `~/.claude/file-history/<id>`.
+
+Then delete the `.agentsessions` file on both computers. When an import replaced a session that was already there, the new computer kept the old copy in the app's `backups` folder: `~/Library/Application Support/agent-sessions` on macOS, `%APPDATA%\agent-sessions` on Windows, and `~/.config/agent-sessions` on Linux. Delete that folder once you no longer need the old copies.
+
 ## Install
 
 **macOS** with [Homebrew](https://brew.sh):
