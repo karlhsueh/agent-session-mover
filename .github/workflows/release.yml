@@ -1,19 +1,78 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to raise
+        required: true
+        type: choice
+        default: patch
+        options: [patch, minor, major]
+      draft:
+        description: Stop at a draft release instead of publishing
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
+  cut:
+    name: Bump the version and tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - name: Release only from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run the release from main, not $GITHUB_REF_NAME."
+          exit 1
+
+      - uses: actions/checkout@v7
+
+      - name: Require green CI on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          state="$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --event push --limit 1 --json status,conclusion --jq '.[0] | "\(.status)/\(.conclusion)"')"
+          if [[ "$state" != "completed/success" ]]; then
+            echo "::error::CI on $GITHUB_SHA is ${state:-missing}. Release a commit whose CI passed."
+            exit 1
+          fi
+
+      - name: Bump, commit, and tag
+        id: bump
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          tag="$(npm version "$BUMP" --no-git-tag-version)"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "::error::Tag $tag already exists."
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "chore(release): ${tag#v}"
+          git tag "$tag"
+          # Atomic, so a main that moved since the run started gets neither the commit nor the tag.
+          git push --atomic origin HEAD:main "$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build ${{ matrix.platform }}
+    needs: cut
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -30,6 +89,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.cut.outputs.tag }}
 
       - uses: pnpm/action-setup@v6
 
@@ -37,14 +98,6 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Check the tag matches package.json
-        run: |
-          version="$(node -p "require('./package.json').version")"
-          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version. Bump the version, commit, and tag v$version."
-            exit 1
-          fi
 
       # GitHub's release CDN sometimes times out on the Electron download, so keep it between runs.
       - uses: actions/cache@v6
@@ -67,6 +120,7 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          DRAFT: ${{ inputs.draft }}
         run: |
           set -euo pipefail
           present=0
@@ -79,7 +133,15 @@ jobs:
             (umask 077 && printf '%s\n' "$APPLE_API_KEY" > "$key_path")
             export APPLE_API_KEY="$key_path"
             pnpm exec electron-builder --mac --publish never
+            app="$(find dist -maxdepth 2 -name 'Agent Sessions.app' | head -1)"
+            spctl -a -vv "$app" 2>&1 | tee "$RUNNER_TEMP/spctl.txt"
+            grep -q 'source=Notarized Developer ID' "$RUNNER_TEMP/spctl.txt"
           elif [[ "$present" -eq 0 ]]; then
+            # Installed apps refuse an update signed by anyone else, so an unsigned build must not be published.
+            if [[ "$DRAFT" != "true" ]]; then
+              echo "::error::No signing secrets are set. Run the release with draft checked, or add the secrets in docs/RELEASING.md."
+              exit 1
+            fi
             echo "::warning title=Unsigned macOS build::No signing secrets are set, so the macOS app is ad-hoc signed and not notarized. Gatekeeper will block it on first open. See docs/RELEASING.md to add the secrets."
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER
             pnpm exec electron-builder --mac --publish never -c.mac.identity=- -c.mac.hardenedRuntime=false
@@ -110,11 +172,15 @@ jobs:
             dist/latest*.yml
 
   release:
-    name: Draft GitHub release
-    needs: build
+    name: Publish the GitHub release
+    needs: [cut, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      TAG: ${{ needs.cut.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -122,25 +188,55 @@ jobs:
           merge-multiple: true
           path: release
 
+      - name: Check every file is there
+        working-directory: release
+        run: |
+          set -euo pipefail
+          for file in \
+            agent-sessions-mac-arm64.dmg agent-sessions-mac-arm64.dmg.blockmap \
+            agent-sessions-mac-arm64.zip agent-sessions-mac-arm64.zip.blockmap \
+            agent-sessions-win-x64.exe agent-sessions-win-x64.exe.blockmap \
+            agent-sessions-linux-x86_64.AppImage agent-sessions-linux-amd64.deb \
+            latest-mac.yml latest.yml latest-linux.yml; do
+            [[ -s "$file" ]] || { echo "::error::$file is missing."; exit 1; }
+          done
+          for file in latest*.yml; do
+            grep -qx "version: ${TAG#v}" "$file" || { echo "::error::$file is not for ${TAG#v}."; exit 1; }
+          done
+
       - name: Write SHA256SUMS
         working-directory: release
         run: |
           sha256sum -- * > SHA256SUMS
           cat SHA256SUMS
 
-      - name: Create or update the draft release
+      # The release stays a draft while files upload, so an installed app never sees half a release.
+      - name: Upload to a draft release
         working-directory: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if is_draft="$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null)"; then
+          if is_draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
             if [[ "$is_draft" != "true" ]]; then
-              echo "::error::Release $GITHUB_REF_NAME is already published. Not replacing its files."
+              echo "::error::Release $TAG is already published. Not replacing its files."
               exit 1
             fi
-            gh release upload "$GITHUB_REF_NAME" --clobber -- *
+            gh release upload "$TAG" --clobber -- *
           else
-            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes --title "Agent Sessions ${GITHUB_REF_NAME#v}" -- *
+            gh release create "$TAG" --draft --verify-tag --generate-notes --title "Agent Sessions ${TAG#v}" -- *
           fi
+
+      - name: Publish
+        if: inputs.draft != true
+        run: gh release edit "$TAG" --draft=false --latest
+
+  # A release published with the workflow token starts no other workflow, so the tap update runs from here.
+  tap:
+    name: Update the Homebrew tap
+    needs: [cut, release]
+    if: inputs.draft != true
+    permissions:
+      contents: read
+    uses: ./.github/workflows/tap.yml
+    with:
+      tag: ${{ needs.cut.outputs.tag }}
+    secrets: inherit

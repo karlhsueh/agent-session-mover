@@ -1,8 +1,14 @@
 name: Homebrew tap
 
 on:
+  # A draft you publish yourself. The release workflow calls this one when it publishes.
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:

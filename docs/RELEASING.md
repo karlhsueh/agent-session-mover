@@ -1,14 +1,14 @@
 ---
 summary: How to cut a release, what the release workflow builds, and the one-time setup of the macOS signing and notarization secrets.
 read_when:
-  - Cutting a release or tagging a version
+  - Cutting a release
   - Changing .github/workflows/release.yml or the electron-builder config in package.json
   - Adding or rotating the Apple signing or notarization secrets
 ---
 
 # Releasing
 
-Pushing a tag `v<version>` runs `.github/workflows/release.yml`. It builds the app on macOS, Windows, and Linux runners and attaches the installers to a draft GitHub release. Nothing is public until you publish the draft.
+The Release workflow in `.github/workflows/release.yml` raises the version, tags it, builds the app on macOS, Windows, and Linux runners, checks the files, and publishes a GitHub release with them. Then it updates the Homebrew cask.
 
 | File | Platform |
 | --- | --- |
@@ -22,31 +22,39 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`. It builds the a
 
 electron-builder names the Linux arch the way each format expects, so the AppImage says `x86_64` and the deb says `amd64`.
 
-When the five secrets below are set, the workflow signs the macOS app with the Developer ID certificate and notarizes it. With none set, the workflow still builds. The app is then ad-hoc signed and not notarized, and the job log shows an "Unsigned macOS build" warning. With only some set, the job fails, so a typo cannot ship an unsigned build by accident. Windows and Linux builds are unsigned.
+When the five secrets below are set, the workflow signs the macOS app with the Developer ID certificate and notarizes it. With none set, it builds an ad-hoc signed app that is not notarized, and only a draft release is allowed, since installed apps refuse an update signed by anyone else. With only some set, the job fails, so a typo cannot ship an unsigned build by accident. Windows and Linux builds are unsigned.
 
 To build the installers for your own OS locally, run `pnpm dist`. On a Mac without the certificate, run `CSC_IDENTITY_AUTO_DISCOVERY=false pnpm dist`. The files land in `dist/`.
 
 ## Cut a release
 
-1. Set `"version"` in `package.json` to the new version, such as `0.1.0`. The workflow fails when the tag and this field differ.
-2. Commit it with `git commit -am "chore(release): 0.1.0"`.
-3. Tag and push.
+1. Check that CI passed on the newest commit of `main`. The workflow refuses to release a commit whose CI did not pass.
+2. Start the workflow. Raise the patch version with
 
    ```sh
-   git tag v0.1.0
-   git push origin main v0.1.0
+   gh workflow run release.yml -f bump=patch
    ```
 
-4. Watch the run with `gh run watch`. Check the macOS job log for the signing line or the unsigned warning.
-5. Review the draft with `gh release view v0.1.0`. Download the installer for each OS you can and open it. On a Mac, open the dmg and check notarization of the app inside it with `spctl -a -vv "/Volumes/<dmg volume>/Agent Sessions.app"`. A notarized app reports `source=Notarized Developer ID`.
+   Use `bump=minor` or `bump=major` for a bigger step. In the browser, open Actions, then Release, then Run workflow.
+3. Watch it with `gh run watch`. It takes about 5 minutes.
+4. Run `git pull`. The workflow committed the new version to `main` as `chore(release): <version>` and tagged it.
 
-6. Edit the generated notes if needed, then publish with `gh release edit v0.1.0 --draft=false`. Publishing offers the update. Installed apps from 0.1.4 on read the update metadata of the latest published release and show an Update button, so a draft reaches no one. On macOS the updater installs only an update signed by the same Developer ID, which an unsigned build from a run without the secrets is not.
+The workflow runs these jobs in order. Each one stops the release if it fails.
 
-7. Check the Homebrew tap. Publishing runs `.github/workflows/tap.yml`, which writes the new version and dmg hash into `Casks/agent-sessions.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. Watch it with `gh run list --workflow tap.yml`. To run it again for a tag, use `gh workflow run tap.yml -f tag=v0.1.1`.
+| Job | What it does |
+| --- | --- |
+| Bump the version and tag | Runs `npm version` on `package.json`, commits it, tags `v<version>`, and pushes both together. If `main` moved after the run started, it pushes neither. |
+| Build | Builds each platform from the tag. On macOS it checks that Gatekeeper reports the app as `Notarized Developer ID`. |
+| Publish the GitHub release | Checks that every file in the table above is present and that each `latest*.yml` names the new version. Uploads them to a draft with generated notes, writes `SHA256SUMS`, then publishes it as the latest release. |
+| Update the Homebrew tap | Runs `.github/workflows/tap.yml`, which writes the new version and dmg hash into `Casks/agent-sessions.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. |
 
-   `packaging/homebrew/agent-sessions.rb` is the template the tap's copy started from. Keep the two in step when the cask's shape changes.
+Publishing offers the update. Installed apps from 0.1.4 on read the update metadata of the latest published release and show an Update button.
 
-Re-running the workflow on the same tag replaces the files on the draft. It refuses to touch a release that is already published. To fix a published release, bump the version and tag again.
+To look over a release before anyone can see it, run with `-f draft=true`. The workflow stops at the draft and skips the tap. Publish it with `gh release edit v<version> --draft=false --latest`, which also runs the tap workflow. To run the tap workflow again for a tag, use `gh workflow run tap.yml -f tag=v0.1.4`.
+
+If a build fails, fix the cause and run `gh run rerun <run-id> --failed`. The version commit and tag stay, and the rerun builds the same tag. The workflow never replaces the files of a published release. To fix a published release, run the workflow again for the next version.
+
+`packaging/homebrew/agent-sessions.rb` is the template the tap's copy started from. Keep the two in step when the cask's shape changes.
 
 Users can check a download with `shasum -a 256 -c SHA256SUMS --ignore-missing`.
 
