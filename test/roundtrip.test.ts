@@ -5,7 +5,7 @@ import { listSessions } from '../src/main/core/discovery'
 import { exportSessions } from '../src/main/core/export'
 import { closeArchive, defaultExists, openArchive, type OpenedArchive, previewImport, runImport, suggestMappings } from '../src/main/core/import'
 import { encodeProjectDir } from '../src/main/providers/claude-code/encode'
-import { sessionKey, type SessionKey } from '../src/shared/sessions'
+import { type ProgressEvent, sessionKey, type SessionKey } from '../src/shared/sessions'
 import { readArchiveEntries } from './fixtures/archive'
 import { NEVER_EXPORT, removeTempDir, treeHash, writeLiveEntry, writeNeverExportFiles, writeSession, type BuiltSession } from './fixtures/claude-store'
 import { type Machine, makeMachine, shellQuoted } from './fixtures/machine'
@@ -70,6 +70,17 @@ describe('export', () => {
       `transcript projects/${enc}/${S1}.jsonl`,
     ])
     expect(manifest.source).toMatchObject({ homeDir: a.home, sep: path.sep, storeRoots: { 'claude-code': a.root } })
+  })
+
+  it('reports reading each session, then writing until every byte is in the archive', async () => {
+    const events: ProgressEvent[] = []
+    await exportSessions(a.context, [key(S1), key(S2), key(S3)], path.join(a.dir, 'out.agentsessions'), (event) => events.push(event))
+    const reads = events.flatMap((event) => (event.operation === 'export' && event.phase === 'read' ? [event] : []))
+    const writes = events.flatMap((event) => (event.operation === 'export' && event.phase === 'write' ? [event] : []))
+    expect(reads.map((event) => `${event.current}/${event.total}`)).toEqual(['1/3', '2/3', '3/3'])
+    expect(events.indexOf(writes[0]!)).toBe(reads.length)
+    expect(writes.map((event) => event.bytesDone)).toEqual([...writes.map((event) => event.bytesDone)].sort((x, y) => x - y))
+    expect(writes.at(-1)!.bytesDone).toBe(writes.at(-1)!.bytesTotal)
   })
 
   it('snapshots a half-written transcript up to its last complete line', async () => {

@@ -46,12 +46,19 @@ export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: 
   const live = chosen.filter((session) => session.live)
 
   if (screen.kind === 'exporting') {
-    const fraction = progress?.operation === 'export' && progress.total > 0 ? progress.done / progress.total : null
+    const step = progress?.operation === 'export' ? progress : null
+    // Reading is a small share of an export, so the bar only measures the write.
+    const fraction = step?.phase === 'write' && step.bytesTotal > 0 ? step.bytesDone / step.bytesTotal : null
+    const status = !step
+      ? 'Choose where to save the archive.'
+      : step.phase === 'read'
+        ? `Reading ${step.current} of ${plural(step.total, 'session')}`
+        : `Writing ${formatBytes(step.bytesDone)} of ${formatBytes(step.bytesTotal)}`
     return (
       <Sheet label="Exporting">
         <h2>Exporting {plural(screen.keys.length, 'session')}</h2>
         <ProgressBar value={fraction} label="Export progress" />
-        <p className="dim">{progress?.operation === 'export' ? `${progress.done} of ${progress.total}` : 'Choose where to save the archive.'}</p>
+        <p className="dim">{status}</p>
       </Sheet>
     )
   }

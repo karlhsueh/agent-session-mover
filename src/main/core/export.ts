@@ -26,6 +26,7 @@ export async function exportSessions(
   const liveKeys: SessionKey[] = []
   const once = shareReads()
   for (const [index, key] of keys.entries()) {
+    onProgress?.({ operation: 'export', phase: 'read', current: index + 1, total: keys.length })
     const parsed = parseSessionKey(key)
     if (!parsed) throw new Error(`Not a session key: ${key}`)
     const provider = context.providers[parsed.agent]
@@ -40,7 +41,6 @@ export async function exportSessions(
     for (const file of collected.files) {
       if (!blobs.has(file.sha256)) blobs.set(file.sha256, file)
     }
-    onProgress?.({ operation: 'export', done: index + 1, total: keys.length })
   }
 
   const manifest: Manifest = {
@@ -51,7 +51,9 @@ export async function exportSessions(
     source: { platform: context.env.platform, homeDir: context.env.homeDir, sep: path.sep === '\\' ? '\\' : '/', storeRoots },
     sessions,
   }
-  const bytes = await writeArchive(destPath, manifest, blobs)
+  const bytes = await writeArchive(destPath, manifest, blobs, (bytesDone, bytesTotal) =>
+    onProgress?.({ operation: 'export', phase: 'write', bytesDone, bytesTotal }),
+  )
   return {
     filePath: destPath,
     sessionCount: sessions.length,

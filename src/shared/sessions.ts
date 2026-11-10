@@ -167,7 +167,10 @@ export interface ScanProgress {
 
 export type ProgressEvent =
   | ScanProgress
-  | { operation: 'export'; done: number; total: number }
+  /** Sent as each session starts. `current` counts from 1. */
+  | { operation: 'export'; phase: 'read'; current: number; total: number }
+  /** Uncompressed bytes fed to the archive. Writing takes most of an export. */
+  | { operation: 'export'; phase: 'write'; bytesDone: number; bytesTotal: number }
   | { operation: 'open'; bytesRead: number; bytesTotal: number }
   | { operation: 'import'; done: number; total: number; current: SessionKey | null }
 

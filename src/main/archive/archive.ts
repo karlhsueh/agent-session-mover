@@ -28,13 +28,33 @@ export interface BlobSource {
  * and re-hashed while it streams, so a source file that changed after collection fails the export
  * instead of producing an archive whose manifest lies.
  */
-export async function writeArchive(destPath: string, manifest: Manifest, blobs: ReadonlyMap<Sha256, BlobSource>): Promise<number> {
+export async function writeArchive(
+  destPath: string,
+  manifest: Manifest,
+  blobs: ReadonlyMap<Sha256, BlobSource>,
+  onBytes?: (done: number, total: number) => void,
+): Promise<number> {
   const manifestBytes = Buffer.from(JSON.stringify(manifest), 'utf8')
+  let total = manifestBytes.length
+  for (const blob of blobs.values()) total += blob.size
+  let done = 0
+  let reported = 0
+  const step = Math.max(1024 * 1024, total / 200)
+  const counted = async function* (chunks: AsyncIterable<Buffer>): AsyncGenerator<Buffer> {
+    for await (const chunk of chunks) {
+      done += chunk.length
+      if (onBytes && (done - reported >= step || done === total)) {
+        reported = done
+        onBytes(done, total)
+      }
+      yield chunk
+    }
+  }
   const entries: TarEntryInput[] = [
-    { name: MANIFEST_ENTRY, size: manifestBytes.length, mtimeMs: Date.parse(manifest.createdAt), body: () => once(manifestBytes) },
+    { name: MANIFEST_ENTRY, size: manifestBytes.length, mtimeMs: Date.parse(manifest.createdAt), body: () => counted(once(manifestBytes)) },
   ]
   for (const blob of blobs.values()) {
-    entries.push({ name: BLOB_PREFIX + blob.sha256, size: blob.size, mtimeMs: blob.mtimeMs, body: () => verified(blob) })
+    entries.push({ name: BLOB_PREFIX + blob.sha256, size: blob.size, mtimeMs: blob.mtimeMs, body: () => counted(verified(blob)) })
   }
 
   const temp = path.join(path.dirname(destPath), `.${path.basename(destPath)}.${randomBytes(6).toString('hex')}.partial`)
