@@ -182,6 +182,17 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
+      # Full history, so the notes can list the commits since the previous tag.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.cut.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Draft the release notes
+        run: |
+          scripts/release-notes.sh "$TAG" > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
       - uses: actions/download-artifact@v8
         with:
           pattern: dist-*
@@ -222,7 +233,7 @@ jobs:
             fi
             gh release upload "$TAG" --clobber -- *
           else
-            gh release create "$TAG" --draft --verify-tag --generate-notes --title "Agent Sessions ${TAG#v}" -- *
+            gh release create "$TAG" --draft --verify-tag --notes-file "$RUNNER_TEMP/notes.md" --title "Agent Sessions ${TAG#v}" -- *
           fi
 
       - name: Publish

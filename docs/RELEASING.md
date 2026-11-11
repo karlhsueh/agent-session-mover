@@ -38,6 +38,7 @@ To build the installers for your own OS locally, run `pnpm dist`. On a Mac witho
    Use `bump=minor` or `bump=major` for a bigger step. In the browser, open Actions, then Release, then Run workflow.
 3. Watch it with `gh run watch`. It takes about 5 minutes.
 4. Run `git pull`. The workflow committed the new version to `main` as `chore(release): <version>` and tagged it.
+5. Rewrite the release notes for the people who install the app. `scripts/release-notes.sh` drafts them from the `feat`, `fix`, and `perf` commit subjects since the previous tag. It leaves out the `site` and `demo` scopes, and it misses an app change committed under another type or scope. Open with what changed for users, then edit with `gh release edit v<version> --notes-file notes.md`. To preview a draft before releasing, run `scripts/release-notes.sh HEAD`.
 
 The workflow runs these jobs in order. Each one stops the release if it fails.
 
@@ -45,7 +46,7 @@ The workflow runs these jobs in order. Each one stops the release if it fails.
 | --- | --- |
 | Bump the version and tag | Runs `npm version` on `package.json`, commits it, tags `v<version>`, and pushes both together. If `main` moved after the run started, it pushes neither. |
 | Build | Builds each platform from the tag. On macOS it checks that Gatekeeper reports the app as `Notarized Developer ID`. |
-| Publish the GitHub release | Checks that every file in the table above is present and that each `latest*.yml` names the new version. Uploads them to a draft with generated notes, writes `SHA256SUMS`, then publishes it as the latest release. |
+| Publish the GitHub release | Checks that every file in the table above is present and that each `latest*.yml` names the new version. Uploads them to a draft with notes from `scripts/release-notes.sh`, writes `SHA256SUMS`, then publishes it as the latest release. |
 | Update the Homebrew tap | Runs `.github/workflows/tap.yml`, which writes the new version and dmg hash into `Casks/agent-sessions.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. |
 
 Publishing offers the update. Installed apps from 0.1.4 on read the update metadata of the latest published release and show an Update button.
