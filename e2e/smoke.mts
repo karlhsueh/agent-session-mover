@@ -96,7 +96,7 @@ const shot = async (page: Page, name: string) => {
   await capture().catch(capture)
 }
 
-const laptop = await launch(source, { AGENT_SESSIONS_E2E_SAVE_PATH: archivePath })
+const laptop = await launch(source, { AGENT_SESSIONS_E2E_SAVE_PATH: archivePath, AGENT_SESSIONS_E2E_COMPUTER_NAME: 'Old Laptop' })
 try {
   const { app, page, problems } = laptop
   assert.equal(await page.title(), 'Agent Session Mover', 'window has the default title')
@@ -308,7 +308,7 @@ try {
   await shot(page, 'empty-dark')
 
   await page.getByRole('button', { name: /Import archive/ }).click()
-  const importHeading = page.getByRole('heading', { name: /^10 sessions from (macOS|Windows|Linux)$/ })
+  const importHeading = page.getByRole('heading', { name: '10 sessions from Old Laptop' })
   await importHeading.waitFor()
   assert.match((await page.locator('.import-head p').textContent()) ?? '', /^handoff\.agentsessions · exported \w{3} \d+, \d+:\d\d/, 'the subtitle names the file and date, not the source home path')
   await page.locator('.plan:not(.stale) .badge').first().waitFor()

@@ -150,7 +150,7 @@ const row = (page: Page, title: string) => list(page).locator('.row').filter({ h
 
 try {
   {
-    const { app, page } = await launch(laptop, { AGENT_SESSIONS_E2E_SAVE_PATH: archive })
+    const { app, page } = await launch(laptop, { AGENT_SESSIONS_E2E_SAVE_PATH: archive, AGENT_SESSIONS_E2E_COMPUTER_NAME: 'Old Laptop' })
     await list(page).locator('.row').first().waitFor()
     const d = new Director(page)
     await d.ready()

@@ -59,7 +59,7 @@ it('lists, exports, and imports Codex sessions through the app', { timeout: 120_
   createStateDb(path.join(target.codex, 'state_5.sqlite'), [])
   const archive = path.join(root, 'codex.agentsessions')
 
-  const laptop = await launch(source, { AGENT_SESSIONS_E2E_SAVE_PATH: archive })
+  const laptop = await launch(source, { AGENT_SESSIONS_E2E_SAVE_PATH: archive, AGENT_SESSIONS_E2E_COMPUTER_NAME: 'Old Laptop' })
   await rows(laptop.page).first().waitFor()
   const listed = await rows(laptop.page).allTextContents()
   expect(listed.length, 'the list shows the Codex fixture sessions').toBeGreaterThanOrEqual(6)
