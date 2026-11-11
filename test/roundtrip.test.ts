@@ -93,6 +93,21 @@ describe('export', () => {
 })
 
 describe('import into an empty store', () => {
+  it('reports bytes while one large session imports, so the bar moves before it ends', async () => {
+    const line = JSON.stringify({ type: 'user', cwd: srcProj, sessionId: S1, timestamp: '2026-11-02T09:00:00.000Z', message: { role: 'user', content: 'x'.repeat(4000) } })
+    await appendFile(built[S1].transcriptPath, `${line}\n`.repeat(1500))
+    const { opened, mappings } = await openIn(b, await exportFrom(a, [key(S1)]))
+    const events: ProgressEvent[] = []
+    await runImport(b.context, opened, mappings, [key(S1)], { onProgress: (event) => events.push(event) })
+    const imports = events.flatMap((event) => (event.operation === 'import' ? [event] : []))
+    const last = imports.at(-1)!
+    const during = imports.filter((event) => event.bytesDone > 0 && event.bytesDone < last.bytesTotal)
+    expect(during.length).toBeGreaterThan(4)
+    expect(imports.map((event) => event.bytesDone)).toEqual([...imports.map((event) => event.bytesDone)].sort((x, y) => x - y))
+    expect(last).toMatchObject({ done: 1, total: 1, current: null, bytesDone: last.bytesTotal })
+    expect(imports.filter((event) => event.current !== null).every((event) => event.bytesDone < event.bytesTotal), 'the bar is not full until the session is in').toBe(true)
+  })
+
   it('imports into a store root that is a symlink, as when ~/.claude lives in a dotfiles folder', async () => {
     const linked = path.join(b.dir, 'dotfiles', 'claude')
     await mkdir(linked, { recursive: true })
