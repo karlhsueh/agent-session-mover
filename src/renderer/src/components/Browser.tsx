@@ -20,6 +20,8 @@ import { Toolbar } from './Toolbar'
 
 interface Props {
   list: List
+  /** Set while an import screen covers the browser. It stays mounted so its state survives. */
+  hidden: boolean
   /** Agents still reading, shown as a slim line in the status bar. */
   scans: PendingScan[]
   refreshing: boolean
@@ -47,7 +49,7 @@ const keepOpen = (open: boolean) => String(open)
 const keepTab = (tab: DetailTab) => tab
 const loadPreview = (key: SessionKey) => window.api.previewSession(key)
 
-export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, active, onExport, lastExport, onImport, theme, onToggleTheme, notice }: Props) {
+export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots, now, active, onExport, lastExport, onImport, theme, onToggleTheme, notice }: Props) {
   const [query, setQuery] = useState<BrowseQuery>(EMPTY_QUERY)
   const [wantedScope, setScope] = useState<Scope>(ALL)
   const [sidebarPreferred, setSidebarPreferred] = useStored('agent-sessions.sidebar', parseOpen, keepOpen)
@@ -94,8 +96,8 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
   }, [lastExport])
 
   useEffect(() => {
-    listRef.current?.focus()
-  }, [])
+    if (!hidden) listRef.current?.focus()
+  }, [hidden])
 
   const onClick = (key: SessionKey, mode: ClickMode) => {
     dispatch({ type: 'click', key, mode, rows })
@@ -179,19 +181,19 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
 
   if (list.sessions.length === 0)
     return (
-      <>
+      <div className="browser-host" hidden={hidden} inert={hidden}>
         <TitleBar theme={theme} onToggleTheme={onToggleTheme}>
           <span className="app-name">Agent Session Mover</span>
           <RefreshButton refreshing={refreshing} onRefresh={onRefresh} />
         </TitleBar>
         {notice}
         <EmptyStore list={list} storeRoots={storeRoots} onImport={onImport} />
-      </>
+      </div>
     )
 
   const otherMatches = matches.length - shown.length
   return (
-    <>
+    <div className="browser-host" hidden={hidden} inert={hidden}>
       <TitleBar theme={theme} onToggleTheme={onToggleTheme}>
         <button
           type="button"
@@ -319,6 +321,6 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
         </span>
       </footer>
       {showShortcuts && <Shortcuts onClose={() => setShowShortcuts(false)} />}
-    </>
+    </div>
   )
 }

@@ -141,9 +141,12 @@ export function App() {
         <ImportDone screen={screen} onDone={backToBrowse} />
       ) : !browsing ? (
         <ScanPanel listings={listings} scans={scans} />
-      ) : (
+      ) : null}
+      {/* Kept mounted under the import screens so the selection, search, and scope survive a round trip. */}
+      {browsing && (
         <Browser
           list={list}
+          hidden={inImport}
           scans={scans}
           refreshing={refreshing}
           onRefresh={() => refresh('user')}
