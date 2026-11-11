@@ -126,31 +126,11 @@ Do these steps on one Mac. Keychain Access creates the private key on the Mac th
 
 Keep the `.p12`, its password, the `.p8`, the Key ID, and the Issuer ID in a password manager, then move the local copies to the Trash with `trash DeveloperID.p12 AuthKey_ABC123DEFG.p8`.
 
-### Homebrew tap deploy key
-
-The tap workflow pushes to another repository, so it needs a deploy key. A deploy key is an SSH key that can write to `karlhsueh/homebrew-tap` and nothing else. It is not tied to a GitHub account and does not expire. Without it, the workflow fails and the cask keeps the old version.
-
-1. Create a key pair in a temporary folder.
-
-   ```sh
-   ssh-keygen -t ed25519 -N '' -C 'agent-sessions tap workflow' -f /tmp/tap-deploy
-   ```
-
-2. Give the public key write access to the tap, and store the private key as a secret in this repo.
-
-   ```sh
-   gh repo deploy-key add /tmp/tap-deploy.pub -R karlhsueh/homebrew-tap --allow-write --title 'agent-sessions tap workflow'
-   gh secret set HOMEBREW_TAP_DEPLOY_KEY < /tmp/tap-deploy
-   trash /tmp/tap-deploy /tmp/tap-deploy.pub
-   ```
-
-To rotate the key, delete it under the tap's Settings, then Deploy keys, and repeat both steps. Nothing else needs a copy of the private key.
-
 ### Release app and the main ruleset
 
 The "Protect main" ruleset blocks force-pushes and deletion of `main`, requires a pull request, and requires the `ubuntu-latest`, `windows-latest`, and `macos-latest` CI checks. Repository admins and the `agent-sessions-release` GitHub App (App ID 5708259) are exempt, so the maintainer can push to `main` and the release can push its version commit. A personal repo cannot exempt the workflow token, which is why the release pushes as the app.
 
-The app is private to `karlhsueh`, has Contents read and write, and is installed on this repo only. The workflow reads its Client ID from the `RELEASE_APP_CLIENT_ID` variable and its private key from the `RELEASE_APP_PRIVATE_KEY` secret, and gets a token that expires after an hour. Without them, the version job fails before it changes anything.
+The same app updates the cask, so the tap needs no key of its own. It is private to `karlhsueh`, has Contents read and write, and is installed on this repo and on `karlhsueh/homebrew-tap`. The tap workflow asks for a token that reaches only the tap. The workflow reads its Client ID from the `RELEASE_APP_CLIENT_ID` variable and its private key from the `RELEASE_APP_PRIVATE_KEY` secret, and gets a token that expires after an hour. Without them, the version job fails before it changes anything, and the tap job fails with the cask on the old version. To check that the app can still write to the tap, run `gh workflow run tap.yml -f tag=<latest tag>`. When the cask already matches, it pushes nothing and only checks access with `git push --dry-run`.
 
 To rotate the key, open the app's settings, then Credentials, generate a new private key, store it, and delete the old one there.
 

@@ -30,41 +30,42 @@ jobs:
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
       GH_TOKEN: ${{ github.token }}
-      TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up the deploy key
-        run: |
-          if [[ -z "$TAP_DEPLOY_KEY" ]]; then
-            echo "::error::Set the HOMEBREW_TAP_DEPLOY_KEY secret. See docs/RELEASING.md."
-            exit 1
-          fi
-          dir="$RUNNER_TEMP/ssh"
-          mkdir -m 700 "$dir"
-          (umask 077 && printf '%s\n' "$TAP_DEPLOY_KEY" > "$dir/key")
-          # Trust only the host keys GitHub publishes through its API, fetched over HTTPS.
-          gh api meta --jq '.ssh_keys[] | "github.com " + .' > "$dir/known_hosts"
-          echo "GIT_SSH_COMMAND=ssh -i $dir/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$dir/known_hosts -o StrictHostKeyChecking=yes" >> "$GITHUB_ENV"
+      # The release app is installed on the tap. Its token reaches only that repository and expires after an hour.
+      - name: Get a token for the tap
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          repositories: homebrew-tap
+          permission-contents: write
 
       - name: Download SHA256SUMS
         run: gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --dir "$RUNNER_TEMP/sums"
 
       - name: Clone the tap
-        run: git clone --depth 1 git@github.com:karlhsueh/homebrew-tap.git "$RUNNER_TEMP/tap"
+        env:
+          TAP_TOKEN: ${{ steps.app.outputs.token }}
+        run: git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/karlhsueh/homebrew-tap.git" "$RUNNER_TEMP/tap"
 
       - name: Write the cask
         run: scripts/update-cask.sh "$TAG" "$RUNNER_TEMP/sums/SHA256SUMS" "$RUNNER_TEMP/tap/Casks/agent-sessions.rb"
 
       - name: Push
         working-directory: ${{ runner.temp }}/tap
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}[bot]
         run: |
           if git diff --quiet; then
             echo "The cask already matches $TAG."
             git push --dry-run origin HEAD
             exit 0
           fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name "$BOT"
+          git config user.email "$(gh api "users/$BOT" --jq .id)+$BOT@users.noreply.github.com"
           git commit -am "feat(cask): agent-sessions ${TAG#v}"
           git push origin HEAD
