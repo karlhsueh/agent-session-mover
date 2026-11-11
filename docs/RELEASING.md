@@ -4,6 +4,7 @@ read_when:
   - Cutting a release
   - Changing .github/workflows/release.yml or the electron-builder config in package.json
   - Adding or rotating the Apple signing or notarization secrets
+  - Changing the main branch ruleset or the release app
 ---
 
 # Releasing
@@ -45,7 +46,7 @@ The workflow runs these jobs in order. Each one stops the release if it fails.
 
 | Job | What it does |
 | --- | --- |
-| Bump the version and tag | Runs `npm version` on `package.json`, commits it, tags `v<version>`, and pushes both together. If `main` moved after the run started, it pushes neither. |
+| Bump the version and tag | Runs `npm version` on `package.json`, commits it, tags `v<version>`, and pushes both together as the release app. If `main` moved after the run started, it pushes neither. The push runs CI on the version commit. |
 | Build | Builds each platform from the tag. On macOS it checks that Gatekeeper reports the app as `Notarized Developer ID`. |
 | Publish the GitHub release | Checks that every file in the table above is present and that each `latest*.yml` names the new version. Uploads them to a draft with notes from `scripts/release-notes.sh`, writes `SHA256SUMS`, then publishes it as the latest release. |
 | Update the Homebrew tap | Runs `.github/workflows/tap.yml`, which renders `packaging/homebrew/agent-sessions.rb` with the new version and both dmg hashes into `Casks/agent-sessions.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. |
@@ -144,6 +145,21 @@ The tap workflow pushes to another repository, so it needs a deploy key. A deplo
    ```
 
 To rotate the key, delete it under the tap's Settings, then Deploy keys, and repeat both steps. Nothing else needs a copy of the private key.
+
+### Release app and the main ruleset
+
+The "Protect main" ruleset blocks force-pushes and deletion of `main`, requires a pull request, and requires the `ubuntu-latest`, `windows-latest`, and `macos-latest` CI checks. Repository admins and the `agent-sessions-release` GitHub App (App ID 5708259) are exempt, so the maintainer can push to `main` and the release can push its version commit. A personal repo cannot exempt the workflow token, which is why the release pushes as the app.
+
+The app is private to `karlhsueh`, has Contents read and write, and is installed on this repo only. The workflow reads its Client ID from the `RELEASE_APP_CLIENT_ID` variable and its private key from the `RELEASE_APP_PRIVATE_KEY` secret, and gets a token that expires after an hour. Without them, the version job fails before it changes anything.
+
+To rotate the key, open the app's settings, then Credentials, generate a new private key, store it, and delete the old one there.
+
+```sh
+gh secret set RELEASE_APP_PRIVATE_KEY < ~/Downloads/agent-sessions-release.*.private-key.pem
+trash ~/Downloads/agent-sessions-release.*.private-key.pem
+```
+
+Read or change the ruleset with `gh api repos/karlhsueh/agent-sessions/rulesets`.
 
 ### When the macOS job fails
 
