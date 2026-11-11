@@ -49,6 +49,16 @@ export interface ManifestSource {
   sep: '/' | '\\'
   /** Absolute store root per agent on the source machine. Import uses it to remap paths that point into the store. */
   storeRoots: Partial<Record<AgentId, string>>
+  /** The source computer's name. Null in archives written before it existed. */
+  computerName: string | null
+  /** The git repos the sessions ran in, each with one remote address. Empty in archives written before it existed. */
+  repos: ManifestRepo[]
+}
+
+/** A repo's working tree on the source computer and its remote, without credentials. */
+export interface ManifestRepo {
+  folder: string
+  remote: string
 }
 
 export interface Manifest {
@@ -86,6 +96,8 @@ export function parseManifest(input: unknown): Manifest {
     homeDir: text(sourceRecord.homeDir, 'manifest.source.homeDir'),
     sep,
     storeRoots,
+    computerName: nullable(sourceRecord.computerName ?? null, (v) => computerName(v, 'manifest.source.computerName')),
+    repos: repos(sourceRecord.repos ?? [], 'manifest.source.repos'),
   }
 
   const sessionsInput = root.sessions
@@ -159,6 +171,59 @@ function parseFile(input: unknown, agent: AgentId, where: string): ManifestFile 
     fail(`${where}.mtimeMs`, 'must be a non-negative number')
   }
   return { role: value.role as FileRole, path, sha256: value.sha256, size: value.size as number, mtimeMs: value.mtimeMs }
+}
+
+function computerName(value: unknown, where: string): string {
+  if (typeof value !== 'string' || sanitizeComputerName(value) !== value) fail(where, 'must be a short plain name')
+  return value
+}
+
+function repos(value: unknown, where: string): ManifestRepo[] {
+  if (!Array.isArray(value) || value.length > MAX_REPOS) fail(where, 'must be a list')
+  const seen = new Set<string>()
+  return value.map((entry, index) => {
+    const repo = record(entry, `${where}[${index}]`)
+    const folder = text(repo.folder, `${where}[${index}].folder`)
+    if (seen.has(folder)) fail(where, 'lists a folder twice')
+    seen.add(folder)
+    if (!isSafeRemote(repo.remote)) fail(`${where}[${index}].remote`, 'is not a git remote address without credentials')
+    return { folder, remote: repo.remote }
+  })
+}
+
+const MAX_REPOS = 10_000
+const MAX_COMPUTER_NAME = 128
+const MAX_REMOTE = 2048
+// Control characters, and the bidi controls that could make a name read as something else.
+const UNSAFE_NAME = /[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g
+
+/** A name trimmed, with control characters removed and the length capped. Null when nothing is left. */
+export function sanitizeComputerName(raw: string): string | null {
+  const name = [...raw.replace(UNSAFE_NAME, ' ').replace(/\s+/g, ' ').trim()].slice(0, MAX_COMPUTER_NAME).join('').trim()
+  return name === '' ? null : name
+}
+
+const REMOTE_CHARS = /^[A-Za-z0-9._~:/@%+=-]+$/
+const HOST = /^[A-Za-z0-9][A-Za-z0-9.-]*(:\d{1,5})?$/
+const URL_FORM = /^(https?|ssh|git|git\+ssh|ssh\+git):\/\/([^/]+)(\/.*)?$/
+const SCP_FORM = /^(?:([A-Za-z0-9][A-Za-z0-9._-]*)@)?([A-Za-z0-9][A-Za-z0-9.-]*):(?!\/\/)[A-Za-z0-9._~%+=@-][A-Za-z0-9._~/%+=@-]*$/
+
+/**
+ * A network git address a user could paste into `git clone`: a URL with no password, and no user at
+ * all for http(s), or the `user@host:path` form. Shell and option characters never pass.
+ */
+export function isSafeRemote(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > MAX_REMOTE || !REMOTE_CHARS.test(value)) return false
+  const url = value.match(URL_FORM)
+  if (url) {
+    const authority = url[2]!
+    const at = authority.lastIndexOf('@')
+    const user = at >= 0 ? authority.slice(0, at) : null
+    if (user !== null && (url[1]!.startsWith('http') || user === '' || user.includes(':'))) return false
+    return HOST.test(authority.slice(at + 1))
+  }
+  const scp = value.match(SCP_FORM)
+  return scp !== null && (scp[1] !== undefined || scp[2]!.includes('.'))
 }
 
 function record(value: unknown, where: string): Record<string, unknown> {

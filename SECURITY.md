@@ -2,9 +2,9 @@
 
 ## What an archive contains
 
-A `.agentsessions` archive holds full session transcripts, unredacted. That includes the account email and ids recorded in a session, system prompts, every message, and the contents of files and command output the agent read. Treat an archive like the source code and secrets it may quote. Send it over a channel you trust and delete it when the move is done.
+A `.agentsessions` archive holds full session transcripts, unredacted. That includes the account email and ids recorded in a session, system prompts, every message, and the contents of files and command output the agent read. It also names the computer it came from and, for each project folder in a repository, one remote address. Treat an archive like the source code and secrets it may quote. Send it over a channel you trust and delete it when the move is done.
 
-Agent Session Mover never puts credentials, auth tokens, settings, or prompt history into an archive.
+Agent Session Mover never puts credentials, auth tokens, settings, or prompt history into an archive. A remote address is read from the repository config file without running anything, and the user name and password of an http or https address are removed before it is written. Nothing else in that config file is recorded. Import rejects an archive whose remote address carries a user name or password, or any character a shell or option parser would act on.
 
 ## What import trusts
 

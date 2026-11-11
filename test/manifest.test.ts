@@ -89,3 +89,46 @@ describe('parseManifest', () => {
     expect(() => parseManifest('manifest')).toThrow(ManifestError)
   })
 })
+
+describe('archive origin', () => {
+  const withSource = (extra: Record<string, unknown>) => {
+    const input = manifest()
+    return { ...input, source: { ...input.source, ...extra } }
+  }
+  const repo = { folder: '/Users/alice/proj', remote: 'git@github.com:acme/proj.git' }
+
+  it('keeps the computer name and repos through a round trip', () => {
+    const written = parseManifest(withSource({ computerName: "Alice's MacBook Pro", repos: [repo] }))
+    const read = parseManifest(JSON.parse(JSON.stringify(written)))
+    expect(read.source.computerName).toBe("Alice's MacBook Pro")
+    expect(read.source.repos).toEqual([repo])
+  })
+
+  it('reads an archive written before the fields existed', () => {
+    const read = parseManifest(manifest())
+    expect(read.source.computerName).toBeNull()
+    expect(read.source.repos).toEqual([])
+  })
+
+  it.each([
+    ['a name that is not a string', { computerName: 7 }],
+    ['an empty name', { computerName: '' }],
+    ['a name with padding', { computerName: ' Mac ' }],
+    ['a name with a newline', { computerName: 'Mac\nmini' }],
+    ['a name with a bidi override', { computerName: 'Mac‮exe' }],
+    ['a name over 128 characters', { computerName: 'm'.repeat(129) }],
+    ['repos that are not a list', { repos: { '/x': repo.remote } }],
+    ['a repo that is not an object', { repos: [repo.remote] }],
+    ['a repo with no folder', { repos: [{ remote: repo.remote }] }],
+    ['a repo listed twice', { repos: [repo, repo] }],
+    ['a remote with a token', { repos: [{ ...repo, remote: 'https://x:ghp_token@github.com/a/b.git' }] }],
+    ['a remote with a user', { repos: [{ ...repo, remote: 'https://ghp_token@github.com/a/b.git' }] }],
+    ['a remote that is an option', { repos: [{ ...repo, remote: '--upload-pack=touch /tmp/x' }] }],
+    ['a remote with shell characters', { repos: [{ ...repo, remote: `${repo.remote};id` }] }],
+    ['a local path remote', { repos: [{ ...repo, remote: '/srv/repos/b' }] }],
+    ['an ext remote', { repos: [{ ...repo, remote: 'ext::sh' }] }],
+    ['a remote over 2048 characters', { repos: [{ ...repo, remote: `https://github.com/${'a'.repeat(2048)}` }] }],
+  ])('rejects %s', (_name, extra) => {
+    expect(() => parseManifest(withSource(extra))).toThrow(ManifestError)
+  })
+})

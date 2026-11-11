@@ -24,6 +24,8 @@ const e2e = app.isPackaged
       scanPace: process.env.AGENT_SESSIONS_E2E_SCAN_PACE,
       // `0.9.9` starts the update status at available for that version, so a test can see the update notice.
       update: process.env.AGENT_SESSIONS_E2E_UPDATE,
+      // Screenshots and tests record this name in an archive instead of the real computer's.
+      computerName: process.env.AGENT_SESSIONS_E2E_COMPUTER_NAME,
     }
 const APP_NAME = 'Agent Session Mover'
 // Journals and backups live in userData, and its default folder follows the app name. Pinning it
@@ -200,6 +202,7 @@ app.whenReady().then(async () => {
     env: { homeDir: homedir(), env: process.env, platform: process.platform },
     appDataDir: app.getPath('userData'),
     appVersion: app.getVersion(),
+    ...(e2e.computerName ? { computerName: async () => e2e.computerName ?? null } : {}),
   }
   // An import that never committed is rolled back before any new work can start.
   for (const result of await recoverJournals(join(context.appDataDir, 'journal'), providers)) {

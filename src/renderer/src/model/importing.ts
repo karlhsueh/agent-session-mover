@@ -1,5 +1,20 @@
-import type { AgentId, ConflictChoice, ConflictCopies, CopyFacts, ImportAction, ImportPreview, ImportRequest, ImportWarning, SessionImportOutcome, SessionKey } from '../../../shared/sessions'
-import { pickerNote, plural, shortDateTime, tildePath } from './format'
+import {
+  type AgentId,
+  type ArchiveSummary,
+  type ConflictChoice,
+  type ConflictCopies,
+  type CopyFacts,
+  type ImportAction,
+  type ImportPreview,
+  type ImportRequest,
+  type ImportWarning,
+  isAtOrUnder,
+  mapPath,
+  type PathMapping,
+  type SessionImportOutcome,
+  type SessionKey,
+} from '../../../shared/sessions'
+import { isWindowsHome, pickerNote, plural, shellPath, shellWord, shortDateTime, tildePath } from './format'
 
 export type Tone = 'good' | 'info' | 'neutral' | 'warn' | 'bad'
 
@@ -200,18 +215,55 @@ export function outcomeBadge(outcome: SessionImportOutcome): Badge {
   }
 }
 
-/** What to do about a project folder before resuming. No repo URL travels in the archive, so the hint names only the branch. */
+/** What to do about a project folder before resuming. */
 export interface FolderHint {
   text: string
   /** A command worth copying, or null when there is no single one. */
   command: string | null
 }
 
-export function missingFolderHint(branches: readonly string[]): FolderHint {
-  if (branches.length === 1) return { text: 'Clone the repo here, then run', command: `git checkout ${branches[0]}` }
-  if (branches.length === 0) return { text: 'Clone the repo here, or copy the project from the other computer.', command: null }
-  return { text: `Clone the repo here, then check out ${branches.slice(0, -1).join(', ')} or ${branches.at(-1)}.`, command: null }
+/** Where to clone a repo the archive names: its remote, and its folder here, quoted for the shell. */
+export interface CloneTarget {
+  remote: string
+  folder: string
 }
+
+type Repo = ArchiveSummary['source']['repos'][number]
+
+/**
+ * The repo that held `sourceFolder` on the other computer, cloned to where its own folder maps here.
+ * Null when the archive names no repo for it, or its folder sits above every mapping.
+ */
+export function cloneTarget(
+  repos: readonly Repo[],
+  sourceFolder: string | null,
+  mappings: readonly PathMapping[],
+  sourceSep: string,
+  home: string,
+): CloneTarget | null {
+  if (!sourceFolder) return null
+  const repo = repos.filter((each) => isAtOrUnder(sourceFolder, each.folder, sourceSep)).sort((a, b) => b.folder.length - a.folder.length)[0]
+  const windows = isWindowsHome(home)
+  const folder = repo && mapPath(repo.folder, mappings, sourceSep, windows ? '\\' : '/')
+  return repo && folder ? { remote: repo.remote, folder: shellPath(folder, home, windows) } : null
+}
+
+export function missingFolderHint(names: readonly string[], clone: CloneTarget | null = null, home = ''): FolderHint {
+  // Git refuses a branch name that starts with a dash, so one from an archive is never offered as a command.
+  const branches = names.filter((branch) => !branch.startsWith('-'))
+  const windows = isWindowsHome(home)
+  if (clone) {
+    const command = `git clone ${clone.remote} ${clone.folder}`
+    if (branches.length === 1) return { text: 'To get the code, run', command: `${command} && cd ${clone.folder} && git checkout ${shellWord(branches[0]!, windows)}` }
+    if (branches.length === 0) return { text: 'To get the code, run', command }
+    return { text: `To get the code, run this, then check out ${branchWords(branches)}.`, command }
+  }
+  if (branches.length === 1) return { text: 'Clone the repo here, then run', command: `git checkout ${shellWord(branches[0]!, windows)}` }
+  if (branches.length === 0) return { text: 'Clone the repo here, or copy the project from the other computer.', command: null }
+  return { text: `Clone the repo here, then check out ${branchWords(branches)}.`, command: null }
+}
+
+const branchWords = (branches: readonly string[]) => `${branches.slice(0, -1).join(', ')} or ${branches.at(-1)}`
 
 export function existingFolderHint(branches: readonly string[]): string {
   if (branches.length === 1) return `Pull the latest changes on ${branches[0]} before you resume.`

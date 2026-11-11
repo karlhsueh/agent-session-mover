@@ -79,6 +79,7 @@ export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: 
         <li>the account email and account ids recorded in the session</li>
         <li>system prompts and every message</li>
         <li>contents of files and output of commands the agent read</li>
+        <li>this computer's name and each project's git remote address</li>
       </ul>
       <p className="dim">The archive never includes credentials, auth tokens, settings, prompt history, or your project files. Push or copy the project so the other computer has your latest changes.</p>
       {live.length > 0 && (

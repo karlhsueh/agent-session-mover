@@ -92,24 +92,4 @@ export async function listNames(dir: string): Promise<string[]> {
   }
 }
 
-/** Maps an absolute source path through the longest matching mapping, or returns null. */
-export function mapPath(
-  value: string,
-  mappings: readonly { source: string; target: string }[],
-  sourceSep: string,
-  targetSep: string,
-): string | null {
-  let best: { source: string; target: string } | null = null
-  for (const mapping of mappings) {
-    if (isAtOrUnder(value, mapping.source, sourceSep) && (!best || mapping.source.length > best.source.length)) best = mapping
-  }
-  if (!best) return null
-  let rest = value.slice(best.source.length)
-  if (rest.startsWith(sourceSep)) rest = rest.slice(sourceSep.length)
-  if (rest === '') return best.target
-  return withTrailing(best.target, targetSep) + rest.split(sourceSep).join(targetSep)
-}
-
-function withTrailing(value: string, sep: string): string {
-  return value.endsWith(sep) ? value : value + sep
-}
+export { mapPath } from '../../shared/sessions'

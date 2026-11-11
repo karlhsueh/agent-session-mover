@@ -3,6 +3,7 @@ import type { AgentId, ExportResult, ProgressEvent, SessionKey } from '../../sha
 import { parseSessionKey } from '../../shared/sessions'
 import { type BlobSource, writeArchive } from '../archive/archive'
 import { MANIFEST_FORMAT, MANIFEST_VERSION, type Manifest, type ManifestSession, type Sha256 } from './manifest'
+import { readComputerName, readRepos } from './origin'
 import { type ProviderEnv, type ProviderRegistry, shareReads } from './provider'
 
 export interface CoreContext {
@@ -11,6 +12,8 @@ export interface CoreContext {
   /** Holds journals, backups, and staged archives. Electron passes `app.getPath('userData')`. */
   appDataDir: string
   appVersion: string
+  /** Overrides how export reads this computer's name. Tests and screenshots pass a fixed one. */
+  computerName?: () => Promise<string | null>
 }
 
 /** Reads each session's snapshot and writes one archive. Source stores are only read. */
@@ -48,7 +51,14 @@ export async function exportSessions(
     version: MANIFEST_VERSION,
     createdAt: new Date().toISOString(),
     appVersion: context.appVersion,
-    source: { platform: context.env.platform, homeDir: context.env.homeDir, sep: path.sep === '\\' ? '\\' : '/', storeRoots },
+    source: {
+      platform: context.env.platform,
+      homeDir: context.env.homeDir,
+      sep: path.sep === '\\' ? '\\' : '/',
+      storeRoots,
+      computerName: await (context.computerName?.() ?? readComputerName(context.env.platform)),
+      repos: await readRepos(new Set(sessions.flatMap((session) => [...(session.cwd ? [session.cwd] : []), ...session.cwds]))),
+    },
     sessions,
   }
   const bytes = await writeArchive(destPath, manifest, blobs, (bytesDone, bytesTotal) =>

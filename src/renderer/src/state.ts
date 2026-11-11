@@ -35,7 +35,7 @@ export type Screen =
   | PreviewScreen
   | { kind: 'importing'; from: PreviewScreen; requests: ImportRequest[] }
   /** `plan` is the preview the user ran, so the result can account for sessions import was not sent. */
-  | { kind: 'import-done'; archive: OpenedArchive; result: ImportResult; plan: ImportPreview | null }
+  | { kind: 'import-done'; archive: OpenedArchive; mappings: PathMapping[]; result: ImportResult; plan: ImportPreview | null }
 
 export function shownPreview(state: PreviewState): ImportPreview | null {
   return state.status === 'ready' ? state.value : state.last

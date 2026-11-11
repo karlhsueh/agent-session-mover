@@ -27,7 +27,7 @@ export async function makeMachine(label: string): Promise<Machine> {
     root: path.join(home, '.claude'),
     codexRoot: path.join(home, '.codex'),
     appData,
-    context: { providers, env: { homeDir: home, env: {}, platform: process.platform }, appDataDir: appData, appVersion: '0.0.0-test' },
+    context: { providers, env: { homeDir: home, env: {}, platform: process.platform }, appDataDir: appData, appVersion: '0.0.0-test', computerName: async () => 'Test Mac' },
   }
 }
 

@@ -66,7 +66,13 @@ export function summarizeArchive(opened: OpenedArchive): ArchiveSummary {
     fileName: opened.fileName,
     createdAt: manifest.createdAt,
     appVersion: manifest.appVersion,
-    source: { platform: manifest.source.platform, homeDir: manifest.source.homeDir, sep: manifest.source.sep },
+    source: {
+      platform: manifest.source.platform,
+      homeDir: manifest.source.homeDir,
+      sep: manifest.source.sep,
+      computerName: manifest.source.computerName,
+      repos: manifest.source.repos,
+    },
     sessions: manifest.sessions.map(sessionInfo),
   }
 }

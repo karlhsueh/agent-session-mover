@@ -18,6 +18,8 @@ export interface FolderGroup {
   /** The distinct branches the folder's sessions were on, sorted. */
   branches: string[]
   missing: boolean
+  /** The folders its sessions started in on the other computer, for finding the repo to clone. */
+  sources: string[]
   entries: ResultEntry[]
 }
 
@@ -114,10 +116,11 @@ export function accountFor(sessions: readonly SessionInfo[], result: ImportResul
     else placed += 1
     let group = groups.get(folder)
     if (!group) {
-      group = { folder, branches: [], missing: false, entries: [] }
+      group = { folder, branches: [], missing: false, sources: [], entries: [] }
       groups.set(folder, group)
     }
     if (session.gitBranch && !group.branches.includes(session.gitBranch)) group.branches.push(session.gitBranch)
+    if (session.cwd && !group.sources.includes(session.cwd)) group.sources.push(session.cwd)
     if (entry?.warnings.some((warning) => warning.code === 'target-cwd-missing' && trim(warning.path) === folder)) group.missing = true
     group.entries.push({
       key: session.key,

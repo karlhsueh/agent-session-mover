@@ -100,7 +100,7 @@ export function ImportPreview({ screen, running, onMappingChange, onToggle, onCh
       <div className="import-scroll">
         <header className="import-head">
           <h1>
-            {plural(archive.summary.sessions.length, 'session')} from {platformLabel(archive.summary.source.platform)}
+            {plural(archive.summary.sessions.length, 'session')} from {archive.summary.source.computerName ?? platformLabel(archive.summary.source.platform)}
           </h1>
           <p className="dim" title={`Home folder on that computer: ${archive.summary.source.homeDir}`}>
             <span className="selectable">{archive.summary.fileName}</span> · exported {shortDateTime(archive.summary.createdAt)}
@@ -132,6 +132,7 @@ export function ImportPreview({ screen, running, onMappingChange, onToggle, onCh
           checking={state.status === 'loading'}
           sourceHome={archive.summary.source.homeDir}
           sourceSep={archive.summary.source.sep}
+          repos={archive.summary.source.repos}
           onChange={onMappingChange}
         />
 

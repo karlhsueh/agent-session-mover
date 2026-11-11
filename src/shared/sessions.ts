@@ -93,7 +93,15 @@ export interface ArchiveSummary {
   fileName: string
   createdAt: string
   appVersion: string
-  source: { platform: string; homeDir: string; sep: '/' | '\\' }
+  source: {
+    platform: string
+    homeDir: string
+    sep: '/' | '\\'
+    /** The source computer's name, or null when the archive does not record one. */
+    computerName: string | null
+    /** Repos on the source computer by working-tree folder, each with a remote address that has no credentials. */
+    repos: { folder: string; remote: string }[]
+  }
   sessions: SessionInfo[]
 }
 
@@ -106,6 +114,20 @@ export interface PathMapping {
 /** True when `value` is `root` or a path inside it. `/a/app-two` is not inside `/a/app`. */
 export function isAtOrUnder(value: string, root: string, sep: string): boolean {
   return value === root || value.startsWith(root.endsWith(sep) ? root : root + sep)
+}
+
+/** Maps an absolute source path through the longest matching mapping, or returns null. */
+export function mapPath(value: string, mappings: readonly PathMapping[], sourceSep: string, targetSep: string): string | null {
+  let best: PathMapping | null = null
+  for (const mapping of mappings) {
+    if (isAtOrUnder(value, mapping.source, sourceSep) && (!best || mapping.source.length > best.source.length)) best = mapping
+  }
+  if (!best) return null
+  let rest = value.slice(best.source.length)
+  if (rest.startsWith(sourceSep)) rest = rest.slice(sourceSep.length)
+  if (rest === '') return best.target
+  const base = best.target.endsWith(targetSep) ? best.target : best.target + targetSep
+  return base + rest.split(sourceSep).join(targetSep)
 }
 
 /** `diverged`: the two copies differ. `target-newer`: the copy here continues past the archive's. */

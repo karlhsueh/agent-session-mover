@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { missingFolderHint } from '../src/renderer/src/model/importing'
+import { cloneTarget, missingFolderHint } from '../src/renderer/src/model/importing'
 import { accountFor, quietSummary } from '../src/renderer/src/model/result'
 import { type ImportAction, type ImportPreview, type ImportResult, type SessionInfo, sessionKey } from '../src/shared/sessions'
 
@@ -65,5 +65,21 @@ describe('the import result', () => {
     expect(missingFolderHint(['main'])).toEqual({ text: 'Clone the repo here, then run', command: 'git checkout main' })
     expect(missingFolderHint(['a', 'b', 'c']).text).toBe('Clone the repo here, then check out a, b or c.')
     expect(missingFolderHint([]).command).toBeNull()
+  })
+
+  it('offers a clone command when the archive names the repo, with the folder quoted for the shell', () => {
+    const repos = [{ folder: '/Users/alice/code/api', remote: 'git@github.com:acme/api.git' }]
+    const mappings = [{ source: '/Users/alice/code/api/server', target: '/Users/me/src/api/server' }, { source: '/Users/alice/code', target: "/Users/me/it's code" }]
+    const clone = cloneTarget(repos, '/Users/alice/code/api/server', mappings, '/', '/Users/me')
+    expect(clone).toEqual({ remote: repos[0]!.remote, folder: `~/'it'\\''s code/api'` })
+    expect(missingFolderHint(['main'], clone, '/Users/me').command).toBe(`git clone ${repos[0]!.remote} ~/'it'\\''s code/api' && cd ~/'it'\\''s code/api' && git checkout main`)
+    expect(missingFolderHint(['a', 'b'], clone, '/Users/me')).toMatchObject({ text: 'To get the code, run this, then check out a or b.', command: `git clone ${repos[0]!.remote} ~/'it'\\''s code/api'` })
+    expect(cloneTarget(repos, '/Users/alice/notes', mappings, '/', '/Users/me')).toBeNull()
+    expect(cloneTarget(repos, '/Users/alice/code/api', [{ source: '/Users/alice/code/api/server', target: '/x' }], '/', '/Users/me')).toBeNull()
+  })
+
+  it('quotes an untrusted branch name and never offers one that starts with a dash', () => {
+    expect(missingFolderHint(['x;rm -rf ~']).command).toBe(`git checkout 'x;rm -rf ~'`)
+    expect(missingFolderHint(['--orphan']).command).toBeNull()
   })
 })

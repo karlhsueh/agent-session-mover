@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { type ArchiveToken, type ConflictChoice, type ImportPreview, isAtOrUnder, type PathMapping, type SessionInfo, type SessionKey } from '../../../shared/sessions'
+import { type ArchiveSummary, type ArchiveToken, type ConflictChoice, type ImportPreview, isAtOrUnder, type PathMapping, type SessionInfo, type SessionKey } from '../../../shared/sessions'
 import { useHomeDir } from '../hooks'
 import { branchesLabel, branchList, expandTilde, folderName, plural, tildePath } from '../model/format'
-import { conflictChoice, missingFolderHint, receivesFiles } from '../model/importing'
+import { type CloneTarget, cloneTarget, conflictChoice, missingFolderHint, receivesFiles } from '../model/importing'
 import { HintLine } from './ImportParts'
 
 interface Props {
@@ -17,6 +17,8 @@ interface Props {
   sourceHome: string
   /** The source machine's path separator, for telling which folders sit inside a mapped one. */
   sourceSep: string
+  /** Repos on the source computer, for a clone command when a folder is missing here. */
+  repos: ArchiveSummary['source']['repos']
   onChange: (source: string, target: string) => void
 }
 
@@ -40,7 +42,7 @@ const STATUS_TEXT: Record<FolderStatus, string> = { exists: 'Folder exists', mis
 type Creation = { kind: 'idle' } | { kind: 'creating' } | { kind: 'failed'; message: string }
 const IDLE: Creation = { kind: 'idle' }
 
-export function MappingEditor({ token, mappings, sessions, preview, choices, checking, sourceHome, sourceSep, onChange }: Props) {
+export function MappingEditor({ token, mappings, sessions, preview, choices, checking, sourceHome, sourceSep, repos, onChange }: Props) {
   const home = useHomeDir()
   const [showAll, setShowAll] = useState(false)
   const rows = mappings.map((mapping) => {
@@ -67,6 +69,7 @@ export function MappingEditor({ token, mappings, sessions, preview, choices, che
             uses={users.length}
             branches={users}
             status={folderStatus(mapping, sessions, preview, sourceSep)}
+            clone={cloneTarget(repos, mapping.source, mappings, sourceSep, home)}
             checking={checking}
             onChange={onChange}
           />
@@ -102,6 +105,7 @@ function MappingRow({
   uses,
   branches: users,
   status,
+  clone,
   checking,
   onChange,
 }: {
@@ -114,6 +118,7 @@ function MappingRow({
   /** The folder's sessions, for the branches they were on, so the user knows what to check out here. */
   branches: readonly SessionInfo[]
   status: FolderStatus
+  clone: CloneTarget | null
   checking: boolean
   onChange: Props['onChange']
 }) {
@@ -208,7 +213,7 @@ function MappingRow({
         </div>
         {offerCreate && (
           <div className="mapping-hint">
-            <HintLine hint={missingFolderHint(branchList(users))} />
+            <HintLine hint={missingFolderHint(branchList(users), clone, home)} />
           </div>
         )}
       </div>

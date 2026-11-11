@@ -44,6 +44,26 @@ export function shortCommand(command: string, home: string): string {
   return home && !home.includes("'") && command.startsWith(prefix) ? `cd ~/'${command.slice(prefix.length)}` : command
 }
 
+/** A Windows home folder looks like `C:\Users\me`. */
+export function isWindowsHome(home: string): boolean {
+  return home.includes('\\')
+}
+
+/** Quoted for the shell the way resume commands are, with this home folder as `~/'…'` in POSIX shells. */
+export function shellPath(path: string, home: string, windows = isWindowsHome(home)): string {
+  if (windows) return `"${path.replace(/"/g, '""')}"`
+  const quote = (text: string) => `'${text.replace(/'/g, `'\\''`)}'`
+  const short = tildePath(path, home)
+  if (short === '~') return '~'
+  return short.startsWith('~/') && !home.includes("'") ? `~/${quote(short.slice(2))}` : quote(path)
+}
+
+/** A branch name as one shell word. Names from an archive are untrusted, so anything unusual is quoted. */
+export function shellWord(text: string, windows = false): string {
+  if (/^[A-Za-z0-9._/@+-]+$/.test(text) && !text.startsWith('-')) return text
+  return windows ? `"${text.replace(/"/g, '""')}"` : `'${text.replace(/'/g, `'\\''`)}'`
+}
+
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR

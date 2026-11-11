@@ -1,6 +1,6 @@
 import { useHomeDir } from '../hooks'
 import { AGENT_LABEL, plural, REVEAL_LABEL, tildePath } from '../model/format'
-import { existingFolderHint, missingFolderHint } from '../model/importing'
+import { type CloneTarget, cloneTarget, existingFolderHint, missingFolderHint } from '../model/importing'
 import { accountFor, type FolderGroup, quietSummary, type ResultEntry } from '../model/result'
 import type { Screen } from '../state'
 import { CommandLine, CopyButton } from './common'
@@ -16,6 +16,8 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
   const placedAgents = new Set(archive.summary.sessions.filter((session) => written.has(session.key)).map((session) => AGENT_LABEL[session.agent]))
   const commands = groups.flatMap((group) => group.entries.flatMap((entry) => (entry.resume ? [entry.resume] : [])))
   const missing = groups.filter((group) => group.missing).length
+  const { repos, sep } = archive.summary.source
+  const groupClone = (group: FolderGroup) => group.sources.map((source) => cloneTarget(repos, source, screen.mappings, sep, home)).find(Boolean) ?? null
 
   return (
     <div className="import">
@@ -39,7 +41,7 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
         </header>
 
         {groups.map((group) => (
-          <FolderPanel key={group.folder ?? ''} group={group} home={home} />
+          <FolderPanel key={group.folder ?? ''} group={group} home={home} clone={group.missing ? groupClone(group) : null} />
         ))}
 
         {quiet.length > 0 && (
@@ -73,7 +75,7 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
   )
 }
 
-function FolderPanel({ group, home }: { group: FolderGroup; home: string }) {
+function FolderPanel({ group, home, clone }: { group: FolderGroup; home: string; clone: CloneTarget | null }) {
   const id = `folder-${group.folder ?? 'none'}`
   return (
     <section className="panel" aria-labelledby={id}>
@@ -87,7 +89,7 @@ function FolderPanel({ group, home }: { group: FolderGroup; home: string }) {
         </span>
         {group.folder && (
           <span className={group.missing ? 'folder-hint warn' : 'folder-hint dim'}>
-            {group.missing ? <HintLine hint={missingFolderHint(group.branches)} /> : existingFolderHint(group.branches)}
+            {group.missing ? <HintLine hint={missingFolderHint(group.branches, clone, home)} /> : existingFolderHint(group.branches)}
           </span>
         )}
       </header>
