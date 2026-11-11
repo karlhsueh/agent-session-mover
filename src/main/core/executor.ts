@@ -1,4 +1,4 @@
-import { constants, createReadStream } from 'node:fs'
+import { constants } from 'node:fs'
 import { copyFile, link, lstat, mkdir, rename, rmdir, stat, unlink, utimes } from 'node:fs/promises'
 import path from 'node:path'
 import { fsyncPath } from '../archive/archive'
@@ -35,7 +35,7 @@ export interface ExecuteOptions {
   journalDir: string
   /** This run's backup folder. Replaced files keep their store-relative path under `<backupDir>/<agent>/`. */
   backupDir: string
-  blobDir: string
+  readBlob: (sha256: Sha256) => AsyncIterable<Buffer>
   runId: string
   fault?: Fault
 }
@@ -56,7 +56,7 @@ export async function executePlan(plan: SessionPlan, options: ExecuteOptions): P
       await ensureDir(path.dirname(finalPath), root, journal)
       const temp = path.join(path.dirname(finalPath), `.${path.basename(finalPath)}.${options.runId}.tmp`)
       await journal.record({ kind: 'temp', path: temp })
-      await stageFile(temp, write.file.transform ? write.file.transform(blob(options, write.file.sha256)) : blob(options, write.file.sha256), write.sha256)
+      await stageFile(temp, write.file.transform ? write.file.transform(options.readBlob(write.file.sha256)) : options.readBlob(write.file.sha256), write.sha256)
       await utimes(temp, new Date(), new Date(write.file.mtimeMs))
 
       if (write.kind === 'replace') {
@@ -98,10 +98,6 @@ export async function executePlan(plan: SessionPlan, options: ExecuteOptions): P
     const message = error instanceof Error ? error.message : String(error)
     throw new ExecutionError(message, rollback.ok, { cause: error })
   }
-}
-
-function blob(options: ExecuteOptions, sha256: Sha256): AsyncIterable<Buffer> {
-  return createReadStream(path.join(options.blobDir, sha256)) as AsyncIterable<Buffer>
 }
 
 async function stageFile(temp: string, content: AsyncIterable<Buffer>, expected: Sha256): Promise<void> {

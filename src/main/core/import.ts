@@ -119,11 +119,24 @@ function refusal(action: Extract<ImportAction, { kind: 'blocked' | 'conflict' }>
 
 type BlobReader = (sha256: Sha256) => AsyncIterable<Buffer>
 
-async function planOne(context: CoreContext, opened: OpenedArchive, session: ManifestSession, mappings: PathMapping[], once: ReadOnce): Promise<PlannedSession> {
+const blobReader =
+  (opened: OpenedArchive): BlobReader =>
+  (sha256) =>
+    createReadStream(path.join(opened.blobDir, sha256)) as AsyncIterable<Buffer>
+
+function countingReader(read: BlobReader, onChunk: (bytes: number) => void): BlobReader {
+  return async function* (sha256) {
+    for await (const chunk of read(sha256)) {
+      onChunk(chunk.length)
+      yield chunk
+    }
+  }
+}
+
+async function planOne(context: CoreContext, opened: OpenedArchive, session: ManifestSession, mappings: PathMapping[], once: ReadOnce, readBlob: BlobReader = blobReader(opened)): Promise<PlannedSession> {
   const key = sessionKey(session.agent, session.id)
   const provider = context.providers[session.agent]
   const root = path.resolve(provider.storeRoot(context.env))
-  const readBlob: BlobReader = (sha256) => createReadStream(path.join(opened.blobDir, sha256)) as AsyncIterable<Buffer>
   const inspection = await provider.inspectTarget(root, session, { env: context.env, once, source: opened.manifest.source, mappings, sep: path.sep, readBlob })
   if (inspection.kind === 'refused') return { session, key, provider, root, inspection, plan: planSession(inspection, []) }
   try {
@@ -215,11 +228,36 @@ export async function runImport(
   await mkdir(journalDir, { recursive: true })
   const sessions = selectSessions(opened, keys)
   const outcomes: SessionImportOutcome[] = []
-  for (const [index, session] of sessions.entries()) {
-    options.onProgress?.({ operation: 'import', done: index, total: sessions.length, current: sessionKey(session.agent, session.id) })
-    outcomes.push(await importOne(context, opened, session, resolved, { runId, journalDir, backupDir, fault: options.fault }))
+  // Each session's share is twice its size: one half fills as planning reads its blobs, the other as writing does.
+  // A provider may read a blob more than once while planning, so each half stops at the session's size.
+  const sizeOf = (session: ManifestSession) => session.files.reduce((sum, file) => sum + file.size, 0)
+  const bytesTotal = 2 * sessions.reduce((sum, session) => sum + sizeOf(session), 0)
+  const step = Math.max(1024 * 1024, bytesTotal / 200)
+  let done = 0
+  let current: SessionKey | null = null
+  let finished = 0
+  let reported = 0
+  const report = (bytesDone: number) => {
+    reported = bytesDone
+    options.onProgress?.({ operation: 'import', done, total: sessions.length, current, bytesDone, bytesTotal })
   }
-  options.onProgress?.({ operation: 'import', done: sessions.length, total: sessions.length, current: null })
+  for (const session of sessions) {
+    const size = sizeOf(session)
+    const read = { plan: 0, write: 0 }
+    const counter = (phase: keyof typeof read) =>
+      countingReader(blobReader(opened), (bytes) => {
+        read[phase] += bytes
+        const bytesDone = finished + Math.min(read.plan, size) + Math.min(read.write, size)
+        if (bytesDone - reported >= step) report(bytesDone)
+      })
+    current = sessionKey(session.agent, session.id)
+    report(finished)
+    outcomes.push(await importOne(context, opened, session, resolved, { runId, journalDir, backupDir, readForPlan: counter('plan'), readForWrite: counter('write'), fault: options.fault }))
+    done += 1
+    finished += 2 * size
+  }
+  current = null
+  report(bytesTotal)
   const backedUp = outcomes.some((outcome) => 'backupDir' in outcome && outcome.backupDir !== null)
   return { runId, outcomes, backupDir: backedUp ? backupDir : null }
 }
@@ -229,12 +267,12 @@ async function importOne(
   opened: OpenedArchive,
   session: ManifestSession,
   mappings: PathMapping[],
-  run: { runId: string; journalDir: string; backupDir: string; fault?: Fault },
+  run: { runId: string; journalDir: string; backupDir: string; readForPlan: BlobReader; readForWrite: BlobReader; fault?: Fault },
 ): Promise<SessionImportOutcome> {
   const key = sessionKey(session.agent, session.id)
   let planned: PlannedSession
   try {
-    planned = await planOne(context, opened, session, mappings, readFresh)
+    planned = await planOne(context, opened, session, mappings, readFresh, run.readForPlan)
   } catch (error) {
     return { key, status: 'failed', action: { kind: 'blocked', reason: 'invalid-session', message: 'Planning failed.' }, error: messageOf(error), rolledBack: true }
   }
@@ -249,7 +287,7 @@ async function importOne(
       key,
       journalDir: run.journalDir,
       backupDir: run.backupDir,
-      blobDir: opened.blobDir,
+      readBlob: run.readForWrite,
       runId: run.runId,
       fault: run.fault,
     })

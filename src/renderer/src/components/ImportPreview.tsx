@@ -176,10 +176,15 @@ export function ImportingSheet({ keys, progress, titles }: { keys: SessionKey[];
   return (
     <Sheet label="Importing">
       <h2>Importing {plural(keys.length, 'session')}</h2>
-      <ProgressBar value={running && running.total > 0 ? running.done / running.total : null} label="Import progress" />
+      <ProgressBar value={running ? importFraction(running) : null} label="Import progress" />
       <p className="dim truncate">{running?.current ? titles.get(running.current) : running ? `${running.done} of ${running.total}` : 'Planning again…'}</p>
     </Sheet>
   )
+}
+
+function importFraction(event: Extract<ProgressEvent, { operation: 'import' }>): number | null {
+  if (event.bytesTotal > 0) return event.bytesDone / event.bytesTotal
+  return event.total > 0 ? event.done / event.total : null
 }
 
 export function OpeningSheet({ progress }: { progress: ProgressEvent | null }) {
