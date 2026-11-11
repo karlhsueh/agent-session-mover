@@ -43,7 +43,7 @@ const fixtures: Fixture[] = [
   { id: '5a000000-0000-4000-8000-000000000001', title: 'Fix flaky retry in the payment client', project: 'code/api', entrypoint: 'cli', ageMinutes: 4, live: true },
   { id: '5a000000-0000-4000-8000-000000000002', title: 'Plan the job queue rewrite', project: 'code/local-job-manager', entrypoint: 'cli', ageMinutes: 40, subagents: AGENT_TASKS },
   { id: '5a000000-0000-4000-8000-000000000003', title: 'Add cursor pagination to the orders endpoint', project: 'code/api', entrypoint: 'claude-desktop', ageMinutes: 95 },
-  { id: '5a000000-0000-4000-8000-000000000004', title: 'Migrate the settings page to the new form library', project: 'code/web', entrypoint: 'claude-vscode', ageMinutes: 26 * HOUR, branch: 'feature/settings-form' },
+  { id: '5a000000-0000-4000-8000-000000000004', title: 'Migrate the settings page to the new form library', project: 'code/web', entrypoint: 'claude-vscode', ageMinutes: 26 * HOUR, branch: 'feature/settings-form', subfolders: ['apps/admin', 'apps/admin/src/settings'] },
   { id: '5a000000-0000-4000-8000-000000000005', title: 'Investigate the hydration warning on checkout', project: 'code/web', entrypoint: 'cli', ageMinutes: 50 * HOUR },
   { id: '5a000000-0000-4000-8000-000000000006', title: 'Why is the localhost socket refusing connections', project: 'code/local-job-manager', entrypoint: 'cli', ageMinutes: 60 * HOUR },
   { id: '5a000000-0000-4000-8000-000000000007', title: 'Nightly changelog summary', project: 'code/tools', entrypoint: 'sdk-cli', ageMinutes: 74 * HOUR },
@@ -292,6 +292,7 @@ try {
   assert.equal(await page.getByText(/Pull or copy each project into its folder here before you resume/).count(), 1, 'import preview reminds to bring the project files')
   assert.equal(await webTarget.getAttribute('title'), join(target.home, 'code', 'web'), 'the field keeps the absolute folder in its tooltip')
   const webRow = page.locator('.mapping', { has: webTarget })
+  assert.equal(await page.locator('.mapping').count(), new Set(fixtures.map((fixture) => fixture.project)).size, 'one folder row per project, none for the subfolders a session moved into')
   assert.equal(await webRow.locator('.mapping-branches').textContent(), 'feature/settings-form, main', 'the folder row names the branches to check out')
   assert.equal(await webRow.locator('.mapping-status').textContent(), 'Folder does not exist yet', 'mapping flags a missing folder')
   await webRow.getByRole('button', { name: 'Choose…' }).click()

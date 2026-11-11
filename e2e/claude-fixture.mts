@@ -20,6 +20,8 @@ export interface Fixture {
   rounds?: number
   /** Defaults to `main`. */
   branch?: string
+  /** Folders under the project the session moved into after its first prompt, as `cd` would record them. */
+  subfolders?: string[]
 }
 
 const ROUND_FILES = ['src/index.ts', 'src/queue.ts', 'src/worker.ts', 'test/queue.test.ts']
@@ -49,7 +51,8 @@ export async function writeClaudeSession(store: string, home: string, fixture: F
   const lines = turns.map((turn, index) => {
     const uuid = `${fixture.id.slice(0, 8)}-${String(index).padStart(4, '0')}-4000-8000-000000000000`
     const timestamp = new Date(end - (turns.length - 1 - index) * MINUTE).toISOString()
-    const record = { parentUuid, isSidechain: false, userType: 'external', cwd, sessionId: fixture.id, version: '2.1.319', gitBranch: fixture.branch ?? 'main', entrypoint: fixture.entrypoint, uuid, timestamp, type: turn.type, message: { role: turn.type, content: turn.content } }
+    const at = index > 0 && fixture.subfolders?.length ? join(cwd, fixture.subfolders[(index - 1) % fixture.subfolders.length]!) : cwd
+    const record = { parentUuid, isSidechain: false, userType: 'external', cwd: at, sessionId: fixture.id, version: '2.1.319', gitBranch: fixture.branch ?? 'main', entrypoint: fixture.entrypoint, uuid, timestamp, type: turn.type, message: { role: turn.type, content: turn.content } }
     parentUuid = uuid
     return JSON.stringify(record)
   })
