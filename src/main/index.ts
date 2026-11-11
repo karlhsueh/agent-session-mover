@@ -25,7 +25,7 @@ const e2e = app.isPackaged
       // `0.9.9` starts the update status at available for that version, so a test can see the update notice.
       update: process.env.AGENT_SESSIONS_E2E_UPDATE,
     }
-const APP_NAME = 'Agent Sessions'
+const APP_NAME = 'Agent Session Mover'
 // Journals and backups live in userData, and its default folder follows the app name. Pinning it
 // keeps an unfinished import recoverable across the rename and between dev and packaged builds.
 app.setPath('userData', join(app.getPath('appData'), 'agent-sessions'))
@@ -119,7 +119,7 @@ function setMenu(updater: Updater): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
-const archiveFilter = { name: 'Agent Sessions archive', extensions: [ARCHIVE_EXTENSION] }
+const archiveFilter = { name: 'Agent Session Mover archive', extensions: [ARCHIVE_EXTENSION] }
 
 function registerSessionHandlers(service: SessionService): void {
   const emitter = (event: IpcMainInvokeEvent) => (progress: ProgressEvent) => {

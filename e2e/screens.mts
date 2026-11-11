@@ -57,12 +57,12 @@ const TREE: Record<string, State> = {
   selection: async (page) => {
     await page.keyboard.press('ArrowLeft')
     await selectAcrossProjects(page)
-    for (const folder of ['agent-sessions', 'api']) await page.getByRole('button', { name: `Collapse ${folder}` }).first().click()
+    for (const folder of ['agent-session-mover', 'api']) await page.getByRole('button', { name: `Collapse ${folder}` }).first().click()
     await list(page).evaluate((el) => el.scrollTo(0, 0))
   },
   light: async (page) => {
     await page.getByRole('button', { name: 'Clear', exact: true }).click()
-    for (const folder of ['agent-sessions', 'api']) await page.getByRole('button', { name: `Expand ${folder}` }).first().click()
+    for (const folder of ['agent-session-mover', 'api']) await page.getByRole('button', { name: `Expand ${folder}` }).first().click()
     await list(page).focus()
     await page.keyboard.press('Home')
     await page.getByRole('button', { name: 'Use light theme' }).click()

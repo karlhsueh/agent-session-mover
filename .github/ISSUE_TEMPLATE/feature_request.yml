@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Agent Sessions stays focused on moving sessions between computers. It does not convert sessions between agents. To propose another agent, read docs/adding-an-agent.md first.
+        Agent Session Mover stays focused on moving sessions between computers. It does not convert sessions between agents. To propose another agent, read docs/adding-an-agent.md first.
   - type: textarea
     id: problem
     attributes:

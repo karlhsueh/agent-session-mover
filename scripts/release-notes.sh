@@ -5,7 +5,7 @@ set -euo pipefail
 tag="$1"
 previous="${2:-$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || true)}"
 range="${previous:+$previous..}$tag"
-repo="${GITHUB_REPOSITORY:-karlhsueh/agent-sessions}"
+repo="${GITHUB_REPOSITORY:-karlhsueh/agent-session-mover}"
 
 # Scopes that change the website or the demo, not the app people install.
 SKIP_SCOPES='site|demo'

@@ -1,6 +1,6 @@
 # Contributing
 
-Bug reports and fixes are welcome. One person maintains Agent Sessions in their spare time, so replies can take a while, and a pull request may be closed or reworked rather than merged.
+Bug reports and fixes are welcome. One person maintains Agent Session Mover in their spare time, so replies can take a while, and a pull request may be closed or reworked rather than merged.
 
 - **Bug fixes.** Send a pull request. For anything beyond a small fix, open an issue first that shows the failure.
 - **Features and other agents.** Open an issue before you write code, so we can agree it fits. The tool stays focused on moving sessions between machines. It does not convert sessions between agents. To add an agent, read [Adding an agent](docs/adding-an-agent.md).
@@ -17,7 +17,7 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm dev` runs inside Electron's own app, so the macOS menu bar shows "Electron" there. The packaged app from `pnpm package` shows "Agent Sessions".
+`pnpm dev` runs inside Electron's own app, so the macOS menu bar shows "Electron" there. The packaged app from `pnpm package` shows "Agent Session Mover".
 
 ## Code layout
 
@@ -46,8 +46,8 @@ Run `pnpm typecheck`, `pnpm test`, and `pnpm smoke`. CI runs the same three on m
 | `pnpm start`     | Builds the app and runs the build.                               |
 | `pnpm typecheck` | Type checks the Node side and the renderer separately.           |
 | `pnpm test`      | Runs the unit and behavior tests in `test/` with vitest.         |
-| `pnpm package` | Builds `dist/mac-arm64/Agent Sessions.app` and the Intel `dist/mac/Agent Sessions.app` (or the Windows or Linux folder on those systems) with the app name and icon. It is not code-signed. |
-| `pnpm dist` | Builds the installers for this OS into `dist/`, named `agent-sessions-<os>-<arch>`. On a Mac without the signing certificate, run it as `CSC_IDENTITY_AUTO_DISCOVERY=false pnpm dist`. |
+| `pnpm package` | Builds `dist/mac-arm64/Agent Session Mover.app` and the Intel `dist/mac/Agent Session Mover.app` (or the Windows or Linux folder on those systems) with the app name and icon. It is not code-signed. |
+| `pnpm dist` | Builds the installers for this OS into `dist/`, named `agent-session-mover-<os>-<arch>`. On a Mac without the signing certificate, run it as `CSC_IDENTITY_AUTO_DISCOVERY=false pnpm dist`. |
 | `pnpm smoke`     | Builds the app, drives listing progress, refresh, export, and import for Claude Code and Codex on temp stores, and saves screenshots in `artifacts/`. |
 | `pnpm screens [prefix]` | Builds the app, opens it on a synthetic store of 52 sessions in 26 folders, and saves each browse state, an import preview, and an import that replaces a file to `artifacts/compare/<prefix>-<state>.png`. The prefix defaults to `after`. It prints how many rows each state shows without scrolling. |
 | `pnpm site:images` | Renders the app at 2x on the synthetic stores and rewrites the website images in `site/`. Run it after a visible UI change. |

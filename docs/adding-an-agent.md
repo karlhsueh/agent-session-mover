@@ -9,7 +9,7 @@ read_when:
 
 Most of the work is research, not code. Before you write a provider, find out exactly where the agent keeps a session on disk and what its CLI needs to resume one on another computer. Claude Code needed only its transcript files. Codex also needed rows in its SQLite database. Open an issue with what you found before you start on code, so we can agree the agent fits.
 
-An agent fits when a session is a set of files on the user's computer, and copying those files, with folder paths rewritten, lets the CLI resume it there. Agent Sessions does not convert sessions between agents, and it does not talk to cloud services.
+An agent fits when a session is a set of files on the user's computer, and copying those files, with folder paths rewritten, lets the CLI resume it there. Agent Session Mover does not convert sessions between agents, and it does not talk to cloud services.
 
 ## 1. Document the storage
 

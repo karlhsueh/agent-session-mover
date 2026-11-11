@@ -5,7 +5,7 @@ export type Tone = 'good' | 'info' | 'neutral' | 'warn' | 'bad'
 
 export const ACTIONS: { [K in ImportAction['kind']]: { label: string; tone: Tone; describe: (action: Extract<ImportAction, { kind: K }>) => string } } = {
   create: { label: 'Create', tone: 'good', describe: () => 'This session is not on this machine yet.' },
-  update: { label: 'Update', tone: 'info', describe: () => 'This machine has an older copy. Agent Sessions backs it up before the newer copy replaces it.' },
+  update: { label: 'Update', tone: 'info', describe: () => 'This machine has an older copy. Agent Session Mover backs it up before the newer copy replaces it.' },
   'skip-identical': { label: 'Identical', tone: 'neutral', describe: () => 'This machine already has a byte-for-byte copy. There is nothing to import.' },
   conflict: { label: 'Conflict', tone: 'warn', describe: (action) => action.message },
   blocked: { label: 'Blocked', tone: 'bad', describe: (action) => action.message },
@@ -51,10 +51,10 @@ export function describeOutcome(outcome: SessionImportOutcome): string | null {
     case 'skipped':
       return 'This machine already has an identical copy.'
     case 'refused':
-      return `Agent Sessions did not import this session. ${describeAction(outcome.action)}`
+      return `Agent Session Mover did not import this session. ${describeAction(outcome.action)}`
     case 'failed':
       return outcome.rolledBack
-        ? `${outcome.error} Agent Sessions rolled back every change for this session.`
-        : `${outcome.error} Rollback did not finish. Agent Sessions retries it at the next launch.`
+        ? `${outcome.error} Agent Session Mover rolled back every change for this session.`
+        : `${outcome.error} Rollback did not finish. Agent Session Mover retries it at the next launch.`
   }
 }

@@ -110,7 +110,7 @@ export function App() {
     <div className="app">
       {!(browsing && !inImport) && (
         <TitleBar theme={theme} onToggleTheme={toggleTheme}>
-          <span className="app-name">Agent Sessions</span>
+          <span className="app-name">Agent Session Mover</span>
         </TitleBar>
       )}
 

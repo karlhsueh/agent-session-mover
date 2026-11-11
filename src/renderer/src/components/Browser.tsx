@@ -181,7 +181,7 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
     return (
       <>
         <TitleBar theme={theme} onToggleTheme={onToggleTheme}>
-          <span className="app-name">Agent Sessions</span>
+          <span className="app-name">Agent Session Mover</span>
           <RefreshButton refreshing={refreshing} onRefresh={onRefresh} />
         </TitleBar>
         {notice}

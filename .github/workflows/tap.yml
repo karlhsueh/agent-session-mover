@@ -25,7 +25,7 @@ concurrency:
 jobs:
   update:
     name: Update the cask
-    if: github.repository == 'karlhsueh/agent-sessions' && !github.event.release.prerelease
+    if: github.repository == 'karlhsueh/agent-session-mover' && !github.event.release.prerelease
     runs-on: ubuntu-latest
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
@@ -52,7 +52,7 @@ jobs:
         run: git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/karlhsueh/homebrew-tap.git" "$RUNNER_TEMP/tap"
 
       - name: Write the cask
-        run: scripts/update-cask.sh "$TAG" "$RUNNER_TEMP/sums/SHA256SUMS" "$RUNNER_TEMP/tap/Casks/agent-sessions.rb"
+        run: scripts/update-cask.sh "$TAG" "$RUNNER_TEMP/sums/SHA256SUMS" "$RUNNER_TEMP/tap/Casks/agent-session-mover.rb"
 
       - name: Push
         working-directory: ${{ runner.temp }}/tap
@@ -67,5 +67,5 @@ jobs:
           fi
           git config user.name "$BOT"
           git config user.email "$(gh api "users/$BOT" --jq .id)+$BOT@users.noreply.github.com"
-          git commit -am "feat(cask): agent-sessions ${TAG#v}"
+          git commit -am "feat(cask): agent-session-mover ${TAG#v}"
           git push origin HEAD

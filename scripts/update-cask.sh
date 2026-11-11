@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: scripts/update-cask.sh <version> <SHA256SUMS path> <cask path>
-# Writes packaging/homebrew/agent-sessions.rb to <cask path> with the version and both dmg hashes filled in.
+# Writes packaging/homebrew/agent-session-mover.rb to <cask path> with the version and both dmg hashes filled in.
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
@@ -11,7 +11,7 @@ fi
 version="${1#v}"
 sums="$2"
 cask="$3"
-template="$(dirname "$0")/../packaging/homebrew/agent-sessions.rb"
+template="$(dirname "$0")/../packaging/homebrew/agent-session-mover.rb"
 
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
   echo "error: '$1' is not a version like 1.2.3" >&2
@@ -28,8 +28,8 @@ hash_for() {
   printf '%s' "$hash"
 }
 
-arm="$(hash_for agent-sessions-mac-arm64.dmg)"
-intel="$(hash_for agent-sessions-mac-x64.dmg)"
+arm="$(hash_for agent-session-mover-mac-arm64.dmg)"
+intel="$(hash_for agent-session-mover-mac-x64.dmg)"
 
 rendered="$(sed -E \
   -e "s/^( *version )\"[^\"]*\"/\\1\"$version\"/" \

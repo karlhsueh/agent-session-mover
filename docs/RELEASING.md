@@ -13,11 +13,11 @@ The Release workflow in `.github/workflows/release.yml` raises the version, tags
 
 | File | Platform |
 | --- | --- |
-| `agent-sessions-mac-arm64.dmg`, `.zip` | macOS on Apple silicon |
-| `agent-sessions-mac-x64.dmg`, `.zip` | macOS on Intel. Built on the same Apple silicon runner and never run on an Intel Mac in CI. |
-| `agent-sessions-win-x64.exe` | Windows x64 (NSIS installer) |
-| `agent-sessions-linux-x86_64.AppImage` | Linux x64 |
-| `agent-sessions-linux-amd64.deb` | Debian and Ubuntu x64 |
+| `agent-session-mover-mac-arm64.dmg`, `.zip` | macOS on Apple silicon |
+| `agent-session-mover-mac-x64.dmg`, `.zip` | macOS on Intel. Built on the same Apple silicon runner and never run on an Intel Mac in CI. |
+| `agent-session-mover-win-x64.exe` | Windows x64 (NSIS installer) |
+| `agent-session-mover-linux-x86_64.AppImage` | Linux x64 |
+| `agent-session-mover-linux-amd64.deb` | Debian and Ubuntu x64 |
 | `latest-mac.yml`, `latest.yml`, `latest-linux.yml` | Update metadata. The installed app reads these to find a newer version and its hash. |
 | `*.blockmap` | Lets the updater download only the changed parts of an installer |
 | `SHA256SUMS` | SHA-256 of every file above |
@@ -49,7 +49,7 @@ The workflow runs these jobs in order. Each one stops the release if it fails.
 | Bump the version and tag | Runs `npm version` on `package.json`, commits it, tags `v<version>`, and pushes both together as the release app. If `main` moved after the run started, it pushes neither. The push runs CI on the version commit. |
 | Build | Builds each platform from the tag. On macOS it checks that Gatekeeper reports the app as `Notarized Developer ID`. |
 | Publish the GitHub release | Checks that every file in the table above is present and that each `latest*.yml` names the new version. Uploads them to a draft with notes from `scripts/release-notes.sh`, writes `SHA256SUMS`, then publishes it as the latest release. |
-| Update the Homebrew tap | Runs `.github/workflows/tap.yml`, which renders `packaging/homebrew/agent-sessions.rb` with the new version and both dmg hashes into `Casks/agent-sessions.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. |
+| Update the Homebrew tap | Runs `.github/workflows/tap.yml`, which renders `packaging/homebrew/agent-session-mover.rb` with the new version and both dmg hashes into `Casks/agent-session-mover.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. |
 
 Publishing offers the update. Installed apps from 0.1.4 on read the update metadata of the latest published release and show an Update button.
 
@@ -57,13 +57,13 @@ To look over a release before anyone can see it, run with `-f draft=true`. The w
 
 If a build fails, fix the cause and run `gh run rerun <run-id> --failed`. The version commit and tag stay, and the rerun builds the same tag. The workflow never replaces the files of a published release. To fix a published release, run the workflow again for the next version.
 
-`packaging/homebrew/agent-sessions.rb` is the cask template. Each release overwrites the tap's copy with it, so change the cask here, never in the tap.
+`packaging/homebrew/agent-session-mover.rb` is the cask template. Each release overwrites the tap's copy with it, so change the cask here, never in the tap.
 
 Users can check a download with `shasum -a 256 -c SHA256SUMS --ignore-missing`.
 
 ## One-time setup of the secrets
 
-The workflow reads five repository secrets. GitHub encrypts them and never shows them again, so keep your own copies in a password manager. Run the `gh` commands from this repo's folder, or add `-R karlhsueh/agent-sessions`.
+The workflow reads five repository secrets. GitHub encrypts them and never shows them again, so keep your own copies in a password manager. Run the `gh` commands from this repo's folder, or add `-R karlhsueh/agent-session-mover`.
 
 | Secret | Holds |
 | --- | --- |
@@ -139,7 +139,7 @@ gh secret set RELEASE_APP_PRIVATE_KEY < ~/Downloads/agent-sessions-release.*.pri
 trash ~/Downloads/agent-sessions-release.*.private-key.pem
 ```
 
-Read or change the ruleset with `gh api repos/karlhsueh/agent-sessions/rulesets`.
+Read or change the ruleset with `gh api repos/karlhsueh/agent-session-mover/rulesets`.
 
 ### When the macOS job fails
 
@@ -154,5 +154,5 @@ After fixing secrets, rerun the failed job with `gh run rerun <run-id> --failed`
 ## What users see from unsigned builds
 
 - Windows SmartScreen warns about an unknown publisher. Click More info, then Run anyway.
-- The AppImage needs `chmod +x` before it runs. The deb installs with `sudo apt install ./agent-sessions-linux-amd64.deb`.
+- The AppImage needs `chmod +x` before it runs. The deb installs with `sudo apt install ./agent-session-mover-linux-amd64.deb`.
 - macOS blocks an ad-hoc signed build on first open. Open System Settings, then Privacy & Security, and click Open Anyway.

@@ -22,7 +22,7 @@ export function EmptyStore({ list, storeRoots, onImport }: { list: List; storeRo
       <Problems list={list} />
       <div className="empty-card">
         <h1>No sessions on this machine</h1>
-        <p className="dim">Agent Sessions looked for Claude Code and Codex sessions in:</p>
+        <p className="dim">Agent Session Mover looked for Claude Code and Codex sessions in:</p>
         <ul className="roots">
           {storeRoots.map((root) => (
             <li key={root.agent}>

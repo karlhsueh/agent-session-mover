@@ -1,5 +1,5 @@
 ---
-summary: Where Claude Code and Codex store sessions, what a resume needs, and the rules Agent Sessions follows to export and import them.
+summary: Where Claude Code and Codex store sessions, what a resume needs, and the rules Agent Session Mover follows to export and import them.
 read_when:
   - Changing discovery, export, or import for any agent
   - Adding an agent or client
@@ -29,7 +29,7 @@ Each row depends on two separate facts. The first is whether the client shares t
 | Codex IDE extension | Probably | Not installed on the test machine. Its source tag `vscode` suggests the same store. Inferred. |
 | Codex ChatGPT-hosted threads and Codex Cloud tasks | No | They have no local rollout file. |
 
-A session that resumes in one client is not automatically resumable in another. Agent Sessions reports the client that created a session and never claims cross-client resume beyond what this doc marks verified.
+A session that resumes in one client is not automatically resumable in another. Agent Session Mover reports the client that created a session and never claims cross-client resume beyond what this doc marks verified.
 
 ## Claude Code
 
@@ -71,7 +71,7 @@ Each line is one JSON object. Conversation records (`user`, `assistant`, `attach
 - `--continue` picks the newest file by modification time, not by record timestamp. Verified.
 - If the same session id exists in two project folders other than the current one, `--resume <id>` reports `No conversation found`. Verified. That makes `sessionId` the conflict key across the whole store.
 - Resume works with stale `cwd` fields, mismatched account ids, and a half-written last line. Verified.
-- A session that was never trusted in the target folder shows the trust dialog on the first interactive run. Agent Sessions does not edit `~/.claude.json` to skip it.
+- A session that was never trusted in the target folder shows the trust dialog on the first interactive run. Agent Session Mover does not edit `~/.claude.json` to skip it.
 
 ### Import
 

@@ -99,7 +99,7 @@ const shot = async (page: Page, name: string) => {
 const laptop = await launch(source, { AGENT_SESSIONS_E2E_SAVE_PATH: archivePath })
 try {
   const { app, page, problems } = laptop
-  assert.equal(await page.title(), 'Agent Sessions', 'window has the default title')
+  assert.equal(await page.title(), 'Agent Session Mover', 'window has the default title')
   assert.deepEqual(
     await page.evaluate('Object.keys(window.api)'),
     ['listSessions', 'previewSession', 'exportSessions', 'openArchive', 'previewImport', 'previewArchiveSession', 'runImport', 'createFolder', 'onProgress', 'storeRoots', 'chooseFolder', 'revealExport', 'revealBackups', 'copyText', 'homeDir', 'onUpdateStatus', 'updateStatus', 'downloadUpdate', 'installUpdate'],

@@ -9,8 +9,8 @@ body:
   - type: input
     id: app_version
     attributes:
-      label: Agent Sessions version
-      description: On macOS, Agent Sessions > About Agent Sessions.
+      label: Agent Session Mover version
+      description: On macOS, Agent Session Mover > About Agent Session Mover.
       placeholder: 0.1.0
     validations:
       required: true

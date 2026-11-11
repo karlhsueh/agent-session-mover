@@ -70,7 +70,7 @@ const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2}
 
 export function parseManifest(input: unknown): Manifest {
   const root = record(input, 'manifest')
-  if (root.format !== MANIFEST_FORMAT) fail('manifest.format', 'is not an Agent Sessions archive')
+  if (root.format !== MANIFEST_FORMAT) fail('manifest.format', 'is not an Agent Session Mover archive')
   if (root.version !== MANIFEST_VERSION) fail('manifest.version', `must be ${MANIFEST_VERSION}`)
   const sourceRecord = record(root.source, 'manifest.source')
   const sep = sourceRecord.sep

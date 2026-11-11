@@ -124,7 +124,7 @@ export function createUpdater(options: { packaged: boolean; forcedVersion?: stri
         const { response } = await show({
           type: 'info',
           message: `Version ${status.version} is ready to install.`,
-          detail: 'Agent Sessions will restart to finish the update.',
+          detail: 'Agent Session Mover will restart to finish the update.',
           buttons: ['Restart', 'Later'],
           defaultId: 0,
           cancelId: 1,
@@ -133,7 +133,7 @@ export function createUpdater(options: { packaged: boolean; forcedVersion?: stri
         return
       }
       if (status.kind === 'downloading') {
-        await show({ type: 'info', message: `Version ${status.version} is downloading.`, detail: 'Agent Sessions will offer to restart when it is ready.' })
+        await show({ type: 'info', message: `Version ${status.version} is downloading.`, detail: 'Agent Session Mover will offer to restart when it is ready.' })
         return
       }
       try {
@@ -149,7 +149,7 @@ export function createUpdater(options: { packaged: boolean; forcedVersion?: stri
           })
           if (response === 0) download()
         } else {
-          await show({ type: 'info', message: `Agent Sessions ${app.getVersion()} is the newest version.` })
+          await show({ type: 'info', message: `Agent Session Mover ${app.getVersion()} is the newest version.` })
         }
       } catch (error) {
         console.error('Update check failed:', error)

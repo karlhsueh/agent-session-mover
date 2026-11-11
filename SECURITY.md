@@ -4,7 +4,7 @@
 
 A `.agentsessions` archive holds full session transcripts, unredacted. That includes the account email and ids recorded in a session, system prompts, every message, and the contents of files and command output the agent read. Treat an archive like the source code and secrets it may quote. Send it over a channel you trust and delete it when the move is done.
 
-Agent Sessions never puts credentials, auth tokens, settings, or prompt history into an archive.
+Agent Session Mover never puts credentials, auth tokens, settings, or prompt history into an archive.
 
 ## What import trusts
 
@@ -14,4 +14,4 @@ The app sends nothing about your sessions over the network. Its only request is 
 
 ## Reporting a vulnerability
 
-Please report security problems privately through [GitHub's private vulnerability reporting](https://github.com/karlhsueh/agent-sessions/security/advisories/new) rather than in a public issue. Include the app version, your OS, and steps or an archive that reproduces the problem.
+Please report security problems privately through [GitHub's private vulnerability reporting](https://github.com/karlhsueh/agent-session-mover/security/advisories/new) rather than in a public issue. Include the app version, your OS, and steps or an archive that reproduces the problem.

@@ -6,9 +6,9 @@ import { matchParts } from '../model/rows'
 
 const ERROR_LEAD: Record<ApiError['code'], string> = {
   busy: 'Another export or import is still running.',
-  'invalid-archive': 'This file is not a valid Agent Sessions archive.',
+  'invalid-archive': 'This file is not a valid Agent Session Mover archive.',
   'unknown-archive': 'That archive was closed. Open it again.',
-  'invalid-input': 'Agent Sessions rejected the request.',
+  'invalid-input': 'Agent Session Mover rejected the request.',
   io: 'Something went wrong reading or writing files.',
 }
 

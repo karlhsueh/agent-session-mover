@@ -1,6 +1,6 @@
 {
-  "name": "agent-sessions",
-  "productName": "Agent Sessions",
+  "name": "agent-session-mover",
+  "productName": "Agent Session Mover",
   "version": "0.1.10",
   "private": true,
   "description": "Export and import Claude Code and Codex sessions between computers.",
@@ -9,7 +9,7 @@
     "name": "karlhsueh",
     "email": "7528921+karlhsueh@users.noreply.github.com"
   },
-  "homepage": "https://github.com/karlhsueh/agent-sessions",
+  "homepage": "https://github.com/karlhsueh/agent-session-mover",
   "packageManager": "pnpm@10.13.1",
   "engines": {
     "node": ">=24"
@@ -51,12 +51,12 @@
   },
   "build": {
     "appId": "com.karlhsueh.agent-sessions",
-    "productName": "Agent Sessions",
+    "productName": "Agent Session Mover",
     "artifactName": "${name}-${os}-${arch}.${ext}",
     "publish": {
       "provider": "github",
       "owner": "karlhsueh",
-      "repo": "agent-sessions",
+      "repo": "agent-session-mover",
       "releaseType": "release"
     },
     "directories": {

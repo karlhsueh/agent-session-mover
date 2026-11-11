@@ -6,7 +6,7 @@ import { DAY, HOUR, type Fixture } from './claude-fixture.mts'
  */
 const PROJECTS: [project: string, sessions: [title: string, ageMinutes: number, entrypoint?: string][]][] = [
   [
-    'code/agent-sessions',
+    'code/agent-session-mover',
     [
       ['Try fixed panels for the session browser', 3, 'cli'],
       ['Group sessions by project and nest subagents', 2 * HOUR],
