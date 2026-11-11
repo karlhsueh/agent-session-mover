@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
 import type { ConflictChoice, ImportRequest, ProgressEvent, SessionImportPreview, SessionInfo, SessionKey, SessionPreview } from '../../../shared/sessions'
-import { usePreviews } from '../hooks'
+import { useHomeDir, usePreviews } from '../hooks'
 import { AGENT_LABEL, folderName, platformLabel, plural, sessionTitle, shortDateTime } from '../model/format'
-import { ACTIONS, conflictChoice, conflictKeys, describeAction, isActionable, planBadge, selectedForImport, warningText } from '../model/importing'
+import { ACTIONS, conflictChoice, conflictKeys, describeAction, isActionable, planBadge, selectedForImport, warningText, willImport } from '../model/importing'
 import { type Loadable, shownPreview, type PreviewScreen } from '../state'
 import { ErrorBanner, ProgressBar, Sheet } from './common'
 import { Conversation } from './Conversation'
@@ -28,6 +28,8 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onChoose, onR
   const counts = new Map<string, number>()
   for (const session of preview?.sessions ?? []) counts.set(session.action.kind, (counts.get(session.action.kind) ?? 0) + 1)
   const token = archive.token
+  const home = useHomeDir()
+  const listedFolders = new Set(screen.mappings.map((mapping) => mapping.target.replace(/[\\/]+$/, '')))
   const [conversation, requestConversation] = usePreviews(useCallback((key: SessionKey) => window.api.previewArchiveSession(token, key), [token]), token)
   const [open, setOpen] = useState<ReadonlySet<SessionKey>>(new Set())
   const toggleOpen = (key: SessionKey) => {
@@ -72,10 +74,10 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onChoose, onR
             <h2 id="sessions-heading">Sessions</h2>
             <p className="dim summary-counts">
               {state.status === 'loading'
-                ? 'Checking this machine…'
+                ? 'Checking this computer…'
                 : (Object.keys(ACTIONS) as (keyof typeof ACTIONS)[])
                     .filter((kind) => counts.has(kind))
-                    .map((kind) => `${counts.get(kind)} ${ACTIONS[kind].label.toLowerCase()}`)
+                    .map((kind) => ACTIONS[kind].count(counts.get(kind)!))
                     .join(' · ')}
             </p>
           </header>
@@ -93,6 +95,8 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onChoose, onR
                 conversation={open.has(session.key) ? conversation(session.key) : undefined}
                 onConversation={() => toggleOpen(session.key)}
                 onRetry={() => requestConversation(session.key)}
+                home={home}
+                listedFolders={listedFolders}
               />
             ))}
           </ul>
@@ -125,14 +129,19 @@ interface PlanRowProps {
   conversation: Loadable<SessionPreview> | null | undefined
   onConversation: () => void
   onRetry: () => void
+  home: string
+  /** Mapping targets, which the Folders section already flags when missing. */
+  listedFolders: ReadonlySet<string>
 }
 
-function PlanRow({ session, plan, included, onToggle, choice, onChoose, conversation, onConversation, onRetry }: PlanRowProps) {
+function PlanRow({ session, plan, included, onToggle, choice, onChoose, conversation, onConversation, onRetry, home, listedFolders }: PlanRowProps) {
   const actionable = plan !== null && isActionable(plan.action)
   const conflict = plan?.action.kind === 'conflict'
   const id = `plan-${session.key}`
   const shown = conversation !== undefined
-  const live = actionable || (conflict && choice === 'replace')
+  const live = plan !== null && willImport(plan.action, included, choice)
+  // Warnings are about resuming, so a row that imports nothing whatever the tick says has none.
+  const warnings = actionable || (conflict && choice === 'replace') ? (plan?.warnings ?? []) : []
   const badge = plan && planBadge(plan.action, choice)
   // A conflict row holds buttons, which a label must not wrap.
   const Main = conflict ? 'div' : 'label'
@@ -143,6 +152,7 @@ function PlanRow({ session, plan, included, onToggle, choice, onChoose, conversa
       ) : (
         <input id={id} type="checkbox" checked={actionable && included} disabled={!actionable} onChange={() => onToggle(session.key)} />
       )}
+      <span className="plan-badge">{badge && <span className={`badge tone-${badge.tone}`}>{badge.label}</span>}</span>
       <Main htmlFor={conflict ? undefined : id} className="plan-main">
         <span className="plan-title">
           <span className="truncate">{sessionTitle(session)}</span>
@@ -159,15 +169,14 @@ function PlanRow({ session, plan, included, onToggle, choice, onChoose, conversa
           )}
         </span>
         {plan && plan.action.kind !== 'create' && <span className="plan-message">{describeAction(plan.action, session)}</span>}
-        {plan?.warnings.map((warning) => (
+        {warnings.map((warning) => (
           <span key={warning.code} className="plan-warning">
-            {warningText(warning, session.agent)}
+            {warningText(warning, session.agent, home, warning.code === 'target-cwd-missing' && listedFolders.has(warning.path))}
           </span>
         ))}
         {conflict && <ConflictChoices title={sessionTitle(session)} choice={choice} onChoose={onChoose} />}
       </Main>
       <span className="plan-side">
-        {badge && <span className={`badge tone-${badge.tone}`}>{badge.label}</span>}
         <button
           type="button"
           className="button ghost small"

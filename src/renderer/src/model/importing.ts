@@ -1,32 +1,49 @@
 import type { AgentId, ConflictChoice, ImportAction, ImportPreview, ImportRequest, ImportWarning, SessionImportOutcome, SessionInfo, SessionKey } from '../../../shared/sessions'
-import { pickerNote, shortDateTime } from './format'
+import { pickerNote, plural, shortDateTime, tildePath } from './format'
 
 export type Tone = 'good' | 'info' | 'neutral' | 'warn' | 'bad'
 
-type Described = Pick<SessionInfo, 'lastActivity'>
-
-export const ACTIONS: { [K in ImportAction['kind']]: { label: string; tone: Tone; describe: (action: Extract<ImportAction, { kind: K }>, session: Described | null) => string } } = {
-  create: { label: 'Create', tone: 'good', describe: () => 'This session is not on this machine yet.' },
-  update: { label: 'Update', tone: 'info', describe: () => 'This machine has an older copy. Agent Session Mover backs it up before the newer copy replaces it.' },
-  'skip-identical': { label: 'Identical', tone: 'neutral', describe: () => 'This machine already has a byte-for-byte copy. There is nothing to import.' },
-  conflict: { label: 'Conflict', tone: 'warn', describe: describeConflict },
-  blocked: { label: 'Blocked', tone: 'bad', describe: (action) => action.message },
+export interface Badge {
+  label: string
+  tone: Tone
 }
 
-const CONFLICT_LEAD: Record<Extract<ImportAction, { kind: 'conflict' }>['reason'], string> = {
+type Described = Pick<SessionInfo, 'lastActivity'>
+type Conflict = Extract<ImportAction, { kind: 'conflict' }>
+
+/**
+ * The plan names what import will do and the result says it was done, in the same words:
+ * Add and Added, Update and Updated, Replace and Replaced.
+ */
+export const ACTIONS: {
+  [K in ImportAction['kind']]: Badge & { count: (n: number) => string; describe: (action: Extract<ImportAction, { kind: K }>, session: Described | null) => string }
+} = {
+  create: { label: 'Add', tone: 'good', count: (n) => `${n} to add`, describe: () => 'This session is not on this computer yet.' },
+  update: {
+    label: 'Update',
+    tone: 'info',
+    count: (n) => `${n} to update`,
+    describe: () => 'This computer has an older copy. Agent Session Mover backs it up before the newer copy replaces it.',
+  },
+  'skip-identical': { label: 'Identical', tone: 'neutral', count: (n) => `${n} identical`, describe: () => 'This computer already has a byte-for-byte copy. There is nothing to import.' },
+  conflict: { label: 'Conflict', tone: 'warn', count: (n) => plural(n, 'conflict'), describe: describeConflict },
+  blocked: { label: 'Blocked', tone: 'bad', count: (n) => `${n} blocked`, describe: (action) => action.message },
+}
+
+const CONFLICT_LEAD: Record<Conflict['reason'], string> = {
   diverged: 'This computer already has a different copy of this session',
   'target-newer': "This computer's copy of this session goes further than the archive's",
 }
 
 /** Dates let the user judge which copy to keep. */
-function describeConflict(action: Extract<ImportAction, { kind: 'conflict' }>, session: Described | null): string {
+function describeConflict(action: Conflict, session: Described | null): string {
   if (!action.hereChangedAt) return action.message
   const here = `${CONFLICT_LEAD[action.reason]}, last changed ${shortDateTime(action.hereChangedAt)}.`
   return session ? `${here} The archive's copy was last active ${shortDateTime(session.lastActivity)}.` : here
 }
 
 /** A conflict the user chose to replace reads as what will happen to it. */
-export function planBadge(action: ImportAction, choice: ConflictChoice): { label: string; tone: Tone } {
+export function planBadge(action: ImportAction, choice: ConflictChoice): Badge {
   return action.kind === 'conflict' && choice === 'replace' ? { label: 'Replace', tone: 'info' } : ACTIONS[action.kind]
 }
 
@@ -41,6 +58,11 @@ export function isActionable(action: ImportAction): boolean {
 /** Skip unless the user picked Replace, so nothing on this computer is replaced by default. */
 export function conflictChoice(choices: ReadonlyMap<SessionKey, ConflictChoice>, key: SessionKey): ConflictChoice {
   return choices.get(key) ?? 'skip'
+}
+
+/** True when import will write this session as the screen stands. */
+export function willImport(action: ImportAction, included: boolean, choice: ConflictChoice): boolean {
+  return isActionable(action) ? included : action.kind === 'conflict' && choice === 'replace'
 }
 
 /**
@@ -59,22 +81,33 @@ export function conflictKeys(preview: ImportPreview | null): SessionKey[] {
   return (preview?.sessions ?? []).filter((session) => session.action.kind === 'conflict').map((session) => session.key)
 }
 
-export function warningText(warning: ImportWarning, agent: AgentId): string {
+/** `listed` is true when the Folders section already shows the missing folder with its Create folder button. */
+export function warningText(warning: ImportWarning, agent: AgentId, home: string, listed: boolean): string {
   switch (warning.code) {
     case 'target-cwd-missing':
-      return `${warning.path} does not exist on this machine. The files import, but you need that folder to resume from it.`
+      return listed
+        ? 'Its folder does not exist yet. See Folders above.'
+        : `${tildePath(warning.path, home)} does not exist yet. The files import, but you need that folder to resume from it.`
     case 'hidden-from-picker':
       return pickerNote(agent, warning.clientDetail)
   }
 }
 
-export const OUTCOMES: Record<SessionImportOutcome['status'], { label: string; tone: Tone }> = {
-  created: { label: 'Placed', tone: 'good' },
-  updated: { label: 'Updated', tone: 'info' },
-  replaced: { label: 'Replaced', tone: 'info' },
-  skipped: { label: 'Skipped', tone: 'neutral' },
-  refused: { label: 'Refused', tone: 'warn' },
-  failed: { label: 'Failed', tone: 'bad' },
+export function outcomeBadge(outcome: SessionImportOutcome): Badge {
+  switch (outcome.status) {
+    case 'created':
+      return { label: 'Added', tone: 'good' }
+    case 'updated':
+      return { label: 'Updated', tone: 'info' }
+    case 'replaced':
+      return { label: 'Replaced', tone: 'info' }
+    case 'skipped':
+      return { label: 'Identical', tone: 'neutral' }
+    case 'refused':
+      return outcome.action.kind === 'conflict' ? { label: 'Kept', tone: 'warn' } : { label: 'Blocked', tone: 'bad' }
+    case 'failed':
+      return { label: 'Failed', tone: 'bad' }
+  }
 }
 
 /** Null when the badge already says everything. */
@@ -83,11 +116,11 @@ export function describeOutcome(outcome: SessionImportOutcome): string | null {
     case 'created':
       return null
     case 'updated':
-      return outcome.backupDir ? 'The import replaced the files. The old copy is in the backup folder.' : 'The import replaced the files.'
+      return outcome.backupDir ? 'The newer copy replaced the older one. The older copy is in the backup folder.' : 'The newer copy replaced the older one.'
     case 'replaced':
       return "The archive's copy replaced the one on this computer. The copy that was here is in the backup folder."
     case 'skipped':
-      return 'This machine already has an identical copy.'
+      return 'This computer already has an identical copy.'
     case 'refused':
       return outcome.action.kind === 'conflict'
         ? `Agent Session Mover kept the copy on this computer. ${outcome.action.message}`

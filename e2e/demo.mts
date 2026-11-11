@@ -196,7 +196,7 @@ try {
     await d.moveTo(page.locator('.mapping').first())
     await d.hold(1600)
     await d.click(page.getByRole('button', { name: 'Import 3 sessions' }))
-    await page.getByRole('heading', { name: '3 sessions placed' }).waitFor()
+    await page.getByRole('heading', { name: '3 sessions imported' }).waitFor()
     await d.caption('Resume right where you left off')
     await d.hold(900)
     await d.moveTo(page.locator('.outcome .command').first())

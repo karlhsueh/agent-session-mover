@@ -1,7 +1,7 @@
 import type { SessionKey } from '../../../shared/sessions'
 import { useHomeDir } from '../hooks'
 import { AGENT_LABEL, plural, REVEAL_LABEL, sessionTitle, shortCommand, tildePath } from '../model/format'
-import { describeOutcome, OUTCOMES } from '../model/importing'
+import { type Badge, describeOutcome, outcomeBadge } from '../model/importing'
 import type { Screen } from '../state'
 import { CommandLine, CopyButton } from './common'
 
@@ -22,7 +22,7 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
     <div className="import">
       <div className="import-scroll">
         <header className="import-head">
-          <h1>{placed.length > 0 ? `${plural(placed.length, 'session')} placed` : 'Nothing was imported'}</h1>
+          <h1>{placed.length > 0 ? `${plural(placed.length, 'session')} imported` : 'Nothing was imported'}</h1>
           <p className="dim">
             {placed.length > 0 &&
               `Pull your latest changes into each folder, then run a resume command in a terminal. The files are where ${agents.join(' and ')} looks for them, but Agent Session Mover cannot check that the agent opens them. `}
@@ -37,7 +37,7 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
           </header>
           <ul className="plan">
             {result.outcomes.map((outcome) => (
-              <OutcomeRow key={outcome.key} sessionKey={outcome.key} title={sessionTitle(info.get(outcome.key) ?? { title: null, id: outcome.key })} label={OUTCOMES[outcome.status]} message={describeOutcome(outcome)} resume={resumes.get(outcome.key) || null} />
+              <OutcomeRow key={outcome.key} sessionKey={outcome.key} title={sessionTitle(info.get(outcome.key) ?? { title: null, id: outcome.key })} label={outcomeBadge(outcome)} message={describeOutcome(outcome)} resume={resumes.get(outcome.key) || null} />
             ))}
           </ul>
         </section>
@@ -74,7 +74,7 @@ function OutcomeRow({
 }: {
   sessionKey: SessionKey
   title: string
-  label: (typeof OUTCOMES)[keyof typeof OUTCOMES]
+  label: Badge
   message: string | null
   resume: string | null
 }) {

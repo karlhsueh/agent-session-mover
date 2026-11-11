@@ -170,10 +170,21 @@
 
 .plan-row {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 16px 72px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: start;
   padding: 10px 16px;
+}
+
+.plan-badge {
+  display: flex;
+  padding-top: 1px;
+}
+
+.plan-badge .badge,
+.outcome-head .badge {
+  min-width: 72px;
+  justify-content: center;
 }
 
 .plan-row input {
@@ -228,13 +239,8 @@
   min-width: 0;
 }
 
-.outcome-head .badge {
-  min-width: 58px;
-  justify-content: center;
-}
-
 .outcome .plan-message {
-  padding-left: 68px;
+  padding-left: 82px;
 }
 
 .outcome .command {
@@ -265,7 +271,7 @@
 }
 
 .plan-conversation {
-  grid-column: 2 / -1;
+  grid-column: 3 / -1;
   max-height: 420px;
   overflow-y: auto;
   margin-top: 2px;
