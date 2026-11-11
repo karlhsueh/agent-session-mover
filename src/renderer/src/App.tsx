@@ -117,6 +117,7 @@ export function App() {
       {screen.kind === 'import-preview' || screen.kind === 'importing' ? (
         <ImportPreview
           screen={screen.kind === 'importing' ? screen.from : screen}
+          running={screen.kind === 'importing'}
           onMappingChange={(source, target) => screen.kind === 'import-preview' && changeMapping(screen, source, target)}
           onToggle={(key) =>
             updatePreview((current) => {

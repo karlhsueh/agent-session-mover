@@ -113,8 +113,8 @@ it('lists, exports, and imports Codex sessions through the app', { timeout: 120_
   expect(await desktop.page.locator('.plan').textContent(), 'the plan no longer warns about the folder').not.toMatch(/does not exist yet/)
   await desktop.page.screenshot({ animations: 'disabled', path: 'artifacts/codex-import-preview-dark.png' })
 
-  await desktop.page.getByRole('button', { name: /^Import \d+ sessions?$/ }).click()
-  await desktop.page.getByRole('heading', { name: /placed$/ }).waitFor()
+  await desktop.page.getByRole('button', { name: /^Import \d+ sessions?/ }).click()
+  await desktop.page.getByRole('heading', { name: /imported$/ }).waitFor()
   expect(await desktop.page.locator('.outcome').first().textContent(), 'resume command is a codex resume line').toMatch(/codex resume/)
   await desktop.page.screenshot({ animations: 'disabled', path: 'artifacts/codex-import-result-dark.png' })
 

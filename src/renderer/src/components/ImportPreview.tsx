@@ -1,15 +1,17 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ConflictChoice, ImportRequest, ProgressEvent, SessionImportPreview, SessionInfo, SessionKey, SessionPreview } from '../../../shared/sessions'
 import { useHomeDir, usePreviews } from '../hooks'
-import { AGENT_LABEL, folderName, platformLabel, plural, sessionTitle, shortDateTime } from '../model/format'
+import { AGENT_LABEL, folderName, IS_MAC, MOD, platformLabel, plural, sessionTitle, shortDateTime } from '../model/format'
 import { ACTIONS, conflictChoice, conflictKeys, describeAction, isActionable, planBadge, selectedForImport, warningText, willImport } from '../model/importing'
 import { type Loadable, shownPreview, type PreviewScreen } from '../state'
-import { ErrorBanner, ProgressBar, Sheet } from './common'
+import { ErrorBanner, Kbd, ProgressBar, Sheet } from './common'
 import { Conversation } from './Conversation'
 import { MappingEditor } from './MappingEditor'
 
 interface Props {
   screen: PreviewScreen
+  /** True while the import runs. The screen stays visible under the progress sheet but takes no keys. */
+  running: boolean
   onMappingChange: (source: string, target: string) => void
   onToggle: (key: SessionKey) => void
   onChoose: (keys: readonly SessionKey[], choice: ConflictChoice) => void
@@ -18,7 +20,15 @@ interface Props {
   onDismissError: () => void
 }
 
-export function ImportPreview({ screen, onMappingChange, onToggle, onChoose, onRun, onBack, onDismissError }: Props) {
+const RUN_KEY = `${MOD}${IS_MAC ? '↩' : 'Enter'}`
+
+/** Fields where Esc and Enter already mean something. A checkbox is not one. */
+function inTextField(target: EventTarget | null): boolean {
+  if (target instanceof HTMLInputElement) return !['checkbox', 'radio', 'button'].includes(target.type)
+  return target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable)
+}
+
+export function ImportPreview({ screen, running, onMappingChange, onToggle, onChoose, onRun, onBack, onDismissError }: Props) {
   const { archive, preview: state, excluded, conflicts } = screen
   const preview = shownPreview(state)
   const byKey = new Map((preview?.sessions ?? []).map((session) => [session.key, session]))
@@ -32,6 +42,24 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onChoose, onR
   const listedFolders = new Set(screen.mappings.map((mapping) => mapping.target.replace(/[\\/]+$/, '')))
   const [conversation, requestConversation] = usePreviews(useCallback((key: SessionKey) => window.api.previewArchiveSession(token, key), [token]), token)
   const [open, setOpen] = useState<ReadonlySet<SessionKey>>(new Set())
+  const canRun = requests.length > 0 && state.status === 'ready'
+
+  useEffect(() => {
+    if (running) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || inTextField(event.target)) return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onBack()
+      } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && canRun) {
+        event.preventDefault()
+        onRun(requests)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   const toggleOpen = (key: SessionKey) => {
     const next = new Set(open)
     if (!next.delete(key)) {
@@ -48,10 +76,11 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onChoose, onR
           <button type="button" className="button ghost small" onClick={onBack}>
             ← Sessions
           </button>
-          <h1>Import {archive.summary.fileName}</h1>
-          <p className="dim" title={`Home folder on that machine: ${archive.summary.source.homeDir}`}>
-            {plural(archive.summary.sessions.length, 'session')} · exported from {platformLabel(archive.summary.source.platform)} on{' '}
-            {shortDateTime(archive.summary.createdAt)}
+          <h1>
+            {plural(archive.summary.sessions.length, 'session')} from {platformLabel(archive.summary.source.platform)}
+          </h1>
+          <p className="dim" title={`Home folder on that computer: ${archive.summary.source.homeDir}`}>
+            <span className="selectable">{archive.summary.fileName}</span> · exported {shortDateTime(archive.summary.createdAt)}
           </p>
         </header>
 
@@ -108,9 +137,11 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onChoose, onR
         <span className="statusbar-actions">
           <button type="button" className="button" onClick={onBack}>
             Cancel
+            <Kbd>Esc</Kbd>
           </button>
-          <button type="button" className="button primary" disabled={requests.length === 0 || state.status !== 'ready'} onClick={() => onRun(requests)}>
+          <button type="button" className="button primary" disabled={!canRun} onClick={() => onRun(requests)}>
             {requests.length > 0 ? `Import ${plural(requests.length, 'session')}` : 'Nothing to import'}
+            {requests.length > 0 && <Kbd>{RUN_KEY}</Kbd>}
           </button>
         </span>
       </footer>

@@ -156,7 +156,8 @@ try {
   await page.getByRole('button', { name: 'Cancel' }).click()
   await page.keyboard.press('ControlOrMeta+O')
   await page.locator('.plan:not(.stale) .badge', { hasText: 'Update' }).waitFor()
-  await page.getByRole('button', { name: /^Import \d+ sessions?$/ }).click()
+  await shoot(page, 'import-update')
+  await page.getByRole('button', { name: /^Import \d+ sessions?/ }).click()
   await page.locator('.statusbar', { hasText: 'Backups of replaced copies' }).waitFor()
   await shoot(page, 'import-result-backups')
 

@@ -174,7 +174,7 @@ Planning has no side effects. `previewImport` runs it for display, and `runImpor
 
 A conflict plan writes nothing. It also carries `replace`, the writes and effects for the user's other choice: back up every file that differs and write the archive copy, as an update does, plus create the missing ones. `changesFor(plan, choice)` picks one. A conflict action also carries `hereChangedAt`, the newest mtime among the differing files here, so the UI can show when each copy last changed.
 
-The UI renders `ImportAction` from `src/shared/sessions.ts` directly. Conflict and blocked messages name no store paths. The plan and the result use the same verbs (Add and Added, Update and Updated, Replace and Replaced), from `src/renderer/src/model/importing.ts`. A row that imports nothing shows no warnings, and a missing folder that the Folders section already lists points there instead of repeating the path.
+The UI renders `ImportAction` from `src/shared/sessions.ts` directly. Conflict and blocked messages name no store paths. The plan and the result use the same verbs (Add and Added, Update and Updated, Replace and Replaced), from `src/renderer/src/model/importing.ts`. A row that imports nothing shows no warnings, and a missing folder that the Folders section already lists points there instead of repeating the path. Esc leaves the import screen like Cancel, except while the import runs or when focus is in a text field, and Cmd/Ctrl+Enter starts the import when its button is enabled. The title leads with the session count and the source platform, since the manifest records no computer name, and the file name sits under it.
 
 ## Executing an import
 
