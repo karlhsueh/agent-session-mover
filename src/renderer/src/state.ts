@@ -1,5 +1,5 @@
 import type { ApiError } from '../../shared/ipc'
-import type { ArchiveSummary, ArchiveToken, ExportResult, ImportPreview, ImportResult, PathMapping, SessionKey } from '../../shared/sessions'
+import type { ArchiveSummary, ArchiveToken, ConflictChoice, ExportResult, ImportPreview, ImportRequest, ImportResult, PathMapping, SessionKey } from '../../shared/sessions'
 
 export type Loadable<T> = { status: 'loading' } | { status: 'ready'; value: T } | { status: 'failed'; error: ApiError }
 
@@ -21,6 +21,8 @@ export interface PreviewScreen {
   preview: PreviewState
   /** Sessions the user unticked. Every other actionable session imports. */
   excluded: ReadonlySet<SessionKey>
+  /** What to do with each conflict. A session the map leaves out is skipped. */
+  conflicts: ReadonlyMap<SessionKey, ConflictChoice>
   error: ApiError | null
 }
 
@@ -31,7 +33,7 @@ export type Screen =
   | { kind: 'export-done'; result: ExportResult }
   | { kind: 'opening' }
   | PreviewScreen
-  | { kind: 'importing'; from: PreviewScreen; keys: SessionKey[] }
+  | { kind: 'importing'; from: PreviewScreen; requests: ImportRequest[] }
   | { kind: 'import-done'; archive: OpenedArchive; result: ImportResult }
 
 export function shownPreview(state: PreviewState): ImportPreview | null {

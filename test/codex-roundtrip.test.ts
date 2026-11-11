@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { listSessions } from '../src/main/core/discovery'
 import { exportSessions } from '../src/main/core/export'
 import { defaultExists, openArchive, type OpenedArchive, previewImport, runImport, suggestMappings } from '../src/main/core/import'
-import { type SessionKey, sessionKey } from '../src/shared/sessions'
+import { requestsFor, type SessionKey, sessionKey } from '../src/shared/sessions'
 import { readArchiveEntries } from './fixtures/archive'
 import { listTree, NEVER_EXPORT, removeTempDir, treeHash } from './fixtures/claude-store'
 import { createStateDb, threadRow, threadRows } from './fixtures/codex-db'
@@ -45,7 +45,7 @@ async function openIn(archive: string): Promise<{ opened: OpenedArchive; mapping
 
 async function importInto(ids: string[], name?: string) {
   const { opened, mappings } = await openIn(await exportFrom(ids, name))
-  return runImport(b.context, opened, mappings, ids.map(key) as SessionKey[])
+  return runImport(b.context, opened, mappings, requestsFor(ids.map(key) as SessionKey[]))
 }
 
 const at = (machine: Machine, rel: string) => path.join(machine.codexRoot, ...rel.replace(/\.zst$/, '').split('/'))
@@ -223,11 +223,23 @@ describe('Codex import into a store with a database', () => {
     expect(threadRows(targetDb())).toEqual(rows)
   })
 
+  it('replaces a diverged rollout on request and keeps the copy here as a backup', async () => {
+    await importInto([CX.plain])
+    const target = at(b, src.rollouts[CX.plain].rel)
+    const here = (await readFile(target, 'utf8')).replace('é ✓', 'e !')
+    await writeFile(target, here)
+    const { opened, mappings } = await openIn(await exportFrom([CX.plain], 'second.agentsessions'))
+    const [outcome] = (await runImport(b.context, opened, mappings, requestsFor([key(CX.plain)], 'replace'))).outcomes
+    expect(outcome).toMatchObject({ status: 'replaced', action: { kind: 'conflict', reason: 'diverged' } })
+    expect(await readFile(target)).toEqual(await readFile(src.rollouts[CX.plain].absPath))
+    expect(await readFile(path.join((outcome as { backupDir: string }).backupDir, ...src.rollouts[CX.plain].rel.split('/')), 'utf8')).toBe(here)
+  })
+
   it('refuses when this machine has a newer rollout of the thread than the archive', async () => {
     await importInto([CX.reverted])
     const { opened, mappings } = await openIn(await exportFrom([CX.reverted], 'x.agentsessions'))
     await writeFile(at(b, src.rollouts[CX.reverted].rel.replace(/T\d\d-\d\d-\d\d/, 'T23-59-59').replace(CX.revertedRollout, '019a0000-0000-7000-8000-0000000000ff')), src.rollouts[CX.reverted].plain)
-    expect((await previewImport(b.context, opened, mappings)).sessions[0].action).toMatchObject({ kind: 'conflict', reason: 'diverged' })
+    expect((await previewImport(b.context, opened, mappings)).sessions[0].action).toMatchObject({ kind: 'blocked', reason: 'newer-here' })
   })
 
   it('blocks a fork child while its parent thread is open here, since the parent rollout may be written', async () => {

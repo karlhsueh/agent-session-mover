@@ -1,5 +1,5 @@
 import path from 'node:path'
-import type { AgentId, ArchiveToken, PathMapping, SessionKey } from '../shared/sessions'
+import type { AgentId, ArchiveToken, ConflictChoice, ImportRequest, PathMapping, SessionKey } from '../shared/sessions'
 import { isAgentId, parseSessionKey } from '../shared/sessions'
 
 const MAX_KEYS = 100_000
@@ -17,6 +17,22 @@ export function parseKeys(input: unknown): SessionKey[] {
     keys.add(parsed.key)
   }
   return [...keys]
+}
+
+const CONFLICT_CHOICES: readonly unknown[] = ['skip', 'replace'] satisfies ConflictChoice[]
+
+export function parseImportRequests(input: unknown): ImportRequest[] {
+  if (!Array.isArray(input) || input.length === 0 || input.length > MAX_KEYS) throw new InputError('Expected a non-empty list of sessions to import.')
+  const requests = new Map<SessionKey, ImportRequest>()
+  for (const value of input) {
+    const { key, onConflict } = (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>
+    const parsed = parseSessionKey(key)
+    if (!parsed) throw new InputError(`Not a session key: ${JSON.stringify(key)?.slice(0, 200)}`)
+    if (!CONFLICT_CHOICES.includes(onConflict)) throw new InputError('Each session needs onConflict set to skip or replace.')
+    if (requests.has(parsed.key)) throw new InputError(`Session ${parsed.key} is listed twice.`)
+    requests.set(parsed.key, { key: parsed.key, onConflict: onConflict as ConflictChoice })
+  }
+  return [...requests.values()]
 }
 
 export function parseAgent(input: unknown): AgentId {

@@ -10,7 +10,7 @@ import type { CoreContext } from '../../src/main/core/export'
 import { closeArchive, openArchive, previewImport, runImport } from '../../src/main/core/import'
 import { encodeProjectDir } from '../../src/main/providers/claude-code/encode'
 import { providers } from '../../src/main/providers/registry'
-import { sessionKey } from '../../src/shared/sessions'
+import { requestsFor, sessionKey } from '../../src/shared/sessions'
 
 const run = promisify(execFile)
 const home = os.homedir()
@@ -69,7 +69,7 @@ it('resumes a Claude Code session after export, removal, and import under anothe
   const mappings = [{ source: machineA, target: machineB }]
   const preview = await previewImport(context, opened, mappings)
   expect(preview.sessions.map((s) => s.action.kind), 'import plans a create').toEqual(['create'])
-  const result = await runImport(context, opened, mappings, [sessionKey('claude-code', id)])
+  const result = await runImport(context, opened, mappings, requestsFor([sessionKey('claude-code', id)]))
   expect(result.outcomes.map((o) => o.status), 'import created the session').toEqual(['created'])
   await closeArchive(opened)
   expect(await readdir(targetDir), 'transcript placed under the new project folder').toContain(`${id}.jsonl`)

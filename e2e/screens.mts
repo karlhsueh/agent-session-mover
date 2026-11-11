@@ -159,6 +159,27 @@ try {
   await page.getByRole('button', { name: /^Import \d+ sessions?$/ }).click()
   await page.locator('.statusbar', { hasText: 'Backups of replaced copies' }).waitFor()
   await shoot(page, 'import-result-backups')
+
+  // Both copies changed after the export, so the archive and this computer disagree.
+  const [replaced, kept] = SELECTED_TITLES.slice(1)
+  for (const title of [replaced, kept]) {
+    const fixture = SCREEN_FIXTURES.find((candidate) => candidate.title === title)!
+    const file = join(home, '.claude', 'projects', encode(join(home, fixture.project)), `${fixture.id}.jsonl`)
+    await writeFile(file, (await readFile(file, 'utf8')).replace('"Done."', '"Done here."'))
+  }
+  await page.getByRole('button', { name: 'Back to sessions' }).click()
+  await page.keyboard.press('ControlOrMeta+O')
+  await page.locator('.plan:not(.stale) .badge', { hasText: 'Conflict' }).first().waitFor()
+  await page.locator('.plan-bulk').evaluate((el) => el.scrollIntoView({ block: 'start' }))
+  await shoot(page, 'import-conflict')
+  await page.locator('.plan-row', { hasText: replaced }).getByRole('button', { name: "Replace with the archive's copy" }).click()
+  await page.getByRole('button', { name: 'Use light theme' }).click()
+  await shoot(page, 'import-conflict-light')
+  await page.getByRole('button', { name: /^Import \d+ sessions?/ }).click()
+  await page.locator('.statusbar', { hasText: 'Backups of replaced copies' }).waitFor()
+  await shoot(page, 'import-result-conflict-light')
+  await page.getByRole('button', { name: 'Use dark theme' }).click()
+  await shoot(page, 'import-result-conflict')
 } finally {
   await app.close()
 }

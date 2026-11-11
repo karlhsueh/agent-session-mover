@@ -274,3 +274,37 @@
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+
+.plan-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 4px;
+}
+
+.plan-choice .chips {
+  height: 26px;
+}
+
+.plan-choice-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.plan-bulk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--warn) 7%, transparent);
+}
+
+.plan-bulk-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}

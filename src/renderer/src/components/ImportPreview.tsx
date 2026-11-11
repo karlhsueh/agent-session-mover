@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
-import type { ProgressEvent, SessionImportPreview, SessionInfo, SessionKey, SessionPreview } from '../../../shared/sessions'
+import type { ConflictChoice, ImportRequest, ProgressEvent, SessionImportPreview, SessionInfo, SessionKey, SessionPreview } from '../../../shared/sessions'
 import { usePreviews } from '../hooks'
 import { AGENT_LABEL, folderName, platformLabel, plural, sessionTitle, shortDateTime } from '../model/format'
-import { ACTIONS, describeAction, isActionable, selectedForImport, warningText } from '../model/importing'
+import { ACTIONS, conflictChoice, conflictKeys, describeAction, isActionable, planBadge, selectedForImport, warningText } from '../model/importing'
 import { type Loadable, shownPreview, type PreviewScreen } from '../state'
 import { ErrorBanner, ProgressBar, Sheet } from './common'
 import { Conversation } from './Conversation'
@@ -12,17 +12,19 @@ interface Props {
   screen: PreviewScreen
   onMappingChange: (source: string, target: string) => void
   onToggle: (key: SessionKey) => void
-  onRun: (keys: SessionKey[]) => void
+  onChoose: (keys: readonly SessionKey[], choice: ConflictChoice) => void
+  onRun: (requests: ImportRequest[]) => void
   onBack: () => void
   onDismissError: () => void
 }
 
-export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack, onDismissError }: Props) {
-  const { archive, preview: state, excluded } = screen
+export function ImportPreview({ screen, onMappingChange, onToggle, onChoose, onRun, onBack, onDismissError }: Props) {
+  const { archive, preview: state, excluded, conflicts } = screen
   const preview = shownPreview(state)
   const byKey = new Map((preview?.sessions ?? []).map((session) => [session.key, session]))
   const sessions = [...archive.summary.sessions].sort((a, b) => b.lastActivity.localeCompare(a.lastActivity))
-  const keys = selectedForImport(preview, excluded)
+  const requests = selectedForImport(preview, excluded, conflicts)
+  const conflicted = conflictKeys(preview)
   const counts = new Map<string, number>()
   for (const session of preview?.sessions ?? []) counts.set(session.action.kind, (counts.get(session.action.kind) ?? 0) + 1)
   const token = archive.token
@@ -77,6 +79,7 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
                     .join(' · ')}
             </p>
           </header>
+          {conflicted.length > 1 && <ConflictBar keys={conflicted} choices={conflicts} onChoose={onChoose} />}
           <ul className={state.status === 'loading' ? 'plan stale' : 'plan'}>
             {sessions.map((session) => (
               <PlanRow
@@ -85,6 +88,8 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
                 plan={byKey.get(session.key) ?? null}
                 included={!excluded.has(session.key)}
                 onToggle={onToggle}
+                choice={conflictChoice(conflicts, session.key)}
+                onChoose={(choice) => onChoose([session.key], choice)}
                 conversation={open.has(session.key) ? conversation(session.key) : undefined}
                 onConversation={() => toggleOpen(session.key)}
                 onRetry={() => requestConversation(session.key)}
@@ -95,13 +100,13 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
       </div>
 
       <footer className="statusbar">
-        <span className="dim">Agent Session Mover writes files only after you start the import. An update keeps a backup of the copy it replaces.</span>
+        <span className="dim">Agent Session Mover writes files only after you start the import. Update and Replace keep a backup of the copy they replace.</span>
         <span className="statusbar-actions">
           <button type="button" className="button" onClick={onBack}>
             Cancel
           </button>
-          <button type="button" className="button primary" disabled={keys.length === 0 || state.status !== 'ready'} onClick={() => onRun(keys)}>
-            {keys.length > 0 ? `Import ${plural(keys.length, 'session')}` : 'Nothing to import'}
+          <button type="button" className="button primary" disabled={requests.length === 0 || state.status !== 'ready'} onClick={() => onRun(requests)}>
+            {requests.length > 0 ? `Import ${plural(requests.length, 'session')}` : 'Nothing to import'}
           </button>
         </span>
       </footer>
@@ -114,20 +119,31 @@ interface PlanRowProps {
   plan: SessionImportPreview | null
   included: boolean
   onToggle: (key: SessionKey) => void
+  choice: ConflictChoice
+  onChoose: (choice: ConflictChoice) => void
   /** Undefined while the conversation is folded away. */
   conversation: Loadable<SessionPreview> | null | undefined
   onConversation: () => void
   onRetry: () => void
 }
 
-function PlanRow({ session, plan, included, onToggle, conversation, onConversation, onRetry }: PlanRowProps) {
+function PlanRow({ session, plan, included, onToggle, choice, onChoose, conversation, onConversation, onRetry }: PlanRowProps) {
   const actionable = plan !== null && isActionable(plan.action)
+  const conflict = plan?.action.kind === 'conflict'
   const id = `plan-${session.key}`
   const shown = conversation !== undefined
+  const live = actionable || (conflict && choice === 'replace')
+  const badge = plan && planBadge(plan.action, choice)
+  // A conflict row holds buttons, which a label must not wrap.
+  const Main = conflict ? 'div' : 'label'
   return (
-    <li className={`${actionable ? 'plan-row' : 'plan-row inert'}${shown ? ' expanded' : ''}`}>
-      <input id={id} type="checkbox" checked={actionable && included} disabled={!actionable} onChange={() => onToggle(session.key)} />
-      <label htmlFor={id} className="plan-main">
+    <li className={`${live ? 'plan-row' : 'plan-row inert'}${shown ? ' expanded' : ''}`}>
+      {conflict ? (
+        <span aria-hidden="true" />
+      ) : (
+        <input id={id} type="checkbox" checked={actionable && included} disabled={!actionable} onChange={() => onToggle(session.key)} />
+      )}
+      <Main htmlFor={conflict ? undefined : id} className="plan-main">
         <span className="plan-title">
           <span className="truncate">{sessionTitle(session)}</span>
         </span>
@@ -142,15 +158,16 @@ function PlanRow({ session, plan, included, onToggle, conversation, onConversati
             </>
           )}
         </span>
-        {plan && plan.action.kind !== 'create' && <span className="plan-message">{describeAction(plan.action)}</span>}
+        {plan && plan.action.kind !== 'create' && <span className="plan-message">{describeAction(plan.action, session)}</span>}
         {plan?.warnings.map((warning) => (
           <span key={warning.code} className="plan-warning">
             {warningText(warning, session.agent)}
           </span>
         ))}
-      </label>
+        {conflict && <ConflictChoices title={sessionTitle(session)} choice={choice} onChoose={onChoose} />}
+      </Main>
       <span className="plan-side">
-        {plan && <span className={`badge tone-${ACTIONS[plan.action.kind].tone}`}>{ACTIONS[plan.action.kind].label}</span>}
+        {badge && <span className={`badge tone-${badge.tone}`}>{badge.label}</span>}
         <button
           type="button"
           className="button ghost small"
@@ -171,11 +188,48 @@ function PlanRow({ session, plan, included, onToggle, conversation, onConversati
   )
 }
 
-export function ImportingSheet({ keys, progress, titles }: { keys: SessionKey[]; progress: ProgressEvent | null; titles: ReadonlyMap<SessionKey, string> }) {
+const CHOICE_LABEL: Record<ConflictChoice, string> = { skip: "Keep this computer's copy", replace: "Replace with the archive's copy" }
+
+function ConflictChoices({ title, choice, onChoose }: { title: string; choice: ConflictChoice; onChoose: (choice: ConflictChoice) => void }) {
+  return (
+    <span className="plan-choice">
+      <span className="chips" role="group" aria-label={`What to do with ${title}`}>
+        {(['skip', 'replace'] as const).map((option) => (
+          <button key={option} type="button" aria-pressed={choice === option} onClick={() => onChoose(option)}>
+            {CHOICE_LABEL[option]}
+          </button>
+        ))}
+      </span>
+      {choice === 'replace' && <span className="plan-choice-note">The copy on this computer goes to the backup folder first.</span>}
+    </span>
+  )
+}
+
+function ConflictBar({ keys, choices, onChoose }: { keys: SessionKey[]; choices: ReadonlyMap<SessionKey, ConflictChoice>; onChoose: Props['onChoose'] }) {
+  const replacing = keys.filter((key) => conflictChoice(choices, key) === 'replace').length
+  return (
+    <div className="plan-bulk">
+      <span>
+        {plural(keys.length, 'session')} already {keys.length === 1 ? 'has' : 'have'} a different copy on this computer.{' '}
+        <span className="dim">{replacing === 0 ? 'Import keeps every copy here.' : `${replacing} will be replaced.`}</span>
+      </span>
+      <span className="plan-bulk-actions">
+        <button type="button" className="button small" disabled={replacing === 0} onClick={() => onChoose(keys, 'skip')}>
+          Keep all
+        </button>
+        <button type="button" className="button small" disabled={replacing === keys.length} onClick={() => onChoose(keys, 'replace')}>
+          Replace all
+        </button>
+      </span>
+    </div>
+  )
+}
+
+export function ImportingSheet({ count, progress, titles }: { count: number; progress: ProgressEvent | null; titles: ReadonlyMap<SessionKey, string> }) {
   const running = progress?.operation === 'import' ? progress : null
   return (
     <Sheet label="Importing">
-      <h2>Importing {plural(keys.length, 'session')}</h2>
+      <h2>Importing {plural(count, 'session')}</h2>
       <ProgressBar value={running ? importFraction(running) : null} label="Import progress" />
       <p className="dim truncate">{running?.current ? titles.get(running.current) : running ? `${running.done} of ${running.total}` : 'Planning again…'}</p>
     </Sheet>

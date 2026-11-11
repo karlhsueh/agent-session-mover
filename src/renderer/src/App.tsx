@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { StoreRoot } from '../../shared/ipc'
-import type { ExportResult, PathMapping, SessionKey } from '../../shared/sessions'
+import type { ExportResult, ImportRequest, PathMapping, SessionKey } from '../../shared/sessions'
 import { Browser } from './components/Browser'
 import { ErrorBanner } from './components/common'
 import { ExportSheet } from './components/ExportSheet'
@@ -62,7 +62,7 @@ export function App() {
     if (result.value.kind === 'cancelled') return setScreen(BROWSE)
     const archive: OpenedArchive = { token: result.value.token, summary: result.value.archive }
     const mappings = result.value.suggestedMappings
-    setScreen({ kind: 'import-preview', archive, mappings, preview: { status: 'loading', last: null }, excluded: new Set(), error: null })
+    setScreen({ kind: 'import-preview', archive, mappings, preview: { status: 'loading', last: null }, excluded: new Set(), conflicts: new Map(), error: null })
     void runPreview(archive, mappings)
   }, [resetProgress, runPreview])
 
@@ -88,10 +88,10 @@ export function App() {
     void runPreview(from.archive, mappings)
   }
 
-  async function runImport(from: PreviewScreen, keys: SessionKey[]) {
+  async function runImport(from: PreviewScreen, requests: ImportRequest[]) {
     resetProgress()
-    setScreen({ kind: 'importing', from, keys })
-    const result = await window.api.runImport(from.archive.token, from.mappings, keys)
+    setScreen({ kind: 'importing', from, requests })
+    const result = await window.api.runImport(from.archive.token, from.mappings, requests)
     if (!result.ok) return setScreen({ ...from, error: result.error })
     setScreen({ kind: 'import-done', archive: from.archive, result: result.value })
     refresh('user')
@@ -125,7 +125,14 @@ export function App() {
               return { ...current, excluded }
             })
           }
-          onRun={(keys) => screen.kind === 'import-preview' && void runImport(screen, keys)}
+          onChoose={(keys, choice) =>
+            updatePreview((current) => {
+              const conflicts = new Map(current.conflicts)
+              for (const key of keys) conflicts.set(key, choice)
+              return { ...current, conflicts }
+            })
+          }
+          onRun={(requests) => screen.kind === 'import-preview' && void runImport(screen, requests)}
           onBack={backToBrowse}
           onDismissError={() => updatePreview((current) => ({ ...current, error: null }))}
         />
@@ -163,7 +170,7 @@ export function App() {
       {screen.kind === 'opening' && <OpeningSheet progress={progress} />}
       {screen.kind === 'importing' && (
         <ImportingSheet
-          keys={screen.keys}
+          count={screen.requests.length}
           progress={progress}
           titles={new Map(screen.from.archive.summary.sessions.map((session) => [session.key, sessionTitle(session)]))}
         />

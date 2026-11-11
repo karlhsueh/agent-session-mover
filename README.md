@@ -16,7 +16,7 @@ Coding agents keep each session on the machine where it ran. Agent Session Mover
 
 - **Browse by project.** A sidebar lists your project folders. Search titles, folders, and session ids. Preview the conversation before you export it.
 - **Map folders.** Your code may live at a different path on the other computer. Import asks where each project lives there, and can create a folder that is missing.
-- **Safe import.** The app writes nothing until you start the import. An import that fails partway rolls back, and replacing an existing session keeps a backup of the old copy.
+- **Safe import.** The app writes nothing until you start the import. When this computer already has a different copy of a session, it keeps that copy unless you choose Replace. An import that fails partway rolls back, and replacing an existing session keeps a backup of the old copy.
 - **Subagents included.** An export includes the subagents each session started.
 - **Local only.** Your sessions never leave this computer unless you move the archive yourself. The only network request is the check for a new version on GitHub.
 

@@ -158,8 +158,8 @@ function registerSessionHandlers(service: SessionService): void {
   )
   ipcMain.handle(CHANNELS.previewImport, (_event, token: unknown, mappings: unknown) => service.previewImport(token, mappings))
   ipcMain.handle(CHANNELS.previewArchiveSession, (_event, token: unknown, key: unknown) => service.previewArchiveSession(token, key))
-  ipcMain.handle(CHANNELS.runImport, async (event, token: unknown, mappings: unknown, keys: unknown) => {
-    const result = await service.runImport(token, mappings, keys, emitter(event))
+  ipcMain.handle(CHANNELS.runImport, async (event, token: unknown, mappings: unknown, requests: unknown) => {
+    const result = await service.runImport(token, mappings, requests, emitter(event))
     if (result.ok) lastBackups = result.value.backupDir
     return result
   })

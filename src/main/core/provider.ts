@@ -1,7 +1,6 @@
 import type {
   AgentId,
   BlockedReason,
-  ConflictReason,
   ImportWarning,
   PathMapping,
   SessionSummary,
@@ -53,9 +52,8 @@ export interface TargetFile {
 export type ProviderEffect = { readonly [key: string]: JsonValue }
 export type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue }
 
-export type RefusedAction =
-  | { kind: 'conflict'; reason: ConflictReason; message: string }
-  | { kind: 'blocked'; reason: BlockedReason; message: string }
+/** A provider refuses only what no user choice can fix. A file that differs is the planner's conflict. */
+export type RefusedAction = { kind: 'blocked'; reason: BlockedReason; message: string }
 
 export type TargetInspection =
   | {

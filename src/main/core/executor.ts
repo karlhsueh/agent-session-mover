@@ -5,7 +5,7 @@ import { fsyncPath } from '../archive/archive'
 import { Journal, type JournalHeader, type JournalStep, listJournals, readJournal, syncDir } from './journal'
 import type { Sha256 } from './manifest'
 import { resolveInside, unlessMissing } from './paths'
-import type { SessionPlan } from './planner'
+import type { PlannedChanges } from './planner'
 import type { AgentId } from '../../shared/sessions'
 import type { Provider, ProviderRegistry } from './provider'
 import { sha256File, writeHashed } from './streams'
@@ -40,7 +40,7 @@ export interface ExecuteOptions {
   fault?: Fault
 }
 
-export async function executePlan(plan: SessionPlan, options: ExecuteOptions): Promise<{ backupDir: string | null }> {
+export async function executePlan(plan: PlannedChanges, options: ExecuteOptions): Promise<{ backupDir: string | null }> {
   const { root, provider } = options
   const journal = await Journal.create(options.journalDir, `${options.runId}-${safeName(options.key)}`, {
     agent: provider.agent,

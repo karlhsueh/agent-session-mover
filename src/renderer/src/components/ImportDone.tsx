@@ -11,11 +11,11 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
   const { archive, result } = screen
   const home = useHomeDir()
   const info = new Map(archive.summary.sessions.map((session) => [session.key, session]))
-  const placed = result.outcomes.filter((outcome) => outcome.status === 'created' || outcome.status === 'updated')
+  const placed = result.outcomes.filter((outcome) => outcome.status === 'created' || outcome.status === 'updated' || outcome.status === 'replaced')
   const failed = result.outcomes.filter((outcome) => outcome.status === 'failed' || outcome.status === 'refused')
   const agents = [...new Set(placed.map((outcome) => AGENT_LABEL[info.get(outcome.key)?.agent ?? 'claude-code']))]
   const resumes = new Map(
-    result.outcomes.flatMap((outcome) => (outcome.status === 'created' || outcome.status === 'updated' ? [[outcome.key, shortCommand(outcome.resumeCommand, home)] as const] : [])),
+    placed.flatMap((outcome) => ('resumeCommand' in outcome ? [[outcome.key, shortCommand(outcome.resumeCommand, home)] as const] : [])),
   )
 
   return (

@@ -5,8 +5,9 @@ import path from 'node:path'
 import {
   type ArchiveSummary,
   type ArchiveToken,
-  type ImportAction,
+  type ConflictChoice,
   type ImportPreview,
+  type ImportRequest,
   type ImportResult,
   isAtOrUnder,
   type PathMapping,
@@ -21,7 +22,7 @@ import { ExecutionError, executePlan, type Fault } from './executor'
 import type { CoreContext } from './export'
 import type { Manifest, ManifestSession, Sha256 } from './manifest'
 import { mapPath, resolveInside, type StorePath, UnsafePathError, unlessMissing } from './paths'
-import { type ComparedFile, planSession, relate, type SessionPlan } from './planner'
+import { changesFor, type ComparedFile, planSession, relate, type SessionPlan } from './planner'
 import { type ContentTransform, type Provider, type ReadOnce, readFresh, shareReads, type TargetFile, type TargetInspection } from './provider'
 import { digest, readRange, sha256File } from './streams'
 
@@ -113,10 +114,6 @@ interface PlannedSession {
   plan: SessionPlan
 }
 
-function refusal(action: Extract<ImportAction, { kind: 'blocked' | 'conflict' }>): SessionPlan {
-  return { action, writes: [], effects: [] }
-}
-
 type BlobReader = (sha256: Sha256) => AsyncIterable<Buffer>
 
 const blobReader =
@@ -144,7 +141,8 @@ async function planOne(context: CoreContext, opened: OpenedArchive, session: Man
     return { session, key, provider, root, inspection, plan: planSession(inspection, compared) }
   } catch (error) {
     if (!(error instanceof UnsafePathError)) throw error
-    return { session, key, provider, root, inspection, plan: refusal({ kind: 'blocked', reason: 'unsafe-path', message: error.message }) }
+    const action = { kind: 'blocked', reason: 'unsafe-path', message: `A file or folder in the agent's store is not where import can safely write. ${error.message}` } as const
+    return { session, key, provider, root, inspection, plan: { action, writes: [], effects: [] } }
   }
 }
 
@@ -153,7 +151,7 @@ async function compare(root: string, readBlob: BlobReader, file: TargetFile): Pr
   const blob = () => (file.transform ? file.transform(readBlob(file.sha256)) : readBlob(file.sha256))
   if (!existing) {
     const planned = await digest(blob())
-    return { file, sha256: planned.sha256, size: planned.size, relation: relate(planned, null) }
+    return { file, sha256: planned.sha256, size: planned.size, relation: relate(planned, null), existingMtimeMs: null }
   }
   const read = () => {
     const raw = readRange(existing.absPath, existing.rawSize)
@@ -163,11 +161,11 @@ async function compare(root: string, readBlob: BlobReader, file: TargetFile): Pr
   const planned = await digest(blob(), existingSize)
   let relation = relate(planned, await digest(read(), planned.size))
   // The executor re-hashes the stored file before it moves it to the backup, so it needs the raw hash.
-  if (relation.kind === 'target-is-prefix' && existing.decode) relation = { ...relation, existingSha256: await sha256File(existing.absPath) }
-  return { file, sha256: planned.sha256, size: planned.size, relation }
+  if ('existingSha256' in relation && existing.decode) relation = { ...relation, existingSha256: await sha256File(existing.absPath) }
+  return { file, sha256: planned.sha256, size: planned.size, relation, existingMtimeMs: existing.mtimeMs }
 }
 
-async function existingCopy(root: string, file: TargetFile): Promise<{ absPath: string; rawSize: number; decode: ContentTransform | null } | null> {
+async function existingCopy(root: string, file: TargetFile): Promise<{ absPath: string; rawSize: number; mtimeMs: number; decode: ContentTransform | null } | null> {
   const atPath = await regularFile(root, file.path)
   if (atPath) return { ...atPath, decode: null }
   if (!file.supersedes) return null
@@ -175,20 +173,19 @@ async function existingCopy(root: string, file: TargetFile): Promise<{ absPath: 
   return superseded && { ...superseded, decode: file.supersedes.decode }
 }
 
-async function regularFile(root: string, rel: StorePath): Promise<{ absPath: string; rawSize: number } | null> {
+async function regularFile(root: string, rel: StorePath): Promise<{ absPath: string; rawSize: number; mtimeMs: number } | null> {
   const absPath = await resolveInside(root, rel)
   const info = await unlessMissing(lstat(absPath), null)
   if (info && !info.isFile()) throw new UnsafePathError(`${rel} exists and is not a regular file`)
-  return info && { absPath, rawSize: info.size }
+  return info && { absPath, rawSize: info.size, mtimeMs: info.mtimeMs }
 }
 
-function selectSessions(opened: OpenedArchive, keys?: readonly SessionKey[]): ManifestSession[] {
-  if (!keys) return opened.manifest.sessions
+function selectSessions(opened: OpenedArchive, requests: readonly ImportRequest[]): { session: ManifestSession; onConflict: ConflictChoice }[] {
   const byKey = new Map(opened.manifest.sessions.map((session) => [sessionKey(session.agent, session.id), session]))
-  return keys.map((key) => {
+  return requests.map(({ key, onConflict }) => {
     const session = byKey.get(key)
     if (!session) throw new Error(`The archive has no session ${key}`)
-    return session
+    return { session, onConflict }
   })
 }
 
@@ -218,7 +215,7 @@ export async function runImport(
   context: CoreContext,
   opened: OpenedArchive,
   mappings: readonly PathMapping[],
-  keys: readonly SessionKey[],
+  requests: readonly ImportRequest[],
   options: RunImportOptions = {},
 ): Promise<ImportResult> {
   const resolved = await resolveMappings(mappings)
@@ -226,12 +223,12 @@ export async function runImport(
   const journalDir = path.join(context.appDataDir, 'journal')
   const backupDir = path.join(context.appDataDir, 'backups', runId)
   await mkdir(journalDir, { recursive: true })
-  const sessions = selectSessions(opened, keys)
+  const sessions = selectSessions(opened, requests)
   const outcomes: SessionImportOutcome[] = []
   // Each session's share is twice its size: one half fills as planning reads its blobs, the other as writing does.
   // A provider may read a blob more than once while planning, so each half stops at the session's size.
   const sizeOf = (session: ManifestSession) => session.files.reduce((sum, file) => sum + file.size, 0)
-  const bytesTotal = 2 * sessions.reduce((sum, session) => sum + sizeOf(session), 0)
+  const bytesTotal = 2 * sessions.reduce((sum, { session }) => sum + sizeOf(session), 0)
   const step = Math.max(1024 * 1024, bytesTotal / 200)
   let done = 0
   let current: SessionKey | null = null
@@ -241,7 +238,7 @@ export async function runImport(
     reported = bytesDone
     options.onProgress?.({ operation: 'import', done, total: sessions.length, current, bytesDone, bytesTotal })
   }
-  for (const session of sessions) {
+  for (const { session, onConflict } of sessions) {
     const size = sizeOf(session)
     const read = { plan: 0, write: 0 }
     const counter = (phase: keyof typeof read) =>
@@ -252,7 +249,7 @@ export async function runImport(
       })
     current = sessionKey(session.agent, session.id)
     report(finished)
-    outcomes.push(await importOne(context, opened, session, resolved, { runId, journalDir, backupDir, readForPlan: counter('plan'), readForWrite: counter('write'), fault: options.fault }))
+    outcomes.push(await importOne(context, opened, session, onConflict, resolved, { runId, journalDir, backupDir, readForPlan: counter('plan'), readForWrite: counter('write'), fault: options.fault }))
     done += 1
     finished += 2 * size
   }
@@ -266,6 +263,7 @@ async function importOne(
   context: CoreContext,
   opened: OpenedArchive,
   session: ManifestSession,
+  onConflict: ConflictChoice,
   mappings: PathMapping[],
   run: { runId: string; journalDir: string; backupDir: string; readForPlan: BlobReader; readForWrite: BlobReader; fault?: Fault },
 ): Promise<SessionImportOutcome> {
@@ -279,9 +277,9 @@ async function importOne(
   const { action } = planned.plan
   const resumeCommand = planned.provider.resumeCommand(session.id, planned.inspection?.targetCwd ?? null)
   if (action.kind === 'skip-identical') return { key, status: 'skipped', action, backupDir: null, resumeCommand }
-  if (action.kind === 'conflict' || action.kind === 'blocked') return { key, status: 'refused', action }
+  if (action.kind === 'blocked' || (action.kind === 'conflict' && onConflict === 'skip')) return { key, status: 'refused', action }
   try {
-    const { backupDir } = await executePlan(planned.plan, {
+    const { backupDir } = await executePlan(changesFor(planned.plan, onConflict), {
       root: planned.root,
       provider: planned.provider,
       key,
@@ -291,12 +289,14 @@ async function importOne(
       runId: run.runId,
       fault: run.fault,
     })
-    return { key, status: action.kind === 'create' ? 'created' : 'updated', action, backupDir, resumeCommand }
+    return { key, status: STATUS[action.kind], action, backupDir, resumeCommand }
   } catch (error) {
     if (!(error instanceof ExecutionError)) throw error
     return { key, status: 'failed', action, error: error.message, rolledBack: error.rolledBack }
   }
 }
+
+const STATUS = { create: 'created', update: 'updated', conflict: 'replaced' } as const
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)

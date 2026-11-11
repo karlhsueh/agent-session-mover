@@ -108,15 +108,34 @@ export function isAtOrUnder(value: string, root: string, sep: string): boolean {
   return value === root || value.startsWith(root.endsWith(sep) ? root : root + sep)
 }
 
-export type ConflictReason = 'diverged' | 'target-newer' | 'multiple-copies'
-export type BlockedReason = 'live' | 'unmapped-cwd' | 'invalid-session' | 'unsafe-path'
+/** `diverged`: the two copies differ. `target-newer`: the copy here continues past the archive's. */
+export type ConflictReason = 'diverged' | 'target-newer'
+export type BlockedReason = 'live' | 'unmapped-cwd' | 'invalid-session' | 'unsafe-path' | 'multiple-copies' | 'newer-here'
 
 export type ImportAction =
   | { kind: 'create' }
   | { kind: 'update'; backup: true }
   | { kind: 'skip-identical' }
-  | { kind: 'conflict'; reason: ConflictReason; message: string }
+  /**
+   * This machine already has a different copy. Import keeps it unless the user chooses `replace`,
+   * which moves it to the backup folder first, the way an update does.
+   */
+  | { kind: 'conflict'; reason: ConflictReason; message: string; hereChangedAt: string | null }
+  /** Import cannot place the session, whatever the user chooses. */
   | { kind: 'blocked'; reason: BlockedReason; message: string }
+
+/** What import does with a session whose plan is a conflict when it runs. */
+export type ConflictChoice = 'skip' | 'replace'
+
+/** One session to import. `onConflict` matters only if import, planning again, finds a conflict. */
+export interface ImportRequest {
+  key: SessionKey
+  onConflict: ConflictChoice
+}
+
+export function requestsFor(keys: readonly SessionKey[], onConflict: ConflictChoice = 'skip'): ImportRequest[] {
+  return keys.map((key) => ({ key, onConflict }))
+}
 
 export type ImportWarning =
   | { code: 'target-cwd-missing'; path: string }
@@ -135,7 +154,7 @@ export interface ImportPreview {
 }
 
 export type SessionImportOutcome =
-  | { key: SessionKey; status: 'created' | 'updated' | 'skipped'; action: ImportAction; backupDir: string | null; resumeCommand: string }
+  | { key: SessionKey; status: 'created' | 'updated' | 'replaced' | 'skipped'; action: ImportAction; backupDir: string | null; resumeCommand: string }
   | { key: SessionKey; status: 'refused'; action: ImportAction }
   | { key: SessionKey; status: 'failed'; action: ImportAction; error: string; rolledBack: boolean }
 

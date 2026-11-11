@@ -134,7 +134,7 @@ describe('import of a valid archive with hostile intent', () => {
     if (!opened.ok || opened.value.kind !== 'opened') throw new Error('archive did not open')
     const mappings = [{ source: '/Users/eve/proj', target: path.join(b.home, 'proj') }]
     const preview = await service.previewImport(opened.value.token, mappings)
-    const run = await service.runImport(opened.value.token, mappings, [`claude-code:${ID}`], () => {})
+    const run = await service.runImport(opened.value.token, mappings, [{ key: `claude-code:${ID}`, onConflict: 'skip' }], () => {})
     return { preview, run }
   }
 
@@ -170,6 +170,9 @@ describe('import of a valid archive with hostile intent', () => {
     if (!opened.ok || opened.value.kind !== 'opened') throw new Error('archive did not open')
     const token = opened.value.token
     expect(await service.previewImport(token, [{ source: '/a', target: 'relative/path' }])).toMatchObject({ ok: false, error: { code: 'invalid-input' } })
-    expect(await service.runImport(token, [], ['claude-code:4f000000-0000-4000-8000-000000000009'], () => {})).toMatchObject({ ok: false, error: { code: 'invalid-input' } })
+    expect(await service.runImport(token, [], [{ key: 'claude-code:4f000000-0000-4000-8000-000000000009', onConflict: 'skip' }], () => {})).toMatchObject({ ok: false, error: { code: 'invalid-input' } })
+    for (const requests of [[`claude-code:${ID}`], [{ key: `claude-code:${ID}`, onConflict: 'overwrite' }], [{ key: `claude-code:${ID}` }], Array(2).fill({ key: `claude-code:${ID}`, onConflict: 'skip' })]) {
+      expect(await service.runImport(token, [], requests, () => {}), JSON.stringify(requests)).toMatchObject({ ok: false, error: { code: 'invalid-input' } })
+    }
   })
 })

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { listSessions } from '../src/main/core/discovery'
 import { exportSessions } from '../src/main/core/export'
 import { defaultExists, openArchive, runImport, suggestMappings } from '../src/main/core/import'
-import { type SessionKey, type SessionSummary, sessionKey } from '../src/shared/sessions'
+import { requestsFor, type SessionKey, type SessionSummary, sessionKey } from '../src/shared/sessions'
 import { readArchiveEntries } from './fixtures/archive'
 import { listTree, NEVER_EXPORT, removeTempDir, treeHash } from './fixtures/claude-store'
 import { createStateDb, insertEdge, spawnEdges, threadRow, threadRows } from './fixtures/codex-db'
@@ -46,7 +46,7 @@ async function exportFrom(ids: string[], name = 'out.agentsessions'): Promise<st
 async function importInto(ids: string[], name?: string) {
   const opened = await openArchive(b.context, await exportFrom(ids, name))
   const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: path.sep, exists: defaultExists })
-  return runImport(b.context, opened, mappings, ids.map(key) as SessionKey[])
+  return runImport(b.context, opened, mappings, requestsFor(ids.map(key) as SessionKey[]))
 }
 
 const at = (machine: Machine, rel: string) => path.join(machine.codexRoot, ...rel.split('/'))
@@ -164,7 +164,7 @@ describe('Codex subagents imported into a store with a database', () => {
       createStateDb(path.join(c.codexRoot, 'state_5.sqlite'), [], { edges: false })
       const opened = await openArchive(c.context, await exportFrom([CX.parent], 'c.agentsessions'))
       const mappings = suggestMappings(opened.manifest, { homeDir: c.home, sep: path.sep, exists: defaultExists })
-      const [outcome] = (await runImport(c.context, opened, mappings, [key(CX.parent)])).outcomes
+      const [outcome] = (await runImport(c.context, opened, mappings, requestsFor([key(CX.parent)]))).outcomes
       expect(outcome.status).toBe('created')
       expect(threadRows(path.join(c.codexRoot, 'state_5.sqlite')).map((row) => row.id).sort()).toEqual([...FAMILY].sort())
       expect(spawnEdges(path.join(c.codexRoot, 'state_5.sqlite'))).toEqual([])

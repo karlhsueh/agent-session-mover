@@ -8,7 +8,7 @@ import { defaultExists, openArchive, runImport, suggestMappings } from '../src/m
 import type { Provider, ProviderEffect } from '../src/main/core/provider'
 import { codexProvider } from '../src/main/providers/codex'
 import { providers } from '../src/main/providers/registry'
-import { sessionKey } from '../src/shared/sessions'
+import { requestsFor, sessionKey } from '../src/shared/sessions'
 import { listTree, removeTempDir } from './fixtures/claude-store'
 import { createStateDb, spawnEdges, threadRows } from './fixtures/codex-db'
 import { appendRecord, buildCodexStore, type CodexStore, CX } from './fixtures/codex-store'
@@ -69,7 +69,7 @@ async function importOne(id: string, context: CoreContext = b.context, name = 'a
   await exportSessions(a.context, [key(id)], file)
   const opened = await openArchive(b.context, file)
   const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: path.sep, exists: defaultExists })
-  return runImport(context, opened, mappings, [key(id)], { fault })
+  return runImport(context, opened, mappings, requestsFor([key(id)]), { fault })
 }
 
 const importPlain = (context?: CoreContext, name?: string) => importOne(CX.plain, context, name)
@@ -81,7 +81,7 @@ describe('Codex rollback', () => {
     await exportSessions(a.context, [key(CX.plain)], file)
     const opened = await openArchive(b.context, file)
     const mappings = suggestMappings(opened.manifest, { homeDir: b.home, sep: path.sep, exists: defaultExists })
-    const [outcome] = (await runImport(b.context, opened, mappings, [key(CX.plain)], { fault: { afterWrites: 1, mode: 'error' } })).outcomes
+    const [outcome] = (await runImport(b.context, opened, mappings, requestsFor([key(CX.plain)]), { fault: { afterWrites: 1, mode: 'error' } })).outcomes
     expect(outcome).toMatchObject({ status: 'failed', rolledBack: true })
     expect(await snapshotTarget()).toEqual(before)
   })

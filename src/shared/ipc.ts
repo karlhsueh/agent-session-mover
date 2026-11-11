@@ -4,6 +4,7 @@ import type {
   ArchiveToken,
   ExportResult,
   ImportPreview,
+  ImportRequest,
   ImportResult,
   PathMapping,
   ProgressEvent,
@@ -74,7 +75,8 @@ export interface DesktopApi {
   previewImport(token: ArchiveToken, mappings: PathMapping[]): Promise<ApiResult<ImportPreview>>
   /** The Conversation preview of a session in the open archive. */
   previewArchiveSession(token: ArchiveToken, key: SessionKey): Promise<ApiResult<SessionPreview>>
-  runImport(token: ArchiveToken, mappings: PathMapping[], keys: SessionKey[]): Promise<ApiResult<ImportResult>>
+  /** Plans each session again first. A conflict is replaced only when its request says `replace`. */
+  runImport(token: ArchiveToken, mappings: PathMapping[], requests: ImportRequest[]): Promise<ApiResult<ImportResult>>
   /** Creates a missing mapping target and its parents while that archive is open. An existing folder is left as it is. */
   createFolder(token: ArchiveToken, target: string): Promise<ApiResult<void>>
   /** Returns the unsubscribe function. */

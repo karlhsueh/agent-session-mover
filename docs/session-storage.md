@@ -158,7 +158,8 @@ Codex opens its databases in WAL mode and writes them while any Codex process ru
   - No copy: create it.
   - Identical bytes: skip.
   - The existing copy is a strict prefix of the archive copy: update it, and keep the old copy as a backup.
-  - Anything else: refuse, and leave both untouched.
+  - Anything else is a conflict. Import leaves both copies untouched unless the user chooses Replace for that session. Replace moves the copy here to the backup folder, then writes the archive copy, the same way an update does.
+  - Refuse outright, whatever the user chooses, when the store holds the session twice or Codex here holds a newer rollout of the thread than the archive.
 - **Private content.** Transcripts hold the account email, account ids, system prompts, and any file or command output that the agent read. Export shows a warning. It does not redact, because redaction would break Codex byte offsets.
 - **Untrusted archives.** Import never uses a path from inside an archive as a file path. It checks every blob against its sha256 hash and rejects archives that break the size limits.
 

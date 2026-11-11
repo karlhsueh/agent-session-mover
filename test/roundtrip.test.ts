@@ -5,7 +5,7 @@ import { listSessions } from '../src/main/core/discovery'
 import { exportSessions } from '../src/main/core/export'
 import { closeArchive, defaultExists, openArchive, type OpenedArchive, previewImport, runImport, suggestMappings } from '../src/main/core/import'
 import { encodeProjectDir } from '../src/main/providers/claude-code/encode'
-import { type ProgressEvent, sessionKey, type SessionKey } from '../src/shared/sessions'
+import { type ProgressEvent, requestsFor, sessionKey, type SessionKey } from '../src/shared/sessions'
 import { readArchiveEntries } from './fixtures/archive'
 import { NEVER_EXPORT, removeTempDir, treeHash, writeLiveEntry, writeNeverExportFiles, writeSession, type BuiltSession } from './fixtures/claude-store'
 import { type Machine, makeMachine, shellQuoted } from './fixtures/machine'
@@ -98,7 +98,7 @@ describe('import into an empty store', () => {
     await appendFile(built[S1].transcriptPath, `${line}\n`.repeat(1500))
     const { opened, mappings } = await openIn(b, await exportFrom(a, [key(S1)]))
     const events: ProgressEvent[] = []
-    await runImport(b.context, opened, mappings, [key(S1)], { onProgress: (event) => events.push(event) })
+    await runImport(b.context, opened, mappings, requestsFor([key(S1)]), { onProgress: (event) => events.push(event) })
     const imports = events.flatMap((event) => (event.operation === 'import' ? [event] : []))
     const last = imports.at(-1)!
     const during = imports.filter((event) => event.bytesDone > 0 && event.bytesDone < last.bytesTotal)
@@ -113,7 +113,7 @@ describe('import into an empty store', () => {
     await mkdir(linked, { recursive: true })
     await symlink(linked, b.root, 'junction')
     const { opened, mappings } = await openIn(b, await exportFrom(a, [key(S1)]))
-    const result = await runImport(b.context, opened, mappings, [key(S1)])
+    const result = await runImport(b.context, opened, mappings, requestsFor([key(S1)]))
     expect(result.outcomes.map((o) => o.status)).toEqual(['created'])
     const dstDir = path.join(linked, 'projects', encodeProjectDir(path.join(b.home, 'code', 'proj')))
     expect(await stat(path.join(dstDir, `${S1}.jsonl`)).then(() => true)).toBe(true)
@@ -131,7 +131,7 @@ describe('import into an empty store', () => {
     expect(preview.sessions[1].warnings).toContainEqual({ code: 'hidden-from-picker', clientDetail: 'sdk-cli' })
     expect(preview.sessions[0].warnings).toContainEqual({ code: 'target-cwd-missing', path: dstProj })
 
-    const result = await runImport(b.context, opened, mappings, [key(S1), key(S2), key(S3)])
+    const result = await runImport(b.context, opened, mappings, requestsFor([key(S1), key(S2), key(S3)]))
     expect(result.outcomes.map((o) => o.status)).toEqual(['created', 'created', 'created'])
     expect(result.outcomes[0], 'the result carries the resume command for the folder it landed in').toMatchObject({ resumeCommand: `cd ${shellQuoted(dstProj)} && claude --resume ${S1}` })
 
@@ -173,9 +173,9 @@ describe('import into an empty store', () => {
 
   it('is idempotent: a second run skips every session and changes nothing', async () => {
     const { opened, mappings } = await openIn(b, await exportFrom(a, [key(S1), key(S2)]))
-    await runImport(b.context, opened, mappings, [key(S1), key(S2)])
+    await runImport(b.context, opened, mappings, requestsFor([key(S1), key(S2)]))
     const after = await treeHash(b.root)
-    const again = await runImport(b.context, opened, mappings, [key(S1), key(S2)])
+    const again = await runImport(b.context, opened, mappings, requestsFor([key(S1), key(S2)]))
     expect(again.outcomes.map((o) => o.status)).toEqual(['skipped', 'skipped'])
     expect(await treeHash(b.root)).toBe(after)
   })
@@ -192,7 +192,7 @@ describe('import into a populated store', () => {
   async function importOnce(): Promise<{ archive: string; mappings: ReturnType<typeof suggestMappings>; dstFile: string }> {
     const archive = await exportFrom(a, [key(S1)], 'first.agentsessions')
     const { opened, mappings } = await openIn(b, archive)
-    expect((await runImport(b.context, opened, mappings, [key(S1)])).backupDir, 'a run that only creates keeps no backups').toBeNull()
+    expect((await runImport(b.context, opened, mappings, requestsFor([key(S1)]))).backupDir, 'a run that only creates keeps no backups').toBeNull()
     const dstFile = path.join(b.root, 'projects', encodeProjectDir(path.join(b.home, 'code', 'proj')), `${S1}.jsonl`)
     return { archive, mappings, dstFile }
   }
@@ -204,7 +204,7 @@ describe('import into a populated store', () => {
 
     const { opened } = await openIn(b, await exportFrom(a, [key(S1)], 'second.agentsessions'))
     expect((await previewImport(b.context, opened, mappings)).sessions[0].action).toEqual({ kind: 'update', backup: true })
-    const result = await runImport(b.context, opened, mappings, [key(S1)])
+    const result = await runImport(b.context, opened, mappings, requestsFor([key(S1)]))
     const [outcome] = result.outcomes
     expect(outcome.status).toBe('updated')
     expect(result.backupDir, 'the run names its backup folder').toBe(path.dirname((outcome as { backupDir: string }).backupDir))
@@ -222,16 +222,47 @@ describe('import into a populated store', () => {
     await writeFile(dstFile, (await readFile(dstFile, 'utf8')).replace('Tokenizer test', 'Tokenizer tesT'))
     const before = await treeHash(b.root)
     const { opened } = await openIn(b, archive)
-    const [outcome] = (await runImport(b.context, opened, mappings, [key(S1)])).outcomes
-    expect(outcome).toMatchObject({ status: 'refused', action: { kind: 'conflict', reason: 'diverged' } })
+    const [planned] = (await previewImport(b.context, opened, mappings)).sessions
+    expect(planned.action).toEqual({
+      kind: 'conflict',
+      reason: 'diverged',
+      message: 'This computer already has a different copy of this session.',
+      hereChangedAt: new Date((await stat(dstFile)).mtimeMs).toISOString(),
+    })
+    const [outcome] = (await runImport(b.context, opened, mappings, requestsFor([key(S1)]))).outcomes
+    expect(outcome, 'skip is the default').toMatchObject({ status: 'refused', action: { kind: 'conflict', reason: 'diverged' } })
     expect(await treeHash(b.root)).toBe(before)
   })
 
-  it('refuses when the copy here already continues past the archive', async () => {
+  it('replaces a diverged copy when the user chooses to, and keeps this computer copy as a backup', async () => {
     const { archive, mappings, dstFile } = await importOnce()
+    const incoming = await readFile(dstFile)
+    const here = Buffer.from(incoming.toString().replace('Tokenizer test', 'Tokenizer tesT'))
+    await writeFile(dstFile, here)
+    const { opened } = await openIn(b, archive)
+    const result = await runImport(b.context, opened, mappings, requestsFor([key(S1)], 'replace'))
+    const [outcome] = result.outcomes
+    expect(outcome).toMatchObject({ status: 'replaced', action: { kind: 'conflict', reason: 'diverged' } })
+    expect(await readFile(dstFile)).toEqual(incoming)
+    const backupDir = (outcome as { backupDir: string }).backupDir
+    expect(result.backupDir).toBe(path.dirname(backupDir))
+    expect(await readFile(path.join(backupDir, path.relative(b.root, dstFile)))).toEqual(here)
+    expect((await runImport(b.context, opened, mappings, requestsFor([key(S1)], 'replace'))).outcomes[0].status, 'a second run finds the copies identical').toBe('skipped')
+  })
+
+  it('calls a copy here that continues past the archive newer, and replaces it only on request', async () => {
+    const { archive, mappings, dstFile } = await importOnce()
+    const incoming = await readFile(dstFile)
     await appendFile(dstFile, JSON.stringify({ type: 'user', sessionId: S1, timestamp: '2026-11-03T00:00:00.000Z' }) + '\n')
+    const longer = await readFile(dstFile)
     const { opened } = await openIn(b, archive)
     expect((await previewImport(b.context, opened, mappings)).sessions[0].action).toMatchObject({ kind: 'conflict', reason: 'target-newer' })
+    expect((await runImport(b.context, opened, mappings, requestsFor([key(S1)]))).outcomes[0].status).toBe('refused')
+    expect(await readFile(dstFile)).toEqual(longer)
+    const [outcome] = (await runImport(b.context, opened, mappings, requestsFor([key(S1)], 'replace'))).outcomes
+    expect(outcome.status).toBe('replaced')
+    expect(await readFile(dstFile)).toEqual(incoming)
+    expect(await readFile(path.join((outcome as { backupDir: string }).backupDir, path.relative(b.root, dstFile)))).toEqual(longer)
   })
 
   it('blocks a session that is live on this machine', async () => {
@@ -241,7 +272,7 @@ describe('import into a populated store', () => {
     await writeLiveEntry(b.root, process.pid, S1)
     const before = await treeHash(b.root)
     const { opened } = await openIn(b, archive)
-    const [outcome] = (await runImport(b.context, opened, mappings, [key(S1)])).outcomes
+    const [outcome] = (await runImport(b.context, opened, mappings, requestsFor([key(S1)]))).outcomes
     expect(outcome).toMatchObject({ status: 'refused', action: { kind: 'blocked', reason: 'live' } })
     expect(await treeHash(b.root)).toBe(before)
   })
@@ -252,7 +283,7 @@ describe('import into a populated store', () => {
     await writeSession(b.root, { id: S1, cwd: '/elsewhere' })
     expect(elsewhere).not.toBe(path.dirname(dstFile))
     const { opened } = await openIn(b, archive)
-    expect((await previewImport(b.context, opened, mappings)).sessions[0].action).toMatchObject({ kind: 'conflict', reason: 'multiple-copies' })
+    expect((await previewImport(b.context, opened, mappings)).sessions[0].action).toMatchObject({ kind: 'blocked', reason: 'multiple-copies' })
   })
 
   it('matches the session id in any project folder and never creates a second copy', async () => {
@@ -260,7 +291,7 @@ describe('import into a populated store', () => {
     await appendFile(built[S1].transcriptPath, JSON.stringify({ type: 'system', sessionId: S1, timestamp: '2026-11-04T00:00:00.000Z' }) + '\n')
     const { opened } = await openIn(b, await exportFrom(a, [key(S1)], 'second.agentsessions'))
     const moved = mappings.map((m) => (m.source === srcProj ? { ...m, target: path.join(b.home, 'moved') } : m))
-    const [outcome] = (await runImport(b.context, opened, moved, [key(S1)])).outcomes
+    const [outcome] = (await runImport(b.context, opened, moved, requestsFor([key(S1)]))).outcomes
     expect(outcome).toMatchObject({ status: 'refused', action: { kind: 'conflict', reason: 'diverged' } })
     expect(await stat(path.join(b.root, 'projects', encodeProjectDir(path.join(b.home, 'moved')))).catch(() => null)).toBeNull()
     expect(await stat(dstFile).then(() => true)).toBe(true)

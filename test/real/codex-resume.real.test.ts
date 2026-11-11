@@ -9,7 +9,7 @@ import { afterAll, expect, it } from 'vitest'
 import { exportSessions, type CoreContext } from '../../src/main/core/export'
 import { closeArchive, openArchive, previewImport, runImport } from '../../src/main/core/import'
 import { providers } from '../../src/main/providers/registry'
-import { sessionKey } from '../../src/shared/sessions'
+import { requestsFor, sessionKey } from '../../src/shared/sessions'
 
 const run = promisify(execFile)
 const realAuth = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), '.codex'), 'auth.json')
@@ -106,7 +106,7 @@ it('resumes a Codex session by id after export and import into another CODEX_HOM
   const mappings = [{ source: projectA, target: projectB }]
   const preview = await previewImport(target, opened, mappings)
   expect(preview.sessions.map((s) => s.action.kind), 'import plans a create').toEqual(['create'])
-  const result = await runImport(target, opened, mappings, [sessionKey('codex', origin.threadId)])
+  const result = await runImport(target, opened, mappings, requestsFor([sessionKey('codex', origin.threadId)]))
   expect(result.outcomes.map((o) => o.status), 'import created the session').toEqual(['created'])
   await closeArchive(opened)
 

@@ -63,7 +63,7 @@ async function importArchive(entries: RawEntry[]) {
   if (!opened.ok || opened.value.kind !== 'opened') throw new Error('archive did not open')
   const mappings = [{ source: CWD, target: path.join(b.home, 'proj') }]
   const preview = await service.previewImport(opened.value.token, mappings)
-  const run = await service.runImport(opened.value.token, mappings, [`codex:${ID}`], () => {})
+  const run = await service.runImport(opened.value.token, mappings, [{ key: `codex:${ID}`, onConflict: 'skip' }], () => {})
   return { preview, run }
 }
 

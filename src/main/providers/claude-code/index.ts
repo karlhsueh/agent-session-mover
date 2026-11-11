@@ -193,7 +193,11 @@ async function inspect(root: string, session: ManifestSession, context: ImportCo
   const existing = (await context.once('claude-code:transcripts', () => findTranscripts(root))).filter((transcript) => transcript.id === session.id)
   if (existing.length > 1) {
     return refuse(
-      { kind: 'conflict', reason: 'multiple-copies', message: `This machine already has ${existing.length} copies of the session, so Claude Code cannot resume it by id.` },
+      {
+        kind: 'blocked',
+        reason: 'multiple-copies',
+        message: `This computer already has ${existing.length} copies of this session in different project folders, so Claude Code cannot resume it by id. Import does not choose between them.`,
+      },
       targetCwd,
     )
   }

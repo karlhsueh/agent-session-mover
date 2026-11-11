@@ -76,7 +76,8 @@ type Placement = { kind: 'placed'; file: TargetFile } | { kind: 'refused'; actio
 function place(entry: ArchivedRollout, existing: readonly RolloutFile[]): Placement {
   const copies = existing.filter((file) => file.name.rolloutId === entry.name.rolloutId)
   if (copies.length > 1) {
-    return { kind: 'refused', action: { kind: 'conflict', reason: 'multiple-copies', message: `This machine has ${copies.length} copies of rollout ${entry.name.rolloutId}.` } }
+    const message = `This computer has ${copies.length} copies of one of this session's rollout files, so import cannot tell which one to update.`
+    return { kind: 'refused', action: { kind: 'blocked', reason: 'multiple-copies', message } }
   }
   const base = { role: entry.file.role, sha256: entry.file.sha256, transform: entry.name.compressed ? unzstd : null, mtimeMs: entry.file.mtimeMs }
   const [copy] = copies
@@ -133,7 +134,8 @@ export async function inspectCodexTarget(root: string, session: ManifestSession,
   for (const newest of [main, ...layout.subagents]) {
     const newerHere = existing.find((file) => file.name.threadId === newest.name.threadId && !archivedIds.has(file.name.rolloutId) && isNewer(file.name, newest.name))
     if (newerHere) {
-      return refuse({ kind: 'conflict', reason: 'diverged', message: `This machine has a newer rollout of the session (${newerHere.rel}) that the archive does not include.` }, targetCwd)
+      const message = 'This computer has newer history for this session that the archive does not include, so import leaves it as it is.'
+      return refuse({ kind: 'blocked', reason: 'newer-here', message }, targetCwd)
     }
   }
 
