@@ -1,6 +1,6 @@
 import type { ConflictChoice, SessionImportPreview, SessionInfo, SessionKey, SessionPreview } from '../../../shared/sessions'
 import { AGENT_LABEL, folderName, plural, sessionTitle } from '../model/format'
-import { conflictChoice, describeAction, isActionable, planBadge, warningText, willImport } from '../model/importing'
+import { conflictChoice, type CopyLine, copyLines, describeAction, hereIsAhead, isActionable, planBadge, warningText, willImport } from '../model/importing'
 import type { Loadable } from '../state'
 import { Conversation } from './Conversation'
 
@@ -10,6 +10,8 @@ interface PlanRowProps {
   included: boolean
   onToggle: (key: SessionKey) => void
   choice: ConflictChoice
+  /** False until the user picks Keep or Replace for a conflict. Import keeps the copy here until then. */
+  decided: boolean
   onChoose: (choice: ConflictChoice) => void
   /** Undefined while the conversation is folded away. */
   conversation: Loadable<SessionPreview> | null | undefined
@@ -20,7 +22,7 @@ interface PlanRowProps {
   listedFolders: ReadonlySet<string>
 }
 
-export function PlanRow({ session, plan, included, onToggle, choice, onChoose, conversation, onConversation, onRetry, home, listedFolders }: PlanRowProps) {
+export function PlanRow({ session, plan, included, onToggle, choice, decided, onChoose, conversation, onConversation, onRetry, home, listedFolders }: PlanRowProps) {
   const actionable = plan !== null && isActionable(plan.action)
   const conflict = plan?.action.kind === 'conflict'
   const id = `plan-${session.key}`
@@ -50,28 +52,30 @@ export function PlanRow({ session, plan, included, onToggle, choice, onChoose, c
             </>
           )}
         </span>
-        {plan && plan.action.kind !== 'create' && <span className="plan-message">{describeAction(plan.action, session)}</span>}
+        {plan && plan.action.kind !== 'create' && <span className="plan-message">{describeAction(plan.action)}</span>}
+        {plan?.action.kind === 'conflict' && <CopyCompare lines={copyLines(plan.action)} />}
         {warnings.map((warning) => (
           <span key={warning.code} className="plan-warning">
             {warningText(warning, session.agent, home, warning.code === 'target-cwd-missing' && listedFolders.has(warning.path))}
           </span>
         ))}
-        {conflict && <ConflictChoices title={sessionTitle(session)} choice={choice} onChoose={onChoose} />}
+        {conflict && <ConflictChoices title={sessionTitle(session)} choice={decided ? choice : null} ahead={hereIsAhead(plan.action)} onChoose={onChoose} />}
       </Main>
       <span className="plan-side">
         <button
           type="button"
           className="button ghost small"
-          aria-label={`${shown ? 'Hide' : 'Preview'} the conversation of ${sessionTitle(session)}`}
+          aria-label={`${shown ? 'Hide' : 'Preview'} the ${conflict ? "archive's copy" : 'conversation'} of ${sessionTitle(session)}`}
           aria-expanded={shown}
           aria-controls={`${id}-conversation`}
           onClick={onConversation}
         >
-          {shown ? 'Hide' : 'Preview'}
+          {shown ? 'Hide' : conflict ? "Preview archive's copy" : 'Preview'}
         </button>
       </span>
       {shown && (
         <div className="plan-conversation" id={`${id}-conversation`}>
+          {conflict && <p className="plan-conversation-label">Archive's copy</p>}
           <Conversation state={conversation} onRetry={onRetry} />
         </div>
       )}
@@ -81,18 +85,41 @@ export function PlanRow({ session, plan, included, onToggle, choice, onChoose, c
 
 const CHOICE_LABEL: Record<ConflictChoice, string> = { skip: "Keep this computer's copy", replace: "Replace with the archive's copy" }
 
-function ConflictChoices({ title, choice, onChoose }: { title: string; choice: ConflictChoice; onChoose: (choice: ConflictChoice) => void }) {
+function ConflictChoices({ title, choice, ahead, onChoose }: { title: string; choice: ConflictChoice | null; ahead: boolean; onChoose: (choice: ConflictChoice) => void }) {
   return (
     <span className="plan-choice">
-      <span className="chips" role="group" aria-label={`What to do with ${title}`}>
+      <span className={ahead ? 'chips warn' : 'chips'} role="group" aria-label={`What to do with ${title}`}>
         {(['skip', 'replace'] as const).map((option) => (
           <button key={option} type="button" aria-pressed={choice === option} onClick={() => onChoose(option)}>
             {CHOICE_LABEL[option]}
           </button>
         ))}
       </span>
-      {choice === 'replace' && <span className="plan-choice-note">The copy on this computer goes to the backup folder first.</span>}
+      {choice === 'replace' && (
+        <span className={ahead ? 'plan-choice-note warn' : 'plan-choice-note'}>
+          {ahead ? 'The copy here has newer messages. They go to the backup folder with the rest of that copy.' : 'The copy on this computer goes to the backup folder first.'}
+        </span>
+      )}
+      {choice === null && <span className="plan-choice-note">Until you choose, import keeps this computer's copy.</span>}
     </span>
+  )
+}
+
+/** This computer's copy and the archive's, counted the same way, with the one that goes further marked. */
+function CopyCompare({ lines }: { lines: CopyLine[] }) {
+  if (lines.length === 0) return null
+  return (
+    <dl className="copies">
+      {lines.map((line) => (
+        <div key={line.label} className={line.newer ? 'copy newer' : 'copy'}>
+          <dt>{line.label}</dt>
+          <dd>
+            {line.text}
+            {line.newer && <span className="copy-newer"> · newer</span>}
+          </dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 
@@ -106,6 +133,7 @@ export function ConflictBar({
   onChoose: (keys: readonly SessionKey[], choice: ConflictChoice) => void
 }) {
   const replacing = keys.filter((key) => conflictChoice(choices, key) === 'replace').length
+  const keeping = keys.filter((key) => choices.get(key) === 'skip').length
   return (
     <div className="plan-bulk">
       <span>
@@ -113,7 +141,7 @@ export function ConflictBar({
         <span className="dim">{replacing === 0 ? 'Import keeps every copy here.' : `${replacing} will be replaced.`}</span>
       </span>
       <span className="plan-bulk-actions">
-        <button type="button" className="button small" disabled={replacing === 0} onClick={() => onChoose(keys, 'skip')}>
+        <button type="button" className="button small" disabled={keeping === keys.length} onClick={() => onChoose(keys, 'skip')}>
           Keep all
         </button>
         <button type="button" className="button small" disabled={replacing === keys.length} onClick={() => onChoose(keys, 'replace')}>

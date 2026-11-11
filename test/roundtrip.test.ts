@@ -223,12 +223,12 @@ describe('import into a populated store', () => {
     const before = await treeHash(b.root)
     const { opened } = await openIn(b, archive)
     const [planned] = (await previewImport(b.context, opened, mappings)).sessions
-    expect(planned.action).toEqual({
-      kind: 'conflict',
-      reason: 'diverged',
-      message: 'This computer already has a different copy of this session.',
-      hereChangedAt: new Date((await stat(dstFile)).mtimeMs).toISOString(),
-    })
+    expect(planned.action).toMatchObject({ kind: 'conflict', reason: 'diverged', message: 'This computer already has a different copy of this session.' })
+    const copies = planned.action.kind === 'conflict' ? planned.action.copies : null
+    expect(copies, 'both copies are read the same way, so an edit that adds nothing compares as equal').toEqual({ here: copies?.archive, archive: copies?.here })
+    expect(copies?.here.messages).toBeGreaterThan(0)
+    expect(copies?.here.lastMessageAt).toMatch(/^2026-/)
+    expect(copies?.here.complete).toBe(true)
     const [outcome] = (await runImport(b.context, opened, mappings, requestsFor([key(S1)]))).outcomes
     expect(outcome, 'skip is the default').toMatchObject({ status: 'refused', action: { kind: 'conflict', reason: 'diverged' } })
     expect(await treeHash(b.root)).toBe(before)
@@ -253,10 +253,14 @@ describe('import into a populated store', () => {
   it('calls a copy here that continues past the archive newer, and replaces it only on request', async () => {
     const { archive, mappings, dstFile } = await importOnce()
     const incoming = await readFile(dstFile)
-    await appendFile(dstFile, JSON.stringify({ type: 'user', sessionId: S1, timestamp: '2026-11-03T00:00:00.000Z' }) + '\n')
+    await appendFile(dstFile, JSON.stringify({ type: 'user', sessionId: S1, timestamp: '2026-11-03T00:00:00.000Z', message: { role: 'user', content: 'one more here' } }) + '\n')
     const longer = await readFile(dstFile)
     const { opened } = await openIn(b, archive)
-    expect((await previewImport(b.context, opened, mappings)).sessions[0].action).toMatchObject({ kind: 'conflict', reason: 'target-newer' })
+    const [planned] = (await previewImport(b.context, opened, mappings)).sessions
+    expect(planned.action).toMatchObject({ kind: 'conflict', reason: 'target-newer' })
+    const copies = planned.action.kind === 'conflict' ? planned.action.copies : null
+    expect(copies?.here, 'the copy here counts the message it added and ends at its time').toEqual({ lastMessageAt: '2026-11-03T00:00:00.000Z', messages: copies!.archive.messages + 1, complete: true })
+    expect(copies?.archive.lastMessageAt).not.toBe('2026-11-03T00:00:00.000Z')
     expect((await runImport(b.context, opened, mappings, requestsFor([key(S1)]))).outcomes[0].status).toBe('refused')
     expect(await readFile(dstFile)).toEqual(longer)
     const [outcome] = (await runImport(b.context, opened, mappings, requestsFor([key(S1)], 'replace'))).outcomes

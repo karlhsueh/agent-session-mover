@@ -4,7 +4,7 @@ import { accountFor, quietSummary } from '../src/renderer/src/model/result'
 import { type ImportAction, type ImportPreview, type ImportResult, type SessionInfo, sessionKey } from '../src/shared/sessions'
 
 const key = (n: number) => sessionKey('claude-code', `5a000000-0000-4000-8000-00000000000${n}`)
-const conflict: ImportAction = { kind: 'conflict', reason: 'diverged', message: 'm', hereChangedAt: null }
+const conflict: ImportAction = { kind: 'conflict', reason: 'diverged', message: 'm', copies: null }
 
 function info(n: number, branch: string): SessionInfo {
   return {

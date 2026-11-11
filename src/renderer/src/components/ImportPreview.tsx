@@ -80,6 +80,7 @@ export function ImportPreview({ screen, running, onMappingChange, onToggle, onCh
       included={!excluded.has(session.key)}
       onToggle={onToggle}
       choice={conflictChoice(conflicts, session.key)}
+      decided={conflicts.has(session.key)}
       onChoose={(choice) => onChoose([session.key], choice)}
       conversation={open.has(session.key) ? conversation(session.key) : undefined}
       onConversation={() => toggleOpen(session.key)}

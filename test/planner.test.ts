@@ -7,7 +7,7 @@ import type { TargetFile, TargetInspection } from '../src/main/core/provider'
 const sha = (c: string) => c.repeat(64) as Sha256
 const target = (name: string): TargetFile => ({ role: 'transcript', path: `projects/p/${name}` as StorePath, sha256: sha('0'), transform: null, mtimeMs: 0 })
 const ready = (live = false): TargetInspection => ({ kind: 'ready', targetCwd: '/x', warnings: [], live, files: [], effects: [{ row: 1 }] })
-const compared = (name: string, relation: FileRelation, existingMtimeMs: number | null = null): ComparedFile => ({ file: target(name), sha256: sha('1'), size: 10, relation, existingMtimeMs })
+const compared = (name: string, relation: FileRelation): ComparedFile => ({ file: target(name), sha256: sha('1'), size: 10, relation })
 
 describe('relate', () => {
   const planned = { sha256: sha('a'), size: 10, prefixSha256: sha('p') }
@@ -41,13 +41,12 @@ describe('planSession', () => {
   })
 
   it('writes nothing for a diverged file unless the user chooses replace', () => {
-    const changedAt = Date.parse('2026-11-09T15:00:00.000Z')
     const plan = planSession(ready(), [
       compared('a', { kind: 'absent' }),
-      compared('b', { kind: 'different', existingSha256: sha('d') }, changedAt),
-      compared('c', { kind: 'identical' }, 0),
+      compared('b', { kind: 'different', existingSha256: sha('d') }),
+      compared('c', { kind: 'identical' }),
     ])
-    expect(plan.action).toMatchObject({ kind: 'conflict', reason: 'diverged', hereChangedAt: '2026-11-09T15:00:00.000Z' })
+    expect(plan.action).toMatchObject({ kind: 'conflict', reason: 'diverged', copies: null })
     expect(plan.writes).toEqual([])
     expect(changesFor(plan, 'skip')).toMatchObject({ writes: [], effects: [] })
     const replace = changesFor(plan, 'replace')
@@ -57,7 +56,7 @@ describe('planSession', () => {
 
   it('calls a target that only continues past the import newer', () => {
     const plan = planSession(ready(), [compared('a', { kind: 'target-is-longer', existingSha256: sha('l') })])
-    expect(plan.action).toMatchObject({ kind: 'conflict', reason: 'target-newer', hereChangedAt: null })
+    expect(plan.action).toMatchObject({ kind: 'conflict', reason: 'target-newer', copies: null })
     expect(changesFor(plan, 'replace').writes).toMatchObject([{ kind: 'replace', existingSha256: sha('l') }])
   })
 

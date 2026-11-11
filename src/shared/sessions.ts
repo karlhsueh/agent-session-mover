@@ -112,6 +112,21 @@ export function isAtOrUnder(value: string, root: string, sep: string): boolean {
 export type ConflictReason = 'diverged' | 'target-newer'
 export type BlockedReason = 'live' | 'unmapped-cwd' | 'invalid-session' | 'unsafe-path' | 'multiple-copies' | 'newer-here'
 
+/** One copy of a session, read by the same parser on both sides so the two compare. */
+export interface CopyFacts {
+  /** Time of the newest conversation entry that records one, or null when none does. */
+  lastMessageAt: string | null
+  /** User and assistant messages. A lower bound when `complete` is false. */
+  messages: number
+  complete: boolean
+}
+
+/** Both copies of a conflicting session. Only the import preview fills it, and null when either transcript cannot be read. */
+export interface ConflictCopies {
+  here: CopyFacts
+  archive: CopyFacts
+}
+
 export type ImportAction =
   | { kind: 'create' }
   | { kind: 'update'; backup: true }
@@ -120,7 +135,7 @@ export type ImportAction =
    * This machine already has a different copy. Import keeps it unless the user chooses `replace`,
    * which moves it to the backup folder first, the way an update does.
    */
-  | { kind: 'conflict'; reason: ConflictReason; message: string; hereChangedAt: string | null }
+  | { kind: 'conflict'; reason: ConflictReason; message: string; copies: ConflictCopies | null }
   /** Import cannot place the session, whatever the user chooses. */
   | { kind: 'blocked'; reason: BlockedReason; message: string }
 

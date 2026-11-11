@@ -1,5 +1,5 @@
-import type { AgentId, ConflictChoice, ImportAction, ImportPreview, ImportRequest, ImportWarning, SessionImportOutcome, SessionInfo, SessionKey } from '../../../shared/sessions'
-import { pickerNote, shortDateTime, tildePath } from './format'
+import type { AgentId, ConflictChoice, ConflictCopies, CopyFacts, ImportAction, ImportPreview, ImportRequest, ImportWarning, SessionImportOutcome, SessionKey } from '../../../shared/sessions'
+import { pickerNote, plural, shortDateTime, tildePath } from './format'
 
 export type Tone = 'good' | 'info' | 'neutral' | 'warn' | 'bad'
 
@@ -8,16 +8,13 @@ export interface Badge {
   tone: Tone
 }
 
-type Described = Pick<SessionInfo, 'lastActivity'>
 type Conflict = Extract<ImportAction, { kind: 'conflict' }>
 
 /**
  * The plan names what import will do and the result says it was done, in the same words:
  * Add and Added, Update and Updated, Replace and Replaced.
  */
-export const ACTIONS: {
-  [K in ImportAction['kind']]: Badge & { describe: (action: Extract<ImportAction, { kind: K }>, session: Described | null) => string }
-} = {
+export const ACTIONS: { [K in ImportAction['kind']]: Badge & { describe: (action: Extract<ImportAction, { kind: K }>) => string } } = {
   create: { label: 'Add', tone: 'good', describe: () => 'This session is not on this computer yet.' },
   update: {
     label: 'Update',
@@ -25,29 +22,55 @@ export const ACTIONS: {
     describe: () => 'This computer has an older copy. Agent Session Mover backs it up before the newer copy replaces it.',
   },
   'skip-identical': { label: 'Identical', tone: 'neutral', describe: () => 'This computer already has a byte-for-byte copy. There is nothing to import.' },
-  conflict: { label: 'Conflict', tone: 'warn', describe: describeConflict },
+  conflict: { label: 'Conflict', tone: 'warn', describe: (action) => action.message },
   blocked: { label: 'Blocked', tone: 'bad', describe: (action) => action.message },
 }
 
-const CONFLICT_LEAD: Record<Conflict['reason'], string> = {
-  diverged: 'This computer already has a different copy of this session',
-  'target-newer': "This computer's copy of this session goes further than the archive's",
+/**
+ * True when this computer's copy holds more than the archive's: it continues past it, or its last
+ * message is newer, or with no times to compare it has more messages.
+ */
+export function hereIsAhead(action: ImportAction): boolean {
+  if (action.kind !== 'conflict') return false
+  return action.reason === 'target-newer' || (action.copies !== null && lead(action.copies) > 0)
 }
 
-/** Dates let the user judge which copy to keep. */
-function describeConflict(action: Conflict, session: Described | null): string {
-  if (!action.hereChangedAt) return action.message
-  const here = `${CONFLICT_LEAD[action.reason]}, last changed ${shortDateTime(action.hereChangedAt)}.`
-  return session ? `${here} The archive's copy was last active ${shortDateTime(session.lastActivity)}.` : here
+/** Positive when the copy here is ahead, negative when the archive's is, zero when neither shows it. */
+function lead({ here, archive }: ConflictCopies): number {
+  const hereAt = here.lastMessageAt ? Date.parse(here.lastMessageAt) : Number.NaN
+  const archiveAt = archive.lastMessageAt ? Date.parse(archive.lastMessageAt) : Number.NaN
+  if (Number.isFinite(hereAt) && Number.isFinite(archiveAt) && hereAt !== archiveAt) return Math.sign(hereAt - archiveAt)
+  return Math.sign(here.messages - archive.messages)
 }
 
-/** A conflict the user chose to replace reads as what will happen to it. */
+export interface CopyLine {
+  label: string
+  text: string
+  newer: boolean
+}
+
+/** The two copies of a conflict side by side, in the same terms. Empty when main could not read both. */
+export function copyLines(action: Conflict): CopyLine[] {
+  if (!action.copies) return []
+  const ahead = hereIsAhead(action)
+  const describe = (facts: CopyFacts) => {
+    const count = facts.complete ? plural(facts.messages, 'message') : `At least ${plural(facts.messages, 'message')}`
+    return facts.lastMessageAt ? `${count} · last ${shortDateTime(facts.lastMessageAt)}` : count
+  }
+  return [
+    { label: "This computer's copy", text: describe(action.copies.here), newer: ahead },
+    { label: "Archive's copy", text: describe(action.copies.archive), newer: !ahead && lead(action.copies) < 0 },
+  ]
+}
+
+/** A conflict the user chose to replace reads as what will happen to it, and warns when the copy here holds more. */
 export function planBadge(action: ImportAction, choice: ConflictChoice): Badge {
-  return action.kind === 'conflict' && choice === 'replace' ? { label: 'Replace', tone: 'info' } : ACTIONS[action.kind]
+  if (action.kind === 'conflict' && choice === 'replace') return { label: 'Replace', tone: hereIsAhead(action) ? 'warn' : 'info' }
+  return ACTIONS[action.kind]
 }
 
-export function describeAction(action: ImportAction, session: Described | null = null): string {
-  return (ACTIONS[action.kind].describe as (action: ImportAction, session: Described | null) => string)(action, session)
+export function describeAction(action: ImportAction): string {
+  return (ACTIONS[action.kind].describe as (action: ImportAction) => string)(action)
 }
 
 export function isActionable(action: ImportAction): boolean {

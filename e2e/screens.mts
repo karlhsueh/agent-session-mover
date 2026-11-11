@@ -173,6 +173,11 @@ try {
     const fixture = SCREEN_FIXTURES.find((candidate) => candidate.title === title)!
     const file = join(home, '.claude', 'projects', encode(join(home, fixture.project)), `${fixture.id}.jsonl`)
     await writeFile(file, (await readFile(file, 'utf8')).replace('"Done."', '"Done here."'))
+    // The copy to replace also went on here, so Replace warns that newer messages go to the backup.
+    if (title === replaced) {
+      const later = { type: 'user', isSidechain: false, cwd: join(home, fixture.project), sessionId: fixture.id, timestamp: new Date().toISOString(), message: { role: 'user', content: 'Also cover the empty page.' } }
+      await writeFile(file, `${await readFile(file, 'utf8')}${JSON.stringify(later)}\n`)
+    }
   }
   await page.getByRole('button', { name: 'Back to sessions' }).click()
   await page.keyboard.press('ControlOrMeta+O')
@@ -180,8 +185,14 @@ try {
   await page.locator('.plan-bulk').evaluate((el) => el.scrollIntoView({ block: 'start' }))
   await shoot(page, 'import-conflict')
   await page.locator('.plan-row', { hasText: replaced }).getByRole('button', { name: "Replace with the archive's copy" }).click()
+  await page.locator('.verdict').evaluate((el) => el.scrollIntoView({ block: 'start' }))
+  await shoot(page, 'import-conflict-replace')
   await page.getByRole('button', { name: 'Use light theme' }).click()
   await shoot(page, 'import-conflict-light')
+  await page.locator('.plan-row', { hasText: kept }).getByRole('button', { name: /^Preview the archive's copy/ }).click()
+  await page.getByRole('list', { name: 'Conversation' }).waitFor()
+  await page.locator('.plan-row', { hasText: kept }).evaluate((el) => el.scrollIntoView({ block: 'start' }))
+  await shoot(page, 'import-conflict-preview-light')
   await page.getByRole('button', { name: /^Import \d+ sessions?/ }).click()
   await page.locator('.backups').waitFor()
   await shoot(page, 'import-result-conflict-light')

@@ -6,16 +6,20 @@ import {
   type ArchiveSummary,
   type ArchiveToken,
   type ConflictChoice,
+  type ConflictCopies,
+  type CopyFacts,
   type ImportPreview,
   type ImportRequest,
   type ImportResult,
   isAtOrUnder,
   type PathMapping,
+  type PreviewMessage,
   type ProgressEvent,
   type SessionImportOutcome,
   type SessionInfo,
   type SessionKey,
   sessionKey,
+  type SessionPreview,
 } from '../../shared/sessions'
 import { type ArchiveLimits, DEFAULT_LIMITS, extractArchive } from '../archive/archive'
 import { ExecutionError, executePlan, type Fault } from './executor'
@@ -151,7 +155,7 @@ async function compare(root: string, readBlob: BlobReader, file: TargetFile): Pr
   const blob = () => (file.transform ? file.transform(readBlob(file.sha256)) : readBlob(file.sha256))
   if (!existing) {
     const planned = await digest(blob())
-    return { file, sha256: planned.sha256, size: planned.size, relation: relate(planned, null), existingMtimeMs: null }
+    return { file, sha256: planned.sha256, size: planned.size, relation: relate(planned, null) }
   }
   const read = () => {
     const raw = readRange(existing.absPath, existing.rawSize)
@@ -162,22 +166,58 @@ async function compare(root: string, readBlob: BlobReader, file: TargetFile): Pr
   let relation = relate(planned, await digest(read(), planned.size))
   // The executor re-hashes the stored file before it moves it to the backup, so it needs the raw hash.
   if ('existingSha256' in relation && existing.decode) relation = { ...relation, existingSha256: await sha256File(existing.absPath) }
-  return { file, sha256: planned.sha256, size: planned.size, relation, existingMtimeMs: existing.mtimeMs }
+  return { file, sha256: planned.sha256, size: planned.size, relation }
 }
 
-async function existingCopy(root: string, file: TargetFile): Promise<{ absPath: string; rawSize: number; mtimeMs: number; decode: ContentTransform | null } | null> {
+async function existingCopy(root: string, file: TargetFile): Promise<{ absPath: string; path: StorePath; rawSize: number; decode: ContentTransform | null } | null> {
   const atPath = await regularFile(root, file.path)
-  if (atPath) return { ...atPath, decode: null }
+  if (atPath) return { ...atPath, path: file.path, decode: null }
   if (!file.supersedes) return null
   const superseded = await regularFile(root, file.supersedes.path)
-  return superseded && { ...superseded, decode: file.supersedes.decode }
+  return superseded && { ...superseded, path: file.supersedes.path, decode: file.supersedes.decode }
 }
 
-async function regularFile(root: string, rel: StorePath): Promise<{ absPath: string; rawSize: number; mtimeMs: number } | null> {
+async function regularFile(root: string, rel: StorePath): Promise<{ absPath: string; rawSize: number } | null> {
   const absPath = await resolveInside(root, rel)
   const info = await unlessMissing(lstat(absPath), null)
   if (info && !info.isFile()) throw new UnsafePathError(`${rel} exists and is not a regular file`)
-  return info && { absPath, rawSize: info.size, mtimeMs: info.mtimeMs }
+  return info && { absPath, rawSize: info.size }
+}
+
+/**
+ * Reads the transcript here and the archive's with the same parser, so the user compares the copies by
+ * their last message and length rather than by a file time on one side and a recorded time on the other.
+ */
+async function conflictCopies(planned: PlannedSession, blobDir: string): Promise<ConflictCopies | null> {
+  const { provider, root, session, inspection } = planned
+  if (inspection.kind !== 'ready') return null
+  const target = inspection.files.find((file) => file.role === provider.transcriptRole)
+  const archived = session.files.filter((file) => file.role === provider.transcriptRole)
+  if (!target || archived.length !== 1) return null
+  try {
+    const existing = await existingCopy(root, target)
+    if (!existing) return null
+    const [here, archive] = await Promise.all([
+      provider.previewTranscript({ absPath: existing.absPath, path: existing.path }),
+      provider.previewTranscript({ absPath: path.join(blobDir, archived[0]!.sha256), path: archived[0]!.path }),
+    ])
+    const facts = (preview: SessionPreview): CopyFacts | null =>
+      preview.kind === 'ok' ? { lastMessageAt: lastAt([preview.first, ...preview.recent]), messages: preview.counts.messages, complete: preview.complete } : null
+    const hereFacts = facts(here.preview)
+    const archiveFacts = facts(archive.preview)
+    return hereFacts && archiveFacts && { here: hereFacts, archive: archiveFacts }
+  } catch {
+    // The comparison only helps the user choose. Without it the conflict still plans and imports.
+    return null
+  }
+}
+
+function lastAt(entries: readonly PreviewMessage[]): string | null {
+  for (let index = entries.length - 1; index >= 0; index--) {
+    const at = entries[index]!.at
+    if (at) return at
+  }
+  return null
 }
 
 function selectSessions(opened: OpenedArchive, requests: readonly ImportRequest[]): { session: ManifestSession; onConflict: ConflictChoice }[] {
@@ -195,9 +235,10 @@ export async function previewImport(context: CoreContext, opened: OpenedArchive,
   const once = shareReads()
   for (const session of opened.manifest.sessions) {
     const planned = await planOne(context, opened, session, resolved, once)
+    const { action } = planned.plan
     sessions.push({
       key: planned.key,
-      action: planned.plan.action,
+      action: action.kind === 'conflict' ? { ...action, copies: await conflictCopies(planned, opened.blobDir) } : action,
       targetCwd: planned.inspection.targetCwd,
       warnings: planned.inspection.warnings,
     })

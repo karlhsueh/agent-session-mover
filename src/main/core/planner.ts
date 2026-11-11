@@ -21,8 +21,6 @@ export interface ComparedFile {
   sha256: Sha256
   size: number
   relation: FileRelation
-  /** When the copy here last changed, or null when there is none. */
-  existingMtimeMs: number | null
 }
 
 export type PlannedWrite =
@@ -83,9 +81,8 @@ export function planSession(inspection: TargetInspection, compared: readonly Com
   const conflicting = compared.filter((entry) => entry.relation.kind === 'different' || entry.relation.kind === 'target-is-longer')
   if (conflicting.length > 0) {
     const reason = conflicting.some((entry) => entry.relation.kind === 'different') ? 'diverged' : 'target-newer'
-    const changed = Math.max(...conflicting.map((entry) => entry.existingMtimeMs ?? Number.NaN))
     return {
-      action: { kind: 'conflict', reason, message: CONFLICT_MESSAGE[reason], hereChangedAt: Number.isFinite(changed) ? new Date(changed).toISOString() : null },
+      action: { kind: 'conflict', reason, message: CONFLICT_MESSAGE[reason], copies: null },
       writes: [],
       effects: [],
       replace: { writes, effects: inspection.effects },
