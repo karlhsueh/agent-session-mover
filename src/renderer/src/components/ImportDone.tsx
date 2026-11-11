@@ -49,7 +49,7 @@ export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () 
                 <li key={entry.key} className="outcome quiet" data-key={entry.key}>
                   <OutcomeHead entry={entry} />
                   <span className="plan-message">
-                    {entry.folder ? `${tildePath(entry.folder, home)}. ` : ''}
+                    {entry.folder ? `${tildePath(entry.folder, home)} · ` : ''}
                     {entry.message}
                   </span>
                 </li>
