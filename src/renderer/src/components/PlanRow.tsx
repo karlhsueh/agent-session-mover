@@ -1,48 +1,77 @@
 import type { ConflictChoice, SessionImportPreview, SessionInfo, SessionKey, SessionPreview } from '../../../shared/sessions'
 import { AGENT_LABEL, folderName, plural, sessionTitle } from '../model/format'
 import { conflictChoice, type CopyLine, copyLines, describeAction, hereIsAhead, isActionable, planBadge, warningText, willImport } from '../model/importing'
+import type { ProjectLabel } from '../model/scope'
 import type { Loadable } from '../state'
 import { Conversation } from './Conversation'
 
+type Side = 'archive' | 'here'
+/** Undefined while that conversation is folded away. */
+type Shown = Loadable<SessionPreview> | null | undefined
+
 interface PlanRowProps {
   session: SessionInfo
+  /** How browse would name the session's folder, so two folders called `api` read apart. */
+  folderLabel: ProjectLabel | undefined
   plan: SessionImportPreview | null
+  /** False when no row on the screen has a checkbox, so none keeps an empty column for one. */
+  checks: boolean
   included: boolean
   onToggle: (key: SessionKey) => void
   choice: ConflictChoice
   /** False until the user picks Keep or Replace for a conflict. Import keeps the copy here until then. */
   decided: boolean
   onChoose: (choice: ConflictChoice) => void
-  /** Undefined while the conversation is folded away. */
-  conversation: Loadable<SessionPreview> | null | undefined
-  onConversation: () => void
-  onRetry: () => void
+  conversation: Shown
+  /** This computer's copy of a conflicting session. */
+  here: Shown
+  onConversation: (side: Side) => void
+  onRetry: (side: Side) => void
   home: string
   /** Mapping targets, which the Folders section already flags when missing. */
   listedFolders: ReadonlySet<string>
 }
 
-export function PlanRow({ session, plan, included, onToggle, choice, decided, onChoose, conversation, onConversation, onRetry, home, listedFolders }: PlanRowProps) {
+export function PlanRow(props: PlanRowProps) {
+  const { session, folderLabel, plan, checks, included, onToggle, choice, decided, onChoose, conversation, here, onConversation, onRetry, home, listedFolders } = props
   const actionable = plan !== null && isActionable(plan.action)
   const conflict = plan?.action.kind === 'conflict'
   const id = `plan-${session.key}`
-  const shown = conversation !== undefined
+  const title = sessionTitle(session)
   const live = plan !== null && willImport(plan.action, included, choice)
   // Warnings are about resuming, so a row that imports nothing whatever the tick says has none.
   const warnings = actionable || (conflict && choice === 'replace') ? (plan?.warnings ?? []) : []
   const badge = plan && planBadge(plan.action, choice)
   // Only an add or update can be ticked. A row nothing happens to gets no checkbox, rather than a disabled one.
   const Main = actionable ? 'label' : 'div'
+  const shown = conversation !== undefined || here !== undefined
+  const label = folderLabel ?? { name: folderName(session.cwd), parent: null }
+  const previewButton = (side: Side, state: Shown, text: string, what: string) => (
+    <button
+      type="button"
+      className="button ghost small"
+      aria-label={`${state !== undefined ? 'Hide' : 'Preview'} ${what} of ${title}`}
+      aria-expanded={state !== undefined}
+      aria-controls={`${id}-${side}`}
+      onClick={() => onConversation(side)}
+    >
+      {[state !== undefined ? 'Hide' : 'Preview', text].filter(Boolean).join(' ')}
+    </button>
+  )
   return (
-    <li className={`${live ? 'plan-row' : 'plan-row inert'}${shown ? ' expanded' : ''}`} data-key={session.key}>
-      {actionable ? <input id={id} type="checkbox" checked={included} onChange={() => onToggle(session.key)} /> : <span aria-hidden="true" />}
+    <li className={`${live ? 'plan-row' : 'plan-row inert'}${shown ? ' expanded' : ''}${checks ? '' : ' no-check'}`} data-key={session.key}>
+      {checks && (actionable ? <input id={id} type="checkbox" checked={included} onChange={() => onToggle(session.key)} /> : <span aria-hidden="true" />)}
       <span className="plan-badge">{badge && <span className={`badge tone-${badge.tone}`}>{badge.label}</span>}</span>
       <Main htmlFor={actionable ? id : undefined} className="plan-main">
         <span className="plan-title">
-          <span className="truncate">{sessionTitle(session)}</span>
+          <span className="truncate">{title}</span>
         </span>
         <span className="plan-meta dim">
-          {AGENT_LABEL[session.agent]} · <span title={session.cwd ?? undefined}>{folderName(session.cwd)}</span>
+          {AGENT_LABEL[session.agent]} ·{' '}
+          <span title={session.cwd ?? undefined}>
+            {label.name}
+            {label.parent && <span className="scope-parent"> {label.parent}</span>}
+          </span>
           {plan?.targetCwd && folderName(plan.targetCwd) !== folderName(session.cwd) && (
             <>
               {' → '}
@@ -59,27 +88,30 @@ export function PlanRow({ session, plan, included, onToggle, choice, decided, on
             {warningText(warning, session.agent, home, warning.code === 'target-cwd-missing' && listedFolders.has(warning.path))}
           </span>
         ))}
-        {conflict && <ConflictChoices title={sessionTitle(session)} choice={decided ? choice : null} ahead={hereIsAhead(plan.action)} onChoose={onChoose} />}
+        {conflict && <ConflictChoices title={title} choice={decided ? choice : null} ahead={hereIsAhead(plan.action)} onChoose={onChoose} />}
       </Main>
-      <span className="plan-side">
-        <button
-          type="button"
-          className="button ghost small"
-          aria-label={`${shown ? 'Hide' : 'Preview'} the ${conflict ? "archive's copy" : 'conversation'} of ${sessionTitle(session)}`}
-          aria-expanded={shown}
-          aria-controls={`${id}-conversation`}
-          onClick={onConversation}
-        >
-          {shown ? 'Hide' : conflict ? "Preview archive's copy" : 'Preview'}
-        </button>
+      <span className={conflict ? 'plan-side stacked' : 'plan-side'}>
+        {conflict ? (
+          <>
+            {previewButton('here', here, "this computer's copy", "this computer's copy")}
+            {previewButton('archive', conversation, "archive's copy", "the archive's copy")}
+          </>
+        ) : (
+          previewButton('archive', conversation, '', 'the conversation')
+        )}
       </span>
-      {shown && (
-        <div className="plan-conversation" id={`${id}-conversation`}>
-          {conflict && <p className="plan-conversation-label">Archive's copy</p>}
-          <Conversation state={conversation} onRetry={onRetry} />
-        </div>
-      )}
+      {here !== undefined && <ConversationPanel id={`${id}-here`} label={"This computer's copy"} state={here} onRetry={() => onRetry('here')} />}
+      {conversation !== undefined && <ConversationPanel id={`${id}-archive`} label={conflict ? "Archive's copy" : null} state={conversation} onRetry={() => onRetry('archive')} />}
     </li>
+  )
+}
+
+function ConversationPanel({ id, label, state, onRetry }: { id: string; label: string | null; state: Loadable<SessionPreview> | null; onRetry: () => void }) {
+  return (
+    <div className="plan-conversation" id={id}>
+      {label && <p className="plan-conversation-label">{label}</p>}
+      <Conversation state={state} onRetry={onRetry} />
+    </div>
   )
 }
 
@@ -88,7 +120,7 @@ const CHOICE_LABEL: Record<ConflictChoice, string> = { skip: "Keep this computer
 function ConflictChoices({ title, choice, ahead, onChoose }: { title: string; choice: ConflictChoice | null; ahead: boolean; onChoose: (choice: ConflictChoice) => void }) {
   return (
     <span className="plan-choice">
-      <span className={ahead ? 'chips warn' : 'chips'} role="group" aria-label={`What to do with ${title}`}>
+      <span className={`chips${ahead ? ' warn' : ''}${choice === null ? ' undecided' : ''}`} role="group" aria-label={`What to do with ${title}`}>
         {(['skip', 'replace'] as const).map((option) => (
           <button key={option} type="button" aria-pressed={choice === option} onClick={() => onChoose(option)}>
             {CHOICE_LABEL[option]}
@@ -105,20 +137,23 @@ function ConflictChoices({ title, choice, ahead, onChoose }: { title: string; ch
   )
 }
 
-/** This computer's copy and the archive's, counted the same way, with the one that goes further marked. */
+/** This computer's copy and the archive's, counted the same way, with what each has over the other. */
 function CopyCompare({ lines }: { lines: CopyLine[] }) {
   if (lines.length === 0) return null
   return (
     <dl className="copies">
-      {lines.map((line) => (
-        <div key={line.label} className={line.newer ? 'copy newer' : 'copy'}>
-          <dt>{line.label}</dt>
-          <dd>
-            {line.text}
-            {line.newer && <span className="copy-newer"> · newer</span>}
-          </dd>
-        </div>
-      ))}
+      {lines.map((line) => {
+        const notes = [line.more, line.newer ? 'newer' : null].filter(Boolean)
+        return (
+          <div key={line.label} className={notes.length > 0 ? 'copy ahead' : 'copy'}>
+            <dt>{line.label}</dt>
+            <dd>
+              {line.text}
+              {notes.length > 0 && <span className="copy-more"> · {notes.join(', ')}</span>}
+            </dd>
+          </div>
+        )
+      })}
     </dl>
   )
 }

@@ -1,6 +1,6 @@
 import type { ImportAction, ImportPreview, ImportResult, SessionImportOutcome, SessionInfo, SessionKey } from '../../../shared/sessions'
 import { sessionTitle, shortCommand } from './format'
-import { type Badge, describeAction, describeOutcome, outcomeBadge } from './importing'
+import { type Badge, blockedTone, describeAction, describeOutcome, outcomeBadge } from './importing'
 
 export interface ResultEntry {
   key: SessionKey
@@ -41,7 +41,7 @@ export interface ResultAccount {
 const QUIET_BADGE: Record<QuietKind, Badge> = {
   identical: { label: 'Identical', tone: 'neutral' },
   kept: { label: 'Kept', tone: 'neutral' },
-  blocked: { label: 'Blocked', tone: 'bad' },
+  blocked: { label: 'Blocked', tone: 'neutral' },
   'left-out': { label: 'Left out', tone: 'neutral' },
 }
 
@@ -108,7 +108,7 @@ export function accountFor(sessions: readonly SessionInfo[], result: ImportResul
     const kind = quietKind(source)
     if (kind) {
       const message = kind === 'blocked' ? (outcome ? describeOutcome(outcome) : describeAction(source as ImportAction)) : QUIET_MESSAGE[kind]
-      quiet.push({ key: session.key, title, badge: QUIET_BADGE[kind], message, resume: null, kind, folder })
+      quiet.push({ key: session.key, title, badge: kind === 'blocked' ? { label: 'Blocked', tone: blockedTone(outcome?.action ?? (source as ImportAction)) } : QUIET_BADGE[kind], message, resume: null, kind, folder })
       continue
     }
     if (!outcome) continue

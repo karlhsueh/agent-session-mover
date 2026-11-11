@@ -25,9 +25,17 @@ export interface Badge {
 
 type Conflict = Extract<ImportAction, { kind: 'conflict' }>
 
+/** Reasons a session cannot be placed that point at a damaged archive or store, not at a state the user can change. */
+const BLOCKED_ERRORS: ReadonlySet<string> = new Set(['invalid-session', 'unsafe-path'])
+
+/** Blocked reads as an error only when something is actually wrong. A live or newer session here is just left alone. */
+export function blockedTone(action: ImportAction): Tone {
+  return action.kind === 'blocked' && BLOCKED_ERRORS.has(action.reason) ? 'bad' : 'neutral'
+}
+
 /**
  * The plan names what import will do and the result says it was done, in the same words:
- * Add and Added, Update and Updated, Replace and Replaced.
+ * Add and Added, Update and Updated, Replace and Replaced, Keep and Kept.
  */
 export const ACTIONS: { [K in ImportAction['kind']]: Badge & { describe: (action: Extract<ImportAction, { kind: K }>) => string } } = {
   create: { label: 'Add', tone: 'good', describe: () => 'This session is not on this computer yet.' },
@@ -37,52 +45,78 @@ export const ACTIONS: { [K in ImportAction['kind']]: Badge & { describe: (action
     describe: () => 'This computer has an older copy. Agent Session Mover backs it up before the newer copy replaces it.',
   },
   'skip-identical': { label: 'Identical', tone: 'neutral', describe: () => 'This computer already has a byte-for-byte copy. There is nothing to import.' },
-  conflict: { label: 'Conflict', tone: 'warn', describe: (action) => action.message },
-  blocked: { label: 'Blocked', tone: 'bad', describe: (action) => action.message },
+  conflict: { label: 'Keep', tone: 'neutral', describe: (action) => action.message },
+  blocked: { label: 'Blocked', tone: 'neutral', describe: (action) => action.message },
 }
 
+function time(at: string | null): number {
+  return at ? Date.parse(at) : Number.NaN
+}
+
+/** Positive when the copy here has the later last message, negative when the archive's does, zero when that cannot be told. */
+function laterLast({ here, archive }: ConflictCopies): number {
+  const hereAt = time(here.lastMessageAt)
+  const archiveAt = time(archive.lastMessageAt)
+  return Number.isFinite(hereAt) && Number.isFinite(archiveAt) ? Math.sign(hereAt - archiveAt) : 0
+}
+
+/** Counts compare only when both transcripts were read whole. */
+const counted = ({ here, archive }: ConflictCopies) => here.complete && archive.complete
+
 /**
- * True when this computer's copy holds more than the archive's: it continues past it, or its last
- * message is newer, or with no times to compare it has more messages.
+ * True when replacing would set aside messages only this computer has: its last message is later, or
+ * it has more of them. Extra lines that are not messages do not count. Without both transcripts, a
+ * copy here that continues past the archive's is assumed to.
  */
 export function hereIsAhead(action: ImportAction): boolean {
   if (action.kind !== 'conflict') return false
-  return action.reason === 'target-newer' || (action.copies !== null && lead(action.copies) > 0)
-}
-
-/** Positive when the copy here is ahead, negative when the archive's is, zero when neither shows it. */
-function lead({ here, archive }: ConflictCopies): number {
-  const hereAt = here.lastMessageAt ? Date.parse(here.lastMessageAt) : Number.NaN
-  const archiveAt = archive.lastMessageAt ? Date.parse(archive.lastMessageAt) : Number.NaN
-  if (Number.isFinite(hereAt) && Number.isFinite(archiveAt) && hereAt !== archiveAt) return Math.sign(hereAt - archiveAt)
-  return Math.sign(here.messages - archive.messages)
+  if (!action.copies) return action.reason === 'target-newer'
+  return laterLast(action.copies) > 0 || (counted(action.copies) && action.copies.here.messages > action.copies.archive.messages)
 }
 
 export interface CopyLine {
   label: string
   text: string
+  /** What this copy has that the other does not, such as `1 more message`, or null. */
+  more: string | null
+  /** Its last message is later than the other copy's. */
   newer: boolean
+}
+
+/** What one copy has over the other. Messages first, then lines when the messages match. */
+function moreThan(facts: CopyFacts, other: CopyFacts, comparable: boolean): string | null {
+  if (!comparable) return null
+  if (facts.messages > other.messages) return `${plural(facts.messages - other.messages, 'more message')}`
+  if (facts.messages === other.messages && facts.lines > other.lines) return `same messages, ${plural(facts.lines - other.lines, 'more line')}`
+  return null
 }
 
 /** The two copies of a conflict side by side, in the same terms. Empty when main could not read both. */
 export function copyLines(action: Conflict): CopyLine[] {
-  if (!action.copies) return []
-  const ahead = hereIsAhead(action)
+  const { copies } = action
+  if (!copies) return []
+  const comparable = counted(copies)
+  const later = laterLast(copies)
   const describe = (facts: CopyFacts) => {
     const count = facts.complete ? plural(facts.messages, 'message') : `At least ${plural(facts.messages, 'message')}`
     return facts.lastMessageAt ? `${count} · last ${shortDateTime(facts.lastMessageAt)}` : count
   }
   return [
-    { label: "This computer's copy", text: describe(action.copies.here), newer: ahead },
-    { label: "Archive's copy", text: describe(action.copies.archive), newer: !ahead && lead(action.copies) < 0 },
+    { label: "This computer's copy", text: describe(copies.here), more: moreThan(copies.here, copies.archive, comparable), newer: later > 0 },
+    { label: "Archive's copy", text: describe(copies.archive), more: moreThan(copies.archive, copies.here, comparable), newer: later < 0 },
   ]
 }
 
-/** A conflict the user chose to replace reads as what will happen to it, and warns when the copy here holds more. */
+/**
+ * A conflict reads as what import will do with it, Keep until the user picks Replace. Replace keeps the
+ * same tone in the plan and the result, so the warning for newer messages here sits beside the choice.
+ */
 export function planBadge(action: ImportAction, choice: ConflictChoice): Badge {
-  if (action.kind === 'conflict' && choice === 'replace') return { label: 'Replace', tone: hereIsAhead(action) ? 'warn' : 'info' }
+  if (action.kind === 'conflict' && choice === 'replace') return { label: 'Replace', tone: 'info' }
+  if (action.kind === 'blocked') return { label: 'Blocked', tone: blockedTone(action) }
   return ACTIONS[action.kind]
 }
+
 
 export function describeAction(action: ImportAction): string {
   return (ACTIONS[action.kind].describe as (action: ImportAction) => string)(action)
@@ -114,7 +148,26 @@ export function selectedForImport(preview: ImportPreview | null, excluded: Reado
   })
 }
 
-export type VerdictKind = 'add' | 'update' | 'replace' | 'decide' | 'keep' | 'identical' | 'blocked' | 'left-out'
+/** The start button names what it does, and the footer mentions backups only when something is replaced. */
+export function runSummary(preview: ImportPreview | null, requests: readonly ImportRequest[]): { label: string; backups: string | null } {
+  const actions = new Map((preview?.sessions ?? []).map((session) => [session.key, session.action.kind]))
+  const replaces = requests.filter((request) => actions.get(request.key) === 'conflict').length
+  const updates = requests.filter((request) => actions.get(request.key) === 'update').length
+  const imports = requests.length - replaces
+  const label =
+    requests.length === 0
+      ? 'Nothing to import'
+      : replaces === 0
+        ? `Import ${plural(imports, 'session')}`
+        : imports === 0
+          ? `Replace ${plural(replaces, 'session')}`
+          : `Import ${imports} · replace ${replaces}`
+  const verbs = [...(updates > 0 ? ['Update'] : []), ...(replaces > 0 ? ['Replace'] : [])]
+  const backups = verbs.length === 0 ? null : verbs.length === 1 ? `${verbs[0]} keeps a backup of the copy it replaces.` : 'Update and Replace keep a backup of the copy they replace.'
+  return { label, backups }
+}
+
+export type VerdictKind = 'add' | 'update' | 'replace' | 'replace-newer' | 'keep' | 'identical' | 'blocked' | 'left-out'
 
 /** Where a session stands as the screen stands, in the order the verdict names them. */
 export function verdictKind(action: ImportAction, included: boolean, choices: ReadonlyMap<SessionKey, ConflictChoice>, key: SessionKey): VerdictKind {
@@ -123,10 +176,9 @@ export function verdictKind(action: ImportAction, included: boolean, choices: Re
       return included ? 'add' : 'left-out'
     case 'update':
       return included ? 'update' : 'left-out'
-    case 'conflict': {
-      const choice = choices.get(key)
-      return choice === 'replace' ? 'replace' : choice === 'skip' ? 'keep' : 'decide'
-    }
+    case 'conflict':
+      if (conflictChoice(choices, key) === 'skip') return 'keep'
+      return hereIsAhead(action) ? 'replace-newer' : 'replace'
     case 'skip-identical':
       return 'identical'
     case 'blocked':
@@ -138,8 +190,9 @@ const VERDICT_TEXT: Record<VerdictKind, (n: number) => string> = {
   add: (n) => `${n} will be added`,
   update: (n) => `${n} will be updated`,
   replace: (n) => `${n} will be replaced`,
-  decide: (n) => `${n} ${n === 1 ? 'needs' : 'need'} a decision`,
-  keep: (n) => `${n} will keep the copy here`,
+  'replace-newer': (n) => `${n} will replace ${n === 1 ? 'a copy' : 'copies'} with newer messages`,
+  // A conflict nobody decided keeps the copy here, so it reads as that, not as a question.
+  keep: (n) => `${n} ${n === 1 ? 'differs' : 'differ'}, keeping this computer's ${n === 1 ? 'copy' : 'copies'}`,
   identical: (n) => `${n} already here`,
   blocked: (n) => `${n} blocked`,
   'left-out': (n) => `${n} left out`,
@@ -209,7 +262,7 @@ export function outcomeBadge(outcome: SessionImportOutcome): Badge {
     case 'skipped':
       return { label: 'Identical', tone: 'neutral' }
     case 'refused':
-      return outcome.action.kind === 'conflict' ? { label: 'Kept', tone: 'warn' } : { label: 'Blocked', tone: 'bad' }
+      return outcome.action.kind === 'conflict' ? { label: 'Kept', tone: 'neutral' } : { label: 'Blocked', tone: blockedTone(outcome.action) }
     case 'failed':
       return { label: 'Failed', tone: 'bad' }
   }

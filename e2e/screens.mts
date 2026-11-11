@@ -15,8 +15,13 @@ await mkdir(outDir, { recursive: true })
 const root = await realpath(await mkdtemp(join(tmpdir(), 'agent-sessions-screens-')))
 const home = join(root, 'home')
 for (const fixture of SCREEN_FIXTURES) await writeClaudeSession(join(home, '.claude'), home, fixture)
-// code/api stays missing, so the import screens show a folder still to clone beside ones that exist.
 for (const project of ['code/agent-session-mover', 'code/local-job-manager']) await mkdir(join(home, project), { recursive: true })
+// code/api is a repo while it exports, with a token in its remote that export must strip. It is removed
+// before the import, so the import screens show a folder still to clone beside ones that exist.
+await mkdir(join(home, 'code/api/.git'), { recursive: true })
+await writeFile(join(home, 'code/api/.git/config'), '[remote "origin"]\n\turl = https://alice:ghp_example@github.com/acme/orders-api.git\n')
+const SOURCE_NAME = 'Studio Mac'
+const RUN = /^(Import|Replace) \d+/
 await mkdir(join(home, '.codex'), { recursive: true })
 
 const archive = join(root, 'screens.agentsessions')
@@ -25,7 +30,7 @@ const launch = async (at: string, extra: Record<string, string> = {}) =>
     args: [...scaleArgs(), '.'],
     env: { ...process.env, ...(await homeEnv(at)), CLAUDE_CONFIG_DIR: join(at, '.claude'), CODEX_HOME: join(at, '.codex'), AGENT_SESSIONS_E2E_USER_DATA: join(at, 'userdata'), ...extra },
   })
-const app = await launch(home, { AGENT_SESSIONS_E2E_SAVE_PATH: archive, AGENT_SESSIONS_E2E_OPEN_PATH: archive })
+const app = await launch(home, { AGENT_SESSIONS_E2E_SAVE_PATH: archive, AGENT_SESSIONS_E2E_OPEN_PATH: archive, AGENT_SESSIONS_E2E_COMPUTER_NAME: SOURCE_NAME })
 
 const list = (page: Page) => page.getByRole('tree', { name: 'Sessions' }).or(page.getByRole('listbox', { name: 'Sessions' }))
 const row = (page: Page, title: string) => list(page).locator('.row', { hasText: title })
@@ -158,8 +163,11 @@ try {
   await page.getByRole('dialog', { name: 'Archive saved' }).waitFor()
   await shootBothThemes(page, 'export-done')
   await page.getByRole('dialog', { name: 'Archive saved' }).getByRole('button', { name: 'Done' }).click()
+  await rm(join(home, 'code/api'), { recursive: true, force: true })
   await page.keyboard.press('ControlOrMeta+O')
   await page.locator('.verdict-part').first().waitFor()
+  const title = await page.locator('.import-head h1').textContent()
+  if (!title?.includes(SOURCE_NAME)) throw new Error(`The import title should name ${SOURCE_NAME}: ${title}`)
   await shoot(page, 'import-all-identical')
   await page.locator('.plan-fold .fold-toggle').click()
   await page.locator('.plan-row', { hasText: FANOUT_TITLE }).getByRole('button', { name: 'Preview' }).click()
@@ -176,34 +184,45 @@ try {
   await shoot(page, 'import-update')
   await page.locator('.plan-fold .fold-toggle').click()
   await shoot(page, 'import-update-identical')
-  await page.getByRole('button', { name: /^Import \d+ sessions?/ }).click()
+  await page.getByRole('button', { name: RUN }).click()
   await page.locator('.backups').waitFor()
   await shoot(page, 'import-result-backups')
 
-  // Both copies changed after the export, so the archive and this computer disagree.
+  // Both copies went on after the export, so the archive and this computer disagree.
   const [replaced, kept] = SELECTED_TITLES.slice(1)
   for (const title of [replaced, kept]) {
     const fixture = SCREEN_FIXTURES.find((candidate) => candidate.title === title)!
     const file = join(home, '.claude', 'projects', encode(join(home, fixture.project)), `${fixture.id}.jsonl`)
-    await writeFile(file, (await readFile(file, 'utf8')).replace('"Done."', '"Done here."'))
-    // The copy to replace also went on here, so Replace warns that newer messages go to the backup.
+    const at = new Date().toISOString()
     if (title === replaced) {
-      const later = { type: 'user', isSidechain: false, cwd: join(home, fixture.project), sessionId: fixture.id, timestamp: new Date().toISOString(), message: { role: 'user', content: 'Also cover the empty page.' } }
-      await writeFile(file, `${await readFile(file, 'utf8')}${JSON.stringify(later)}\n`)
+      // The copy to replace changed a reply and gained a message here, so Replace warns that newer messages go to the backup.
+      const later = { type: 'user', isSidechain: false, cwd: join(home, fixture.project), sessionId: fixture.id, timestamp: at, message: { role: 'user', content: 'Also cover the empty page.' } }
+      await writeFile(file, `${(await readFile(file, 'utf8')).replace('"Done."', '"Done here."')}${JSON.stringify(later)}\n`)
+    } else {
+      // The copy to keep only gained a record that is not a message, so both copies count the same messages.
+      const note = { type: 'system', subtype: 'turn_duration', isSidechain: false, cwd: join(home, fixture.project), sessionId: fixture.id, timestamp: at, durationMs: 1200 }
+      await writeFile(file, `${await readFile(file, 'utf8')}${JSON.stringify(note)}\n`)
     }
   }
   await page.getByRole('button', { name: 'Back to sessions' }).click()
   await page.keyboard.press('ControlOrMeta+O')
-  await page.locator('.plan:not(.stale) .badge', { hasText: 'Conflict' }).first().waitFor()
+  await page.locator('.plan:not(.stale) .plan-choice').first().waitFor()
   await page.locator('.plan-bulk').evaluate((el) => el.scrollIntoView({ block: 'start' }))
-  await shoot(page, 'import-conflict')
-  await page.locator('.plan-row', { hasText: replaced }).getByRole('button', { name: "Replace with the archive's copy" }).click()
+  await shootBothThemes(page, 'import-conflict')
+  const replacedRow = page.locator('.plan-row', { hasText: replaced })
+  const before = (await replacedRow.boundingBox())!.y
+  await replacedRow.getByRole('button', { name: "Replace with the archive's copy" }).click()
+  await page.locator('.mapping').first().waitFor()
+  const moved = (await replacedRow.boundingBox())!.y - before
+  console.log(`Replace moved the clicked row by ${moved}px`)
+  if (Math.abs(moved) > 1) throw new Error(`Choosing Replace moved the row by ${moved}px`)
+  await shootBothThemes(page, 'import-conflict-replace')
   await page.locator('.verdict').evaluate((el) => el.scrollIntoView({ block: 'start' }))
-  await shoot(page, 'import-conflict-replace')
+  await shootBothThemes(page, 'import-conflict-replace-top')
   await page.getByRole('button', { name: 'Use light theme' }).click()
-  await shoot(page, 'import-conflict-light')
+  await page.locator('.plan-row', { hasText: kept }).getByRole('button', { name: /^Preview this computer's copy/ }).click()
   await page.locator('.plan-row', { hasText: kept }).getByRole('button', { name: /^Preview the archive's copy/ }).click()
-  await page.getByRole('list', { name: 'Conversation' }).waitFor()
+  await page.getByRole('list', { name: 'Conversation' }).nth(1).waitFor()
   await page.locator('.plan-row', { hasText: kept }).evaluate((el) => el.scrollIntoView({ block: 'start' }))
   await shoot(page, 'import-conflict-preview-light')
   await page.keyboard.press('Escape')
@@ -214,7 +233,7 @@ try {
   await page.evaluate("document.documentElement.dataset.theme = 'light'")
   await page.keyboard.press('Escape')
   await page.getByRole('dialog', { name: 'Leave the import' }).waitFor({ state: 'detached' })
-  await page.getByRole('button', { name: /^Import \d+ sessions?/ }).click()
+  await page.getByRole('button', { name: RUN }).click()
   await page.locator('.backups').waitFor()
   await shoot(page, 'import-result-conflict-light')
   await page.getByRole('button', { name: 'Use dark theme' }).click()

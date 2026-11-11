@@ -175,16 +175,13 @@
   font-weight: 400;
 }
 
-.verdict-decide {
+.verdict-replace-newer {
   color: var(--warn);
-}
-
-.verdict-blocked {
-  color: var(--bad);
 }
 
 .verdict-keep,
 .verdict-identical,
+.verdict-blocked,
 .verdict-left-out {
   color: var(--muted);
   font-weight: 400;
@@ -242,11 +239,7 @@
   user-select: text;
 }
 
-.copy-newer {
-  color: var(--muted);
-}
-
-.copy.newer .copy-newer {
+.copy-more {
   font-weight: 500;
   color: var(--text);
 }
@@ -255,6 +248,51 @@
   color: var(--warn);
   background: color-mix(in srgb, var(--warn) 14%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent);
+}
+
+/* With no folder to set, the Folders panel is its heading and one quiet line. */
+.folders-idle .panel-head {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.folders-idle .mappings-more {
+  padding-top: 2px;
+  border-top: 0;
+}
+
+/* When no row can be ticked, rows drop the checkbox column, so badges start at the edge. */
+.plan-row.no-check {
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+}
+
+.plan-row.no-check .plan-conversation {
+  grid-column: 2 / -1;
+}
+
+.plan-side.stacked {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+/* Until the user picks, neither side is pressed, so the pair still has to read as a control. */
+.chips.undecided {
+  background: var(--bg);
+  border-color: var(--line-strong);
+}
+
+.chips.undecided button {
+  color: var(--text);
+}
+
+.chips.undecided button + button {
+  box-shadow: inset 1px 0 0 var(--line-strong);
+  border-radius: 0 5px 5px 0;
+}
+
+.chips.undecided button:hover {
+  background: var(--hover);
 }
 
 .plan-choice-note.warn {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { copyLines, hereIsAhead, outcomeBadge, planBadge, planRank, receivesFiles, selectedForImport, verdict, warningText } from '../src/renderer/src/model/importing'
+import { copyLines, hereIsAhead, outcomeBadge, planBadge, planRank, receivesFiles, runSummary, selectedForImport, verdict, warningText } from '../src/renderer/src/model/importing'
 import { type ConflictChoice, type ImportAction, type ImportPreview, sessionKey, type SessionKey } from '../src/shared/sessions'
 
 const key = (n: number) => sessionKey('claude-code', `5a000000-0000-4000-8000-00000000000${n}`)
@@ -30,33 +30,52 @@ describe('what the import screen sends', () => {
     expect(selectedForImport(preview, new Set(), new Map()).map((request) => request.key)).toEqual([key(1), key(2)])
   })
 
-  it('labels a conflict by the choice made for it', () => {
-    expect(planBadge(conflict, 'skip')).toMatchObject({ label: 'Conflict' })
-    expect(planBadge(conflict, 'replace')).toMatchObject({ label: 'Replace' })
+  it('labels a conflict by what import will do with it', () => {
+    expect(planBadge(conflict, 'skip')).toMatchObject({ label: 'Keep', tone: 'neutral' })
+    expect(planBadge(conflict, 'replace')).toEqual({ label: 'Replace', tone: 'info' })
     expect(planBadge({ kind: 'create' }, 'replace').label).not.toBe('Replace')
+  })
+
+  it('names what the start button does, and mentions backups only when something is replaced', () => {
+    const choices = new Map<SessionKey, ConflictChoice>([[key(4), 'replace']])
+    expect(runSummary(preview, selectedForImport(preview, new Set([key(2)]), new Map()))).toEqual({ label: 'Import 1 session', backups: null })
+    expect(runSummary(preview, selectedForImport(preview, new Set(), new Map()))).toMatchObject({ label: 'Import 2 sessions', backups: 'Update keeps a backup of the copy it replaces.' })
+    expect(runSummary(preview, selectedForImport(preview, new Set([key(1), key(2)]), choices))).toMatchObject({ label: 'Replace 1 session', backups: 'Replace keeps a backup of the copy it replaces.' })
+    expect(runSummary(preview, selectedForImport(preview, new Set(), choices))).toMatchObject({ label: 'Import 2 · replace 1', backups: 'Update and Replace keep a backup of the copy they replace.' })
+    expect(runSummary(preview, []).label).toBe('Nothing to import')
   })
 })
 
 describe('judging a conflict', () => {
-  const facts = (lastMessageAt: string | null, messages: number) => ({ lastMessageAt, messages, complete: true })
-  const withCopies = (here: ReturnType<typeof facts>, archive: ReturnType<typeof facts>): ImportAction => ({ ...conflict, copies: { here, archive } }) as ImportAction
+  const facts = (lastMessageAt: string | null, messages: number, lines = messages * 2) => ({ lastMessageAt, messages, lines, complete: true })
+  type Facts = ReturnType<typeof facts> | { lastMessageAt: string | null; messages: number; lines: number; complete: boolean }
+  const withCopies = (here: Facts, archive: Facts) => ({ ...conflict, copies: { here, archive } }) as Extract<ImportAction, { kind: 'conflict' }>
+  const at = (day: number) => `2026-11-${String(day).padStart(2, '0')}T12:00:00.000Z`
 
-  it('warns before replacing a copy here that is newer or goes further', () => {
-    const newerHere = withCopies(facts('2026-11-10T12:00:00.000Z', 10), facts('2026-11-09T12:00:00.000Z', 12))
-    expect(hereIsAhead(newerHere), 'the last message decides before the count').toBe(true)
-    expect(planBadge(newerHere, 'replace')).toEqual({ label: 'Replace', tone: 'warn' })
-    expect(planBadge(withCopies(facts('2026-11-08T12:00:00.000Z', 10), facts('2026-11-09T12:00:00.000Z', 8)), 'replace').tone).toBe('info')
-    expect(hereIsAhead(withCopies(facts(null, 9), facts(null, 8))), 'without times the longer copy is ahead').toBe(true)
-    expect(hereIsAhead({ ...conflict, reason: 'target-newer' }), 'a copy that continues past the archive is ahead').toBe(true)
+  it('warns before replacing only when the copy here has newer or more messages', () => {
+    expect(hereIsAhead(withCopies(facts(at(10), 10), facts(at(9), 12))), 'a later last message').toBe(true)
+    expect(hereIsAhead(withCopies(facts(null, 9), facts(null, 8))), 'more messages').toBe(true)
+    expect(hereIsAhead(withCopies(facts(at(8), 10), facts(at(9), 12))), 'the archive has the later and more messages').toBe(false)
+    const extraLines = { ...withCopies(facts(at(9), 10, 30), facts(at(9), 10, 20)), reason: 'target-newer' as const }
+    expect(hereIsAhead(extraLines), 'extra lines that are not messages').toBe(false)
+    expect(hereIsAhead({ ...conflict, reason: 'target-newer' }), 'unread copies that continue past the archive').toBe(true)
     expect(hereIsAhead(conflict)).toBe(false)
+    expect(planBadge(withCopies(facts(at(10), 10), facts(at(9), 12)), 'replace').tone, 'the badge keeps its tone').toBe('info')
   })
 
-  it('describes both copies in the same terms and marks the newer one', () => {
-    const action = withCopies(facts('2026-11-10T12:00:00.000Z', 13), { lastMessageAt: null, messages: 12, complete: false }) as Extract<ImportAction, { kind: 'conflict' }>
-    const [here, archive] = copyLines(action)
-    expect(here).toMatchObject({ label: "This computer's copy", newer: true })
+  it('says what each copy has over the other, and calls one newer only when its last message is later', () => {
+    const [here, archive] = copyLines(withCopies(facts(at(10), 13), facts(at(9), 12)))
+    expect(here).toMatchObject({ label: "This computer's copy", more: '1 more message', newer: true })
     expect(here!.text).toMatch(/^13 messages · last Nov 10/)
-    expect(archive).toEqual({ label: "Archive's copy", text: 'At least 12 messages', newer: false })
+    expect(archive).toMatchObject({ label: "Archive's copy", more: null, newer: false })
+
+    const [sameHere, sameArchive] = copyLines(withCopies(facts(at(9), 12, 40), facts(at(9), 12, 37)))
+    expect(sameHere).toMatchObject({ more: 'same messages, 3 more lines', newer: false })
+    expect(sameArchive).toMatchObject({ more: null, newer: false })
+
+    const [partial, whole] = copyLines(withCopies(facts(null, 13), { lastMessageAt: null, messages: 12, lines: 30, complete: false }))
+    expect(partial).toMatchObject({ more: null, newer: false })
+    expect(whole).toEqual({ label: "Archive's copy", text: 'At least 12 messages', more: null, newer: false })
     expect(copyLines(conflict as Extract<ImportAction, { kind: 'conflict' }>)).toEqual([])
   })
 })
@@ -64,9 +83,30 @@ describe('judging a conflict', () => {
 describe('the import verdict', () => {
   it('counts each session by what import will do, naming only the parts that have sessions', () => {
     const choices = new Map<SessionKey, ConflictChoice>([[key(4), 'replace']])
-    expect(verdict(preview, new Set(), choices).map((part) => part.text)).toEqual(['1 will be added', '1 will be updated', '1 will be replaced', '1 needs a decision', '1 already here', '1 blocked'])
+    expect(verdict(preview, new Set(), choices).map((part) => part.text)).toEqual([
+      '1 will be added',
+      '1 will be updated',
+      '1 will be replaced',
+      "1 differs, keeping this computer's copy",
+      '1 already here',
+      '1 blocked',
+    ])
     choices.set(key(3), 'skip')
     expect(verdict(preview, new Set([key(1)]), choices).map((part) => part.kind)).toEqual(['update', 'replace', 'keep', 'identical', 'blocked', 'left-out'])
+  })
+
+  it('names a replace that sets aside newer messages here on its own', () => {
+    const ahead: ImportAction = { ...conflict, reason: 'target-newer' }
+    const risky: ImportPreview = { sessions: [{ key: key(1), action: ahead, targetCwd: null, warnings: [] }, { key: key(2), action: conflict, targetCwd: null, warnings: [] }] }
+    expect(verdict(risky, new Set(), new Map([[key(1), 'replace']])).map((part) => [part.kind, part.text])).toEqual([
+      ['replace-newer', '1 will replace a copy with newer messages'],
+      ['keep', "1 differs, keeping this computer's copy"],
+    ])
+  })
+
+  it('shows blocked as an error only when something is wrong', () => {
+    expect(planBadge({ kind: 'blocked', reason: 'live', message: 'm' }, 'skip').tone).toBe('neutral')
+    expect(planBadge({ kind: 'blocked', reason: 'unsafe-path', message: 'm' }, 'skip').tone).toBe('bad')
   })
 
   it('lists conflicts first and identical sessions last', () => {

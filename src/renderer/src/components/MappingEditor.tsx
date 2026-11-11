@@ -50,16 +50,24 @@ export function MappingEditor({ token, mappings, sessions, preview, choices, che
     return { mapping, users, needed: needsMapping(users, preview, choices) }
   })
   const needed = rows.filter((row) => row.needed)
-  if (needed.length === 0 && !showAll) return null
+  const announcement = useNewlyNeeded(preview ? needed.map((row) => row.mapping.source) : null)
+  if (rows.length === 0) return null
   const hidden = rows.length - needed.length
+  const shownRows = showAll ? rows : needed
+  // The panel stays when no folder receives files, as one line, so a choice below never makes it appear.
   return (
-    <section className="panel" aria-labelledby="mapping-heading">
+    <section className={shownRows.length === 0 ? 'panel folders-idle' : 'panel'} aria-labelledby="mapping-heading">
+      <p className="visually-hidden" aria-live="polite">
+        {announcement}
+      </p>
       <header className="panel-head">
         <h2 id="mapping-heading">Folders</h2>
-        <p className="dim">Pull or copy each project into its folder here before you resume, so the agent finds its code. Import places each session by the folder it started in.</p>
+        {shownRows.length > 0 && (
+          <p className="dim">Pull or copy each project into its folder here before you resume, so the agent finds its code. Import places each session by the folder it started in.</p>
+        )}
       </header>
       <ul className="mappings">
-        {(showAll ? rows : needed).map(({ mapping, users }) => (
+        {shownRows.map(({ mapping, users }) => (
           <MappingRow
             key={mapping.source}
             token={token}
@@ -78,13 +86,32 @@ export function MappingEditor({ token, mappings, sessions, preview, choices, che
       {hidden > 0 && (
         <div className="mappings-more">
           <button type="button" className="button ghost small" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>
-            {showAll ? 'Show only folders that receive files' : `Show ${plural(hidden, 'other folder')}`}
+            {showAll ? 'Show only folders that receive files' : `Show ${plural(hidden, needed.length > 0 ? 'other folder' : 'folder')}`}
           </button>
-          {!showAll && <span className="dim">{hidden === 1 ? 'Its sessions are' : 'Their sessions are'} already here or blocked, so import writes nothing there.</span>}
+          {!showAll && (
+            <span className="dim">
+              {needed.length === 0 ? 'Import writes no files into them as the screen stands.' : `${hidden === 1 ? 'Its sessions are' : 'Their sessions are'} already here or blocked, so import writes nothing there.`}
+            </span>
+          )}
         </div>
       )}
     </section>
   )
+}
+
+/** A polite line naming each folder that just started to receive files, such as after a Replace below. */
+function useNewlyNeeded(sources: readonly string[] | null): string {
+  const previous = useRef<readonly string[] | null>(null)
+  const [announcement, setAnnouncement] = useState('')
+  const key = sources?.join('\n') ?? null
+  useEffect(() => {
+    const before = previous.current
+    previous.current = sources
+    if (!before || !sources) return
+    const added = sources.filter((source) => !before.includes(source))
+    if (added.length > 0) setAnnouncement(`${added.map((source) => folderName(source)).join(', ')} now ${added.length === 1 ? 'receives' : 'receive'} files. See Folders above.`)
+  }, [key])
+  return announcement
 }
 
 /** Before the first plan arrives every folder is shown, since nothing is known yet. */
@@ -211,12 +238,12 @@ function MappingRow({
             </button>
           )}
         </div>
-        {offerCreate && (
-          <div className="mapping-hint">
-            <HintLine hint={missingFolderHint(branchList(users), clone, home)} />
-          </div>
-        )}
       </div>
+      {offerCreate && (
+        <div className="mapping-hint">
+          <HintLine hint={missingFolderHint(branchList(users), clone, home)} />
+        </div>
+      )}
     </li>
   )
 }
