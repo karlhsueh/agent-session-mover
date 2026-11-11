@@ -1,5 +1,5 @@
 import type { AgentId, ConflictChoice, ImportAction, ImportPreview, ImportRequest, ImportWarning, SessionImportOutcome, SessionInfo, SessionKey } from '../../../shared/sessions'
-import { pickerNote, plural, shortDateTime, tildePath } from './format'
+import { pickerNote, shortDateTime, tildePath } from './format'
 
 export type Tone = 'good' | 'info' | 'neutral' | 'warn' | 'bad'
 
@@ -16,18 +16,17 @@ type Conflict = Extract<ImportAction, { kind: 'conflict' }>
  * Add and Added, Update and Updated, Replace and Replaced.
  */
 export const ACTIONS: {
-  [K in ImportAction['kind']]: Badge & { count: (n: number) => string; describe: (action: Extract<ImportAction, { kind: K }>, session: Described | null) => string }
+  [K in ImportAction['kind']]: Badge & { describe: (action: Extract<ImportAction, { kind: K }>, session: Described | null) => string }
 } = {
-  create: { label: 'Add', tone: 'good', count: (n) => `${n} to add`, describe: () => 'This session is not on this computer yet.' },
+  create: { label: 'Add', tone: 'good', describe: () => 'This session is not on this computer yet.' },
   update: {
     label: 'Update',
     tone: 'info',
-    count: (n) => `${n} to update`,
     describe: () => 'This computer has an older copy. Agent Session Mover backs it up before the newer copy replaces it.',
   },
-  'skip-identical': { label: 'Identical', tone: 'neutral', count: (n) => `${n} identical`, describe: () => 'This computer already has a byte-for-byte copy. There is nothing to import.' },
-  conflict: { label: 'Conflict', tone: 'warn', count: (n) => plural(n, 'conflict'), describe: describeConflict },
-  blocked: { label: 'Blocked', tone: 'bad', count: (n) => `${n} blocked`, describe: (action) => action.message },
+  'skip-identical': { label: 'Identical', tone: 'neutral', describe: () => 'This computer already has a byte-for-byte copy. There is nothing to import.' },
+  conflict: { label: 'Conflict', tone: 'warn', describe: describeConflict },
+  blocked: { label: 'Blocked', tone: 'bad', describe: (action) => action.message },
 }
 
 const CONFLICT_LEAD: Record<Conflict['reason'], string> = {
@@ -75,6 +74,74 @@ export function selectedForImport(preview: ImportPreview | null, excluded: Reado
     if (isActionable(action)) return excluded.has(key) ? [] : [{ key, onConflict: 'skip' }]
     return action.kind === 'conflict' && conflictChoice(choices, key) === 'replace' ? [{ key, onConflict: 'replace' }] : []
   })
+}
+
+export type VerdictKind = 'add' | 'update' | 'replace' | 'decide' | 'keep' | 'identical' | 'blocked' | 'left-out'
+
+/** Where a session stands as the screen stands, in the order the verdict names them. */
+export function verdictKind(action: ImportAction, included: boolean, choices: ReadonlyMap<SessionKey, ConflictChoice>, key: SessionKey): VerdictKind {
+  switch (action.kind) {
+    case 'create':
+      return included ? 'add' : 'left-out'
+    case 'update':
+      return included ? 'update' : 'left-out'
+    case 'conflict': {
+      const choice = choices.get(key)
+      return choice === 'replace' ? 'replace' : choice === 'skip' ? 'keep' : 'decide'
+    }
+    case 'skip-identical':
+      return 'identical'
+    case 'blocked':
+      return 'blocked'
+  }
+}
+
+const VERDICT_TEXT: Record<VerdictKind, (n: number) => string> = {
+  add: (n) => `${n} will be added`,
+  update: (n) => `${n} will be updated`,
+  replace: (n) => `${n} will be replaced`,
+  decide: (n) => `${n} ${n === 1 ? 'needs' : 'need'} a decision`,
+  keep: (n) => `${n} will keep the copy here`,
+  identical: (n) => `${n} already here`,
+  blocked: (n) => `${n} blocked`,
+  'left-out': (n) => `${n} left out`,
+}
+
+export interface VerdictPart {
+  kind: VerdictKind
+  text: string
+}
+
+/** Only the parts that have sessions, in a fixed order. */
+export function verdict(preview: ImportPreview, excluded: ReadonlySet<SessionKey>, choices: ReadonlyMap<SessionKey, ConflictChoice>): VerdictPart[] {
+  const counts = new Map<VerdictKind, number>()
+  for (const { key, action } of preview.sessions) {
+    const kind = verdictKind(action, !excluded.has(key), choices, key)
+    counts.set(kind, (counts.get(kind) ?? 0) + 1)
+  }
+  return (Object.keys(VERDICT_TEXT) as VerdictKind[]).flatMap((kind) => (counts.has(kind) ? [{ kind, text: VERDICT_TEXT[kind](counts.get(kind)!) }] : []))
+}
+
+/** Conflicts lead because they wait on the user, then what import writes, then what it cannot. Identical sessions fold away last. */
+export function planRank(action: ImportAction | null): number {
+  switch (action?.kind) {
+    case 'conflict':
+      return 0
+    case 'blocked':
+      return 2
+    case 'skip-identical':
+      return 3
+    default:
+      return 1
+  }
+}
+
+/**
+ * A folder needs a mapping when import may write a session that ran in it: an add or update, ticked
+ * or not, or a conflict the user chose to replace.
+ */
+export function receivesFiles(action: ImportAction, choice: ConflictChoice): boolean {
+  return isActionable(action) || (action.kind === 'conflict' && choice === 'replace')
 }
 
 export function conflictKeys(preview: ImportPreview | null): SessionKey[] {

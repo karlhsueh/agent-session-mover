@@ -1,13 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { type ArchiveToken, type ImportPreview, isAtOrUnder, type PathMapping, type SessionInfo } from '../../../shared/sessions'
+import { type ArchiveToken, type ConflictChoice, type ImportPreview, isAtOrUnder, type PathMapping, type SessionInfo, type SessionKey } from '../../../shared/sessions'
 import { useHomeDir } from '../hooks'
-import { branchesLabel, expandTilde, folderName, plural, tildePath } from '../model/format'
+import { branchesLabel, branchList, expandTilde, folderName, plural, tildePath } from '../model/format'
+import { conflictChoice, missingFolderHint, receivesFiles } from '../model/importing'
+import { HintLine } from './ImportParts'
 
 interface Props {
   token: ArchiveToken
   mappings: PathMapping[]
   sessions: readonly SessionInfo[]
   preview: ImportPreview | null
+  choices: ReadonlyMap<SessionKey, ConflictChoice>
   /** True while main plans again, so the shown statuses may be stale. */
   checking: boolean
   /** The source machine's home folder, shown as ~ in source paths. */
@@ -37,8 +40,16 @@ const STATUS_TEXT: Record<FolderStatus, string> = { exists: 'Folder exists', mis
 type Creation = { kind: 'idle' } | { kind: 'creating' } | { kind: 'failed'; message: string }
 const IDLE: Creation = { kind: 'idle' }
 
-export function MappingEditor({ token, mappings, sessions, preview, checking, sourceHome, sourceSep, onChange }: Props) {
+export function MappingEditor({ token, mappings, sessions, preview, choices, checking, sourceHome, sourceSep, onChange }: Props) {
   const home = useHomeDir()
+  const [showAll, setShowAll] = useState(false)
+  const rows = mappings.map((mapping) => {
+    const users = sessions.filter((session) => session.cwds.some((cwd) => isAtOrUnder(cwd, mapping.source, sourceSep)))
+    return { mapping, users, needed: needsMapping(users, preview, choices) }
+  })
+  const needed = rows.filter((row) => row.needed)
+  if (needed.length === 0 && !showAll) return null
+  const hidden = rows.length - needed.length
   return (
     <section className="panel" aria-labelledby="mapping-heading">
       <header className="panel-head">
@@ -46,26 +57,41 @@ export function MappingEditor({ token, mappings, sessions, preview, checking, so
         <p className="dim">Pull or copy each project into its folder here before you resume, so the agent finds its code. Import places each session by the folder it started in.</p>
       </header>
       <ul className="mappings">
-        {mappings.map((mapping) => {
-          const users = sessions.filter((session) => session.cwds.some((cwd) => isAtOrUnder(cwd, mapping.source, sourceSep)))
-          return (
-            <MappingRow
-              key={mapping.source}
-              token={token}
-              mapping={mapping}
-              sourceHome={sourceHome}
-              home={home}
-              uses={users.length}
-              branches={branchesLabel(users)}
-              status={folderStatus(mapping, sessions, preview, sourceSep)}
-              checking={checking}
-              onChange={onChange}
-            />
-          )
-        })}
+        {(showAll ? rows : needed).map(({ mapping, users }) => (
+          <MappingRow
+            key={mapping.source}
+            token={token}
+            mapping={mapping}
+            sourceHome={sourceHome}
+            home={home}
+            uses={users.length}
+            branches={users}
+            status={folderStatus(mapping, sessions, preview, sourceSep)}
+            checking={checking}
+            onChange={onChange}
+          />
+        ))}
       </ul>
+      {hidden > 0 && (
+        <div className="mappings-more">
+          <button type="button" className="button ghost small" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>
+            {showAll ? 'Show only folders that receive files' : `Show ${plural(hidden, 'other folder')}`}
+          </button>
+          {!showAll && <span className="dim">{hidden === 1 ? 'Its sessions are' : 'Their sessions are'} already here or blocked, so import writes nothing there.</span>}
+        </div>
+      )}
     </section>
   )
+}
+
+/** Before the first plan arrives every folder is shown, since nothing is known yet. */
+function needsMapping(users: readonly SessionInfo[], preview: ImportPreview | null, choices: ReadonlyMap<SessionKey, ConflictChoice>): boolean {
+  if (!preview) return true
+  const actions = new Map(preview.sessions.map((session) => [session.key, session.action]))
+  return users.some((session) => {
+    const action = actions.get(session.key)
+    return action === undefined || receivesFiles(action, conflictChoice(choices, session.key))
+  })
 }
 
 function MappingRow({
@@ -74,7 +100,7 @@ function MappingRow({
   sourceHome,
   home,
   uses,
-  branches,
+  branches: users,
   status,
   checking,
   onChange,
@@ -85,12 +111,13 @@ function MappingRow({
   /** This machine's home folder. The field shows it as ~ and expands ~ back before sending a path to main. */
   home: string
   uses: number
-  /** The branches the folder's sessions were on, so the user knows what to check out here. */
-  branches: string | null
+  /** The folder's sessions, for the branches they were on, so the user knows what to check out here. */
+  branches: readonly SessionInfo[]
   status: FolderStatus
   checking: boolean
   onChange: Props['onChange']
 }) {
+  const branches = branchesLabel(users)
   const shown = tildePath(mapping.target, home)
   const [draft, setDraft] = useState(shown)
   const [creation, setCreation] = useState<Creation>(IDLE)
@@ -179,7 +206,13 @@ function MappingRow({
             </button>
           )}
         </div>
+        {offerCreate && (
+          <div className="mapping-hint">
+            <HintLine hint={missingFolderHint(branchList(users))} />
+          </div>
+        )}
       </div>
     </li>
   )
 }
+

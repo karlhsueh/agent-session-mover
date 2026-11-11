@@ -98,9 +98,14 @@ export function plural(count: number, one: string, many = `${one}s`): string {
   return `${count} ${count === 1 ? one : many}`
 }
 
+/** The distinct branches the sessions were on, sorted. */
+export function branchList(sessions: readonly Pick<SessionInfo, 'gitBranch'>[]): string[] {
+  return [...new Set(sessions.flatMap((session) => (session.gitBranch ? [session.gitBranch] : [])))].sort()
+}
+
 /** The distinct branches the sessions were on, such as `feature/x, main`. Null when none recorded one. */
 export function branchesLabel(sessions: readonly Pick<SessionInfo, 'gitBranch'>[]): string | null {
-  const branches = [...new Set(sessions.flatMap((session) => (session.gitBranch ? [session.gitBranch] : [])))].sort()
+  const branches = branchList(sessions)
   if (branches.length === 0) return null
   const more = branches.length > 3 ? ` +${branches.length - 3}` : ''
   return `${branches.slice(0, 3).join(', ')}${more}`

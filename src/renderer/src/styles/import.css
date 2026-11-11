@@ -260,10 +260,6 @@
   min-width: 0;
 }
 
-.summary-counts {
-  font-size: 12px;
-}
-
 .plan-side {
   display: flex;
   align-items: center;
