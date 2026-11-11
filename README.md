@@ -66,6 +66,8 @@ Versions before 0.1.4 cannot update themselves. Run `brew upgrade --cask agent-s
 | Claude Code | `~/.claude/projects`, or `CLAUDE_CONFIG_DIR` | `claude --resume <id>` from the mapped folder |
 | Codex | `~/.codex/sessions`, or `CODEX_HOME` | `codex resume <id>` |
 
+These are the only two. Cursor and other agents are not supported yet. Cloud sessions, such as Claude Code on the web and Codex cloud tasks, already follow your account, so the app moves only sessions stored on this computer.
+
 ### A session is missing
 
 Claude Code deletes a session's transcript 30 days after its last activity. It keeps the project's folder under `~/.claude/projects`, so a project can have a folder there with only `memory/` inside and no sessions to export. To keep sessions longer, set `cleanupPeriodDays` in `~/.claude/settings.json`, for example to `365`. Codex keeps its sessions and compresses ones that have been idle for a week, which the app reads as usual.

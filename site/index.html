@@ -110,6 +110,8 @@ code, .mono { font-family: var(--mono); font-size: 13px; }
 .hero h1 .then { color: var(--muted); }
 .lede { max-width: 36em; margin: 26px auto 0; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; color: var(--muted); text-wrap: balance; }
 .lede code { font-size: 0.88em; color: var(--text); }
+.early { max-width: 34em; margin: 22px auto 0; font-size: 13px; line-height: 1.5; color: var(--faint); text-wrap: balance; }
+.early a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .agent { white-space: nowrap; }
 .agent::before {
   content: '';
@@ -355,6 +357,7 @@ footer a:hover { color: var(--text); }
       <code id="brew-cmd">brew install --cask karlhsueh/tap/agent-sessions</code>
       <button class="copy" type="button" data-copy="brew-cmd">Copy</button>
     </div>
+    <p class="early">Early release for local Claude Code and Codex CLI sessions. Cursor and other agents are not supported yet. Expect rough edges, and <a href="https://github.com/karlhsueh/agent-sessions/issues/new/choose">report what breaks</a>.</p>
   </div>
 
   <figure class="wrap shot">
@@ -410,6 +413,7 @@ footer a:hover { color: var(--text); }
         <li>Claude Code resumes with <code>claude --resume</code> from the mapped folder.</li>
         <li>Codex resumes with <code>codex resume</code>.</li>
         <li>An export includes the subagents each session started.</li>
+        <li>Cloud sessions, such as Claude Code on the web and Codex cloud tasks, already follow your account, so the app moves only local ones.</li>
       </ul>
     </div>
     <figure class="frame"><img src="import-result.png" width="980" height="540" alt="Import results listing each placed session with its claude --resume command and a Copy all commands button"></figure>
