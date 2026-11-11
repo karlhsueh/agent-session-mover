@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "src/renderer/index.html"
+        ],
+        "createdAt": "2026-11-11T21:58:40.598Z",
+        "reason": "Claude, from two critique runs: .progress.indeterminate is a working indicator shown only during export/import/scan, stopped under prefers-reduced-motion (styles/sheets.css)"
+      }
+    ]
+  }
+}
