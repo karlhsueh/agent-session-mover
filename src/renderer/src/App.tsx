@@ -93,7 +93,7 @@ export function App() {
     setScreen({ kind: 'importing', from, requests })
     const result = await window.api.runImport(from.archive.token, from.mappings, requests)
     if (!result.ok) return setScreen({ ...from, error: result.error })
-    setScreen({ kind: 'import-done', archive: from.archive, result: result.value })
+    setScreen({ kind: 'import-done', archive: from.archive, result: result.value, plan: shownPreview(from.preview) })
     refresh('user')
   }
 

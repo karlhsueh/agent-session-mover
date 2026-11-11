@@ -26,7 +26,7 @@ The archive moves conversations, not code. Push your changes before you export a
 
 An archive holds each full transcript, unredacted: the account email recorded in the session, system prompts, every message, and the contents of files and command output the agent read. The app never includes credentials, auth tokens, or settings. Treat the file like the code it quotes. [SECURITY.md](SECURITY.md) has more.
 
-After an import, the app shows the resume command for each session. It checks that the files are where the agent looks for them, but it cannot start the agent to confirm that the session opens.
+After an import, the app lists each project folder with the resume command for each session, and flags a folder that does not exist yet with the branch to check out. It checks that the files are where the agent looks for them, but it cannot start the agent to confirm that the session opens.
 
 ## After the move
 

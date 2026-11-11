@@ -1,91 +1,114 @@
-import type { SessionKey } from '../../../shared/sessions'
 import { useHomeDir } from '../hooks'
-import { AGENT_LABEL, plural, REVEAL_LABEL, sessionTitle, shortCommand, tildePath } from '../model/format'
-import { type Badge, describeOutcome, outcomeBadge } from '../model/importing'
+import { AGENT_LABEL, plural, REVEAL_LABEL, tildePath } from '../model/format'
+import { existingFolderHint, missingFolderHint } from '../model/importing'
+import { accountFor, type FolderGroup, quietSummary, type ResultEntry } from '../model/result'
 import type { Screen } from '../state'
 import { CommandLine, CopyButton } from './common'
+import { Fold, HintLine } from './ImportParts'
 
 type DoneScreen = Extract<Screen, { kind: 'import-done' }>
 
 export function ImportDone({ screen, onDone }: { screen: DoneScreen; onDone: () => void }) {
-  const { archive, result } = screen
+  const { archive, result, plan } = screen
   const home = useHomeDir()
-  const info = new Map(archive.summary.sessions.map((session) => [session.key, session]))
-  const placed = result.outcomes.filter((outcome) => outcome.status === 'created' || outcome.status === 'updated' || outcome.status === 'replaced')
-  const failed = result.outcomes.filter((outcome) => outcome.status === 'failed' || outcome.status === 'refused')
-  const agents = [...new Set(placed.map((outcome) => AGENT_LABEL[info.get(outcome.key)?.agent ?? 'claude-code']))]
-  const resumes = new Map(
-    placed.flatMap((outcome) => ('resumeCommand' in outcome ? [[outcome.key, shortCommand(outcome.resumeCommand, home)] as const] : [])),
-  )
+  const { groups, quiet, placed, failed } = accountFor(archive.summary.sessions, result, plan, home)
+  const written = new Set(groups.flatMap((group) => group.entries.map((entry) => entry.key)))
+  const placedAgents = new Set(archive.summary.sessions.filter((session) => written.has(session.key)).map((session) => AGENT_LABEL[session.agent]))
+  const commands = groups.flatMap((group) => group.entries.flatMap((entry) => (entry.resume ? [entry.resume] : [])))
+  const missing = groups.filter((group) => group.missing).length
 
   return (
     <div className="import">
-      <div className="import-scroll">
-        <header className="import-head">
-          <h1>{placed.length > 0 ? `${plural(placed.length, 'session')} imported` : 'Nothing was imported'}</h1>
-          <p className="dim">
-            {placed.length > 0 &&
-              `Pull your latest changes into each folder, then run a resume command in a terminal. The files are where ${agents.join(' and ')} looks for them, but Agent Session Mover cannot check that the agent opens them. `}
-            {failed.length > 0 && `${plural(failed.length, 'session')} did not import.`}
-          </p>
+      <div className="import-scroll result">
+        <header className="import-head result-head">
+          <div className="result-title">
+            <h1>{placed > 0 ? `${plural(placed, 'session')} imported` : 'Nothing was imported'}</h1>
+            <p className="dim">
+              {placed > 0 &&
+                `Pull your latest changes into each folder, then run a resume command in a terminal. The files are where ${[...placedAgents].join(' and ')} looks for them, but Agent Session Mover cannot check that the agent opens them.`}
+              {placed > 0 && missing > 0 && ` ${plural(missing, 'folder')} ${missing === 1 ? 'does' : 'do'} not exist yet.`}
+              {failed > 0 && ` ${plural(failed, 'session')} did not import.`}
+            </p>
+          </div>
+          <span className="result-actions">
+            {commands.length > 1 && <CopyButton text={commands.join('\n')} label="Copy all commands" />}
+            <button type="button" className="button primary" onClick={onDone} autoFocus>
+              Back to sessions
+            </button>
+          </span>
         </header>
 
-        <section className="panel" aria-labelledby="outcomes-heading">
-          <header className="panel-head row-between">
-            <h2 id="outcomes-heading">Results</h2>
-            {resumes.size > 1 && <CopyButton text={[...resumes.values()].join('\n')} label="Copy all commands" />}
-          </header>
-          <ul className="plan">
-            {result.outcomes.map((outcome) => (
-              <OutcomeRow key={outcome.key} sessionKey={outcome.key} title={sessionTitle(info.get(outcome.key) ?? { title: null, id: outcome.key })} label={outcomeBadge(outcome)} message={describeOutcome(outcome)} resume={resumes.get(outcome.key) || null} />
-            ))}
-          </ul>
-        </section>
-      </div>
-      <footer className="statusbar">
-        {result.backupDir ? (
-          <span className="statusbar-note">
-            <span className="dim truncate">
-              Backups of replaced copies: <code className="selectable">{tildePath(result.backupDir, home)}</code>
+        {groups.map((group) => (
+          <FolderPanel key={group.folder ?? ''} group={group} home={home} />
+        ))}
+
+        {quiet.length > 0 && (
+          <Fold id="result-quiet" summary={quietSummary(quiet)}>
+            <ul className="plan quiet-list">
+              {quiet.map((entry) => (
+                <li key={entry.key} className="outcome quiet" data-key={entry.key}>
+                  <OutcomeHead entry={entry} />
+                  <span className="plan-message">
+                    {entry.folder ? `${tildePath(entry.folder, home)}. ` : ''}
+                    {entry.message}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Fold>
+        )}
+
+        {result.backupDir && (
+          <p className="backups dim">
+            <span className="truncate">
+              Backups of replaced copies are in <code className="selectable">{tildePath(result.backupDir, home)}</code>
             </span>
             <button type="button" className="button ghost small" onClick={() => void window.api.revealBackups()}>
               {REVEAL_LABEL}
             </button>
-          </span>
-        ) : (
-          <span />
+          </p>
         )}
-        <span className="statusbar-actions">
-          <button type="button" className="button primary" onClick={onDone} autoFocus>
-            Back to sessions
-          </button>
-        </span>
-      </footer>
+      </div>
     </div>
   )
 }
 
-function OutcomeRow({
-  sessionKey,
-  title,
-  label,
-  message,
-  resume,
-}: {
-  sessionKey: SessionKey
-  title: string
-  label: Badge
-  message: string | null
-  resume: string | null
-}) {
+function FolderPanel({ group, home }: { group: FolderGroup; home: string }) {
+  const id = `folder-${group.folder ?? 'none'}`
   return (
-    <li className="outcome" data-key={sessionKey}>
-      <span className="outcome-head">
-        <span className={`badge tone-${label.tone}`}>{label.label}</span>
-        <span className="plan-title truncate">{title}</span>
-      </span>
-      {message && <span className="plan-message">{message}</span>}
-      {resume && <CommandLine command={resume} />}
-    </li>
+    <section className="panel" aria-labelledby={id}>
+      <header className="panel-head folder-head">
+        <span className="row-between">
+          <h2 id={id} className="folder-path">
+            <code>{group.folder ? tildePath(group.folder, home) : 'No folder'}</code>
+            {group.branches.length > 0 && <span className="dim folder-branch"> on {group.branches.join(', ')}</span>}
+          </h2>
+          {group.folder && <span className={group.missing ? 'folder-state warn' : 'folder-state'}>{group.missing ? 'Folder does not exist yet' : 'Folder exists'}</span>}
+        </span>
+        {group.folder && (
+          <span className={group.missing ? 'folder-hint warn' : 'folder-hint dim'}>
+            {group.missing ? <HintLine hint={missingFolderHint(group.branches)} /> : existingFolderHint(group.branches)}
+          </span>
+        )}
+      </header>
+      <ul className="plan">
+        {group.entries.map((entry) => (
+          <li key={entry.key} className="outcome" data-key={entry.key}>
+            <OutcomeHead entry={entry} />
+            {entry.message && <span className="plan-message">{entry.message}</span>}
+            {entry.resume && <CommandLine command={entry.resume} />}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function OutcomeHead({ entry }: { entry: ResultEntry }) {
+  return (
+    <span className="outcome-head">
+      <span className={`badge tone-${entry.badge.tone}`}>{entry.badge.label}</span>
+      <span className="plan-title truncate">{entry.title}</span>
+    </span>
   )
 }

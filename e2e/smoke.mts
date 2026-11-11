@@ -348,7 +348,9 @@ try {
   assert.equal(await page.getByText(/Pull your latest changes into each folder/).count(), 1, 'the result asks to pull changes before resuming')
   assert.equal(await page.locator('.outcome .command').count(), fixtures.length - 1, 'each placed session shows its resume command')
   assert.match((await page.locator('.outcome').first().textContent()) ?? '', /claude --resume/, 'resume command is a claude resume line')
-  assert.doesNotMatch((await page.locator('.statusbar:visible').textContent()) ?? '', /Run |Backups/, 'a run with no backups leaves the run id out of the footer')
+  assert.equal(await page.locator('.backups').count(), 0, 'a run with no backups names no backup folder')
+  assert.equal(await page.locator('.outcome.quiet').count(), 0, 'the left-out session stays folded away')
+  assert.match((await page.locator('.fold-toggle').textContent()) ?? '', /^1 left out$/, 'the result still accounts for the session left out')
   await shot(page, 'import-result-dark')
   await page.getByRole('button', { name: 'Use light theme' }).click()
   await shot(page, 'import-result-light')
@@ -356,7 +358,7 @@ try {
   const clipboardBefore = await app.evaluate(({ clipboard }) => clipboard.readText())
   try {
     await page.getByRole('button', { name: 'Copy all commands' }).click()
-    await page.locator('.panel-head').getByRole('button', { name: 'Copied' }).waitFor()
+    await page.locator('.result-actions').getByRole('button', { name: 'Copied' }).waitFor()
     const commands = await page.locator('.outcome .command code').allTextContents()
     assert.equal(await app.evaluate(({ clipboard }) => clipboard.readText()), commands.join('\n'), 'Copy all commands copies every resume command, one per line')
   } finally {

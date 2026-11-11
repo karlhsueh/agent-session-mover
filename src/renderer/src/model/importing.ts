@@ -110,6 +110,24 @@ export function outcomeBadge(outcome: SessionImportOutcome): Badge {
   }
 }
 
+/** What to do about a project folder before resuming. No repo URL travels in the archive, so the hint names only the branch. */
+export interface FolderHint {
+  text: string
+  /** A command worth copying, or null when there is no single one. */
+  command: string | null
+}
+
+export function missingFolderHint(branches: readonly string[]): FolderHint {
+  if (branches.length === 1) return { text: 'Clone the repo here, then run', command: `git checkout ${branches[0]}` }
+  if (branches.length === 0) return { text: 'Clone the repo here, or copy the project from the other computer.', command: null }
+  return { text: `Clone the repo here, then check out ${branches.slice(0, -1).join(', ')} or ${branches.at(-1)}.`, command: null }
+}
+
+export function existingFolderHint(branches: readonly string[]): string {
+  if (branches.length === 1) return `Pull the latest changes on ${branches[0]} before you resume.`
+  return 'Pull the latest changes before you resume.'
+}
+
 /** Null when the badge already says everything. */
 export function describeOutcome(outcome: SessionImportOutcome): string | null {
   switch (outcome.status) {

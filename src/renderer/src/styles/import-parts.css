@@ -1,0 +1,164 @@
+/* The import result, and the pieces it shares with the import preview. */
+
+.import-scroll.result > * {
+  max-width: 760px;
+}
+
+.result-head {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.result-title {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.result-title p {
+  text-wrap: pretty;
+}
+
+.import-head .result-actions .button {
+  margin: 0;
+}
+
+.result-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.folder-head {
+  gap: 4px;
+}
+
+.folder-head .row-between {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.folder-path {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.folder-path code {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.folder-branch {
+  font-weight: 400;
+}
+
+.folder-state {
+  flex: none;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.folder-state.warn,
+.folder-hint.warn {
+  color: var(--warn);
+}
+
+.folder-state.warn::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 7px 1px 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.folder-hint {
+  font-size: 12px;
+}
+
+.hint-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  user-select: text;
+}
+
+.hint-command {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.hint-command code {
+  padding: 1px 6px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.hint-command .button {
+  height: 22px;
+}
+
+.fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 6px;
+  margin-left: -6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.fold-toggle:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.fold-toggle svg {
+  flex: none;
+  transition: transform 120ms ease-out;
+}
+
+.fold.open .fold-toggle svg {
+  transform: rotate(90deg);
+}
+
+.fold-body {
+  margin-top: 6px;
+}
+
+.quiet-list {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.outcome.quiet .plan-title {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.outcome.quiet {
+  padding-bottom: 10px;
+}
+
+.backups {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}

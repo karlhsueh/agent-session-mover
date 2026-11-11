@@ -15,6 +15,8 @@ await mkdir(outDir, { recursive: true })
 const root = await realpath(await mkdtemp(join(tmpdir(), 'agent-sessions-screens-')))
 const home = join(root, 'home')
 for (const fixture of SCREEN_FIXTURES) await writeClaudeSession(join(home, '.claude'), home, fixture)
+// code/api stays missing, so the import screens show a folder still to clone beside ones that exist.
+for (const project of ['code/agent-session-mover', 'code/local-job-manager']) await mkdir(join(home, project), { recursive: true })
 await mkdir(join(home, '.codex'), { recursive: true })
 
 const archive = join(root, 'screens.agentsessions')
@@ -158,7 +160,7 @@ try {
   await page.locator('.plan:not(.stale) .badge', { hasText: 'Update' }).waitFor()
   await shoot(page, 'import-update')
   await page.getByRole('button', { name: /^Import \d+ sessions?/ }).click()
-  await page.locator('.statusbar', { hasText: 'Backups of replaced copies' }).waitFor()
+  await page.locator('.backups').waitFor()
   await shoot(page, 'import-result-backups')
 
   // Both copies changed after the export, so the archive and this computer disagree.
@@ -177,7 +179,7 @@ try {
   await page.getByRole('button', { name: 'Use light theme' }).click()
   await shoot(page, 'import-conflict-light')
   await page.getByRole('button', { name: /^Import \d+ sessions?/ }).click()
-  await page.locator('.statusbar', { hasText: 'Backups of replaced copies' }).waitFor()
+  await page.locator('.backups').waitFor()
   await shoot(page, 'import-result-conflict-light')
   await page.getByRole('button', { name: 'Use dark theme' }).click()
   await shoot(page, 'import-result-conflict')
