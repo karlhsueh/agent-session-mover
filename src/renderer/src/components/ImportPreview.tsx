@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { ConflictChoice, ImportRequest, ProgressEvent, SessionKey } from '../../../shared/sessions'
+import type { ConflictChoice, ImportRequest, PathMapping, ProgressEvent, SessionKey } from '../../../shared/sessions'
 import { useHomeDir, usePreviews } from '../hooks'
 import { IS_MAC, MOD, platformLabel, plural, shortDateTime } from '../model/format'
 import { conflictChoice, conflictKeys, planRank, selectedForImport, verdict } from '../model/importing'
@@ -46,14 +46,19 @@ export function ImportPreview({ screen, running, onMappingChange, onToggle, onCh
   const [conversation, requestConversation] = usePreviews(useCallback((key: SessionKey) => window.api.previewArchiveSession(token, key), [token]), token)
   const [open, setOpen] = useState<ReadonlySet<SessionKey>>(new Set())
   const canRun = requests.length > 0 && state.status === 'ready'
+  // The suggestions main made when the archive opened, so leaving can tell what the user changed.
+  const [suggested] = useState(screen.mappings)
+  const changes = unsavedChanges(suggested, screen.mappings, conflicts)
+  const [confirming, setConfirming] = useState(false)
+  const leave = () => (changes.length > 0 ? setConfirming(true) : onBack())
 
   useEffect(() => {
-    if (running) return
+    if (running || confirming) return
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || inTextField(event.target)) return
       if (event.key === 'Escape') {
         event.preventDefault()
-        onBack()
+        leave()
       } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && canRun) {
         event.preventDefault()
         onRun(requests)
@@ -94,9 +99,6 @@ export function ImportPreview({ screen, running, onMappingChange, onToggle, onCh
     <div className="import">
       <div className="import-scroll">
         <header className="import-head">
-          <button type="button" className="button ghost small" onClick={onBack}>
-            ← Sessions
-          </button>
           <h1>
             {plural(archive.summary.sessions.length, 'session')} from {platformLabel(archive.summary.source.platform)}
           </h1>
@@ -152,7 +154,7 @@ export function ImportPreview({ screen, running, onMappingChange, onToggle, onCh
       <footer className="statusbar">
         <span className="dim">Agent Session Mover writes files only after you start the import. Update and Replace keep a backup of the copy they replace.</span>
         <span className="statusbar-actions">
-          <button type="button" className="button" onClick={onBack}>
+          <button type="button" className="button" onClick={leave}>
             Cancel
             <Kbd>Esc</Kbd>
           </button>
@@ -162,7 +164,36 @@ export function ImportPreview({ screen, running, onMappingChange, onToggle, onCh
           </button>
         </span>
       </footer>
+      {confirming && <LeaveSheet changes={changes} onStay={() => setConfirming(false)} onLeave={onBack} />}
     </div>
+  )
+}
+
+/** What leaving would throw away, one phrase per kind of change. */
+function unsavedChanges(suggested: readonly PathMapping[], mappings: readonly PathMapping[], choices: ReadonlyMap<SessionKey, ConflictChoice>): string[] {
+  const before = new Map(suggested.map((mapping) => [mapping.source, mapping.target]))
+  const moved = mappings.filter((mapping) => before.get(mapping.source) !== mapping.target).length
+  const replacing = [...choices.values()].filter((choice) => choice === 'replace').length
+  return [
+    ...(moved > 0 ? [moved === 1 ? 'the folder you changed' : `the ${moved} folders you changed`] : []),
+    ...(replacing > 0 ? [`your choice to replace ${plural(replacing, 'session')}`] : []),
+  ]
+}
+
+function LeaveSheet({ changes, onStay, onLeave }: { changes: string[]; onStay: () => void; onLeave: () => void }) {
+  return (
+    <Sheet label="Leave the import" onClose={onStay}>
+      <h2>Leave the import?</h2>
+      <p>Leaving drops {changes.join(' and ')}. Nothing has been written yet. If you open the archive again, it starts from the suggested folders.</p>
+      <div className="sheet-actions">
+        <button type="button" className="button" onClick={onLeave}>
+          Leave
+        </button>
+        <button type="button" className="button primary" onClick={onStay} autoFocus>
+          Stay
+        </button>
+      </div>
+    </Sheet>
   )
 }
 

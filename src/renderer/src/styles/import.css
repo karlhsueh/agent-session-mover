@@ -33,11 +33,6 @@
   gap: 6px;
 }
 
-.import-head .button {
-  margin-left: -8px;
-  margin-bottom: 4px;
-}
-
 .import-head p {
   user-select: text;
 }
