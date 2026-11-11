@@ -169,6 +169,18 @@
   font-weight: 500;
 }
 
+.checking {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 400;
+}
+
+.checking .progress {
+  flex: none;
+  width: 200px;
+}
+
 .verdict-sep {
   margin: 0 8px;
   color: var(--faint);

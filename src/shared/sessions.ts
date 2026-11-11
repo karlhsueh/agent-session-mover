@@ -235,6 +235,8 @@ export type ProgressEvent =
   /** Uncompressed bytes fed to the archive. Writing takes most of an export. */
   | { operation: 'export'; phase: 'write'; bytesDone: number; bytesTotal: number }
   | { operation: 'open'; bytesRead: number; bytesTotal: number }
+  /** `bytesTotal` is twice the archive's size: the archive's copy of each file and this computer's copy. */
+  | { operation: 'preview'; bytesDone: number; bytesTotal: number }
   /** `bytesTotal` is twice the selected sessions' size: half fills while the app plans each session, half while it writes. */
   | { operation: 'import'; done: number; total: number; current: SessionKey | null; bytesDone: number; bytesTotal: number }
 

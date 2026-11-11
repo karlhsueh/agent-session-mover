@@ -131,16 +131,20 @@ const blobReader =
   (sha256) =>
     createReadStream(path.join(opened.blobDir, sha256)) as AsyncIterable<Buffer>
 
-function countingReader(read: BlobReader, onChunk: (bytes: number) => void): BlobReader {
-  return async function* (sha256) {
-    for await (const chunk of read(sha256)) {
-      onChunk(chunk.length)
-      yield chunk
-    }
+async function* counted(chunks: AsyncIterable<Buffer>, onChunk: (bytes: number) => void): AsyncIterable<Buffer> {
+  for await (const chunk of chunks) {
+    onChunk(chunk.length)
+    yield chunk
   }
 }
 
-async function planOne(context: CoreContext, opened: OpenedArchive, session: ManifestSession, mappings: PathMapping[], once: ReadOnce, readBlob: BlobReader = blobReader(opened)): Promise<PlannedSession> {
+function countingReader(read: BlobReader, onChunk: (bytes: number) => void): BlobReader {
+  return (sha256) => counted(read(sha256), onChunk)
+}
+
+const NO_COUNT = () => {}
+
+async function planOne(context: CoreContext, opened: OpenedArchive, session: ManifestSession, mappings: PathMapping[], once: ReadOnce, readBlob: BlobReader = blobReader(opened), onHere: (bytes: number) => void = NO_COUNT): Promise<PlannedSession> {
   const key = sessionKey(session.agent, session.id)
   const provider = context.providers[session.agent]
   const root = path.resolve(provider.storeRoot(context.env))
@@ -148,7 +152,7 @@ async function planOne(context: CoreContext, opened: OpenedArchive, session: Man
   // A live session is blocked whatever its files hold, so skip hashing them; a large one took seconds.
   if (inspection.kind === 'refused' || inspection.live) return { session, key, provider, root, inspection, plan: planSession(inspection, []) }
   try {
-    const compared = await Promise.all(inspection.files.map((file) => compare(root, readBlob, file)))
+    const compared = await Promise.all(inspection.files.map((file) => compare(root, readBlob, file, onHere)))
     return { session, key, provider, root, inspection, plan: planSession(inspection, compared) }
   } catch (error) {
     if (!(error instanceof UnsafePathError)) throw error
@@ -157,7 +161,7 @@ async function planOne(context: CoreContext, opened: OpenedArchive, session: Man
   }
 }
 
-async function compare(root: string, readBlob: BlobReader, file: TargetFile): Promise<ComparedFile> {
+async function compare(root: string, readBlob: BlobReader, file: TargetFile, onHere: (bytes: number) => void): Promise<ComparedFile> {
   const existing = await existingCopy(root, file)
   const blob = () => (file.transform ? file.transform(readBlob(file.sha256)) : readBlob(file.sha256))
   if (!existing) {
@@ -165,7 +169,7 @@ async function compare(root: string, readBlob: BlobReader, file: TargetFile): Pr
     return { file, sha256: planned.sha256, size: planned.size, relation: relate(planned, null) }
   }
   const read = () => {
-    const raw = readRange(existing.absPath, existing.rawSize)
+    const raw = counted(readRange(existing.absPath, existing.rawSize), onHere)
     return existing.decode ? existing.decode(raw) : raw
   }
   const existingSize = existing.decode ? (await digest(read())).size : existing.rawSize
@@ -236,12 +240,40 @@ function selectSessions(opened: OpenedArchive, requests: readonly ImportRequest[
   })
 }
 
-export async function previewImport(context: CoreContext, opened: OpenedArchive, mappings: readonly PathMapping[]): Promise<ImportPreview> {
+/**
+ * `onProgress` reports bytes read. Each session counts twice its size: the archive's copy and this
+ * computer's copy, each capped at the session's size so a longer copy here cannot overshoot.
+ */
+export async function previewImport(
+  context: CoreContext,
+  opened: OpenedArchive,
+  mappings: readonly PathMapping[],
+  onProgress?: (event: ProgressEvent) => void,
+): Promise<ImportPreview> {
   const resolved = await resolveMappings(mappings)
   const sessions = []
   const once = shareReads()
+  const sizeOf = (session: ManifestSession) => session.files.reduce((sum, file) => sum + file.size, 0)
+  const bytesTotal = 2 * opened.manifest.sessions.reduce((sum, session) => sum + sizeOf(session), 0)
+  const step = Math.max(1024 * 1024, bytesTotal / 200)
+  let finished = 0
+  let reported = 0
+  const report = (bytesDone: number) => {
+    reported = bytesDone
+    onProgress?.({ operation: 'preview', bytesDone, bytesTotal })
+  }
+  report(0)
   for (const session of opened.manifest.sessions) {
-    const planned = await planOne(context, opened, session, resolved, once)
+    const size = sizeOf(session)
+    const read = { archive: 0, here: 0 }
+    const count = (side: keyof typeof read) => (bytes: number) => {
+      read[side] += bytes
+      const bytesDone = finished + Math.min(read.archive, size) + Math.min(read.here, size)
+      if (bytesDone - reported >= step) report(bytesDone)
+    }
+    const planned = await planOne(context, opened, session, resolved, once, countingReader(blobReader(opened), count('archive')), count('here'))
+    finished += 2 * size
+    report(finished)
     const { action } = planned.plan
     sessions.push({
       key: planned.key,

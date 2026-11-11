@@ -14,6 +14,8 @@ interface Props {
   screen: PreviewScreen
   /** True while the import runs. The screen stays visible under the progress sheet but takes no keys. */
   running: boolean
+  /** Byte progress while this computer is checked against the archive. */
+  progress: ProgressEvent | null
   onMappingChange: (source: string, target: string) => void
   onToggle: (key: SessionKey) => void
   onChoose: (keys: readonly SessionKey[], choice: ConflictChoice) => void
@@ -30,9 +32,11 @@ function inTextField(target: EventTarget | null): boolean {
   return target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable)
 }
 
-export function ImportPreview({ screen, running, onMappingChange, onToggle, onChoose, onRun, onBack, onDismissError }: Props) {
+export function ImportPreview({ screen, running, progress, onMappingChange, onToggle, onChoose, onRun, onBack, onDismissError }: Props) {
   const { archive, preview: state, excluded, conflicts } = screen
   const preview = shownPreview(state)
+  // Until the first answer, the panels would show a layout the answer then rearranges, so they wait for it.
+  const firstCheck = state.status === 'loading' && preview === null
   const byKey = new Map((preview?.sessions ?? []).map((session) => [session.key, session]))
   const rank = (key: SessionKey) => planRank(byKey.get(key)?.action ?? null)
   const sessions = [...archive.summary.sessions].sort((a, b) => rank(a.key) - rank(b.key) || b.lastActivity.localeCompare(a.lastActivity))
@@ -136,7 +140,10 @@ export function ImportPreview({ screen, running, onMappingChange, onToggle, onCh
 
         <p className="verdict" role="status">
           {state.status === 'loading' ? (
-            <span className="dim">Checking this computer…</span>
+            <span className="checking">
+              <span className="dim">Checking this computer…</span>
+              <ProgressBar value={progress?.operation === 'preview' && progress.bytesTotal > 0 ? progress.bytesDone / progress.bytesTotal : null} label="Check progress" />
+            </span>
           ) : (
             parts.map((part, index) => (
               <span key={part.kind} className={`verdict-part verdict-${part.kind}`}>
@@ -150,35 +157,39 @@ export function ImportPreview({ screen, running, onMappingChange, onToggle, onCh
         {screen.error && <ErrorBanner error={screen.error} onDismiss={onDismissError} />}
         {state.status === 'failed' && <ErrorBanner error={state.error} />}
 
-        <MappingEditor
-          token={token}
-          mappings={screen.mappings}
-          sessions={archive.summary.sessions}
-          preview={preview}
-          choices={conflicts}
-          checking={state.status === 'loading'}
-          sourceHome={archive.summary.source.homeDir}
-          sourceSep={archive.summary.source.sep}
-          repos={archive.summary.source.repos}
-          onChange={onMappingChange}
-        />
+        {!firstCheck && (
+          <>
+            <MappingEditor
+              token={token}
+              mappings={screen.mappings}
+              sessions={archive.summary.sessions}
+              preview={preview}
+              choices={conflicts}
+              checking={state.status === 'loading'}
+              sourceHome={archive.summary.source.homeDir}
+              sourceSep={archive.summary.source.sep}
+              repos={archive.summary.source.repos}
+              onChange={onMappingChange}
+            />
 
-        <section className="panel" aria-labelledby="sessions-heading" aria-busy={state.status === 'loading'}>
-          <header className="panel-head">
-            <h2 id="sessions-heading">Sessions</h2>
-          </header>
-          {conflicted.length > 1 && (
-            <ConflictBar keys={conflicted} choices={conflicts} onChoose={(keys, choice) => keepInPlace('.plan-bulk', () => onChoose(keys, choice))} />
-          )}
-          <ul className={state.status === 'loading' ? 'plan stale' : 'plan'}>{rows(listed)}</ul>
-          {identical.length > 0 && (
-            <div className="plan-fold">
-              <Fold id="plan-identical" summary={`${plural(identical.length, 'session')} already on this computer`}>
-                <ul className={state.status === 'loading' ? 'plan stale' : 'plan'}>{rows(identical)}</ul>
-              </Fold>
-            </div>
-          )}
-        </section>
+            <section className="panel" aria-labelledby="sessions-heading" aria-busy={state.status === 'loading'}>
+              <header className="panel-head">
+                <h2 id="sessions-heading">Sessions</h2>
+              </header>
+              {conflicted.length > 1 && (
+                <ConflictBar keys={conflicted} choices={conflicts} onChoose={(keys, choice) => keepInPlace('.plan-bulk', () => onChoose(keys, choice))} />
+              )}
+              <ul className={state.status === 'loading' ? 'plan stale' : 'plan'}>{rows(listed)}</ul>
+              {identical.length > 0 && (
+                <div className="plan-fold">
+                  <Fold id="plan-identical" summary={`${plural(identical.length, 'session')} already on this computer`}>
+                    <ul className={state.status === 'loading' ? 'plan stale' : 'plan'}>{rows(identical)}</ul>
+                  </Fold>
+                </div>
+              )}
+            </section>
+          </>
+        )}
       </div>
 
       <footer className="statusbar">

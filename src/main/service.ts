@@ -32,7 +32,7 @@ export interface SessionService {
   previewArchiveSession(token: unknown, key: unknown): Promise<ApiResult<SessionPreview>>
   exportSessions(keys: unknown, chooseDestination: () => Promise<string | null>, emit: Emit): Promise<ApiResult<ExportOutcome>>
   openArchive(chooseArchive: () => Promise<string | null>, emit: Emit): Promise<ApiResult<OpenArchiveOutcome>>
-  previewImport(token: unknown, mappings: unknown): Promise<ApiResult<ImportPreview>>
+  previewImport(token: unknown, mappings: unknown, emit?: (event: ProgressEvent) => void): Promise<ApiResult<ImportPreview>>
   runImport(token: unknown, mappings: unknown, requests: unknown, emit: Emit): Promise<ApiResult<ImportResult>>
   /** Creates a mapping target and its missing parents, only while that archive is open. */
   createFolder(token: unknown, target: unknown): Promise<ApiResult<void>>
@@ -124,10 +124,10 @@ export function createSessionService(
       })
     },
 
-    previewImport(tokenInput, mappingsInput) {
+    previewImport(tokenInput, mappingsInput, emit) {
       return exclusive(async () => {
         const opened = archiveFor(parseToken(tokenInput))
-        return previewImport(context, opened, parseMappings(mappingsInput))
+        return previewImport(context, opened, parseMappings(mappingsInput), emit)
       })
     },
 

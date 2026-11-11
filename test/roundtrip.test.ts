@@ -108,6 +108,23 @@ describe('import into an empty store', () => {
     expect(imports.filter((event) => event.current !== null).every((event) => event.bytesDone < event.bytesTotal), 'the bar is not full until the session is in').toBe(true)
   })
 
+  it('reports bytes while it checks a large session that is already here', async () => {
+    const line = JSON.stringify({ type: 'user', cwd: srcProj, sessionId: S1, timestamp: '2026-11-02T09:00:00.000Z', message: { role: 'user', content: 'x'.repeat(4000) } })
+    await appendFile(built[S1].transcriptPath, `${line}\n`.repeat(1500))
+    const archive = await exportFrom(a, [key(S1)])
+    const first = await openIn(b, archive)
+    await runImport(b.context, first.opened, first.mappings, requestsFor([key(S1)]))
+    const { opened, mappings } = await openIn(b, archive)
+    const events: ProgressEvent[] = []
+    await previewImport(b.context, opened, mappings, (event) => events.push(event))
+    const checks = events.flatMap((event) => (event.operation === 'preview' ? [event] : []))
+    const last = checks.at(-1)!
+    const halfway = checks.filter((event) => event.bytesDone > last.bytesTotal / 2 && event.bytesDone < last.bytesTotal)
+    expect(halfway.length, 'the copy here counts too, so the bar keeps moving past half').toBeGreaterThan(2)
+    expect(checks.map((event) => event.bytesDone)).toEqual([...checks.map((event) => event.bytesDone)].sort((x, y) => x - y))
+    expect(last.bytesDone).toBe(last.bytesTotal)
+  })
+
   it('imports into a store root that is a symlink, as when ~/.claude lives in a dotfiles folder', async () => {
     const linked = path.join(b.dir, 'dotfiles', 'claude')
     await mkdir(linked, { recursive: true })
