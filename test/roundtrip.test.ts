@@ -259,7 +259,7 @@ describe('import into a populated store', () => {
     const [planned] = (await previewImport(b.context, opened, mappings)).sessions
     expect(planned.action).toMatchObject({ kind: 'conflict', reason: 'target-newer' })
     const copies = planned.action.kind === 'conflict' ? planned.action.copies : null
-    expect(copies?.here, 'the copy here counts the message it added and ends at its time').toEqual({ lastMessageAt: '2026-11-03T00:00:00.000Z', messages: copies!.archive.messages + 1, complete: true })
+    expect(copies?.here, 'the copy here counts the message it added and ends at its time').toEqual({ lastMessageAt: '2026-11-03T00:00:00.000Z', messages: copies!.archive.messages + 1, lines: copies!.archive.lines + 1, complete: true })
     expect(copies?.archive.lastMessageAt).not.toBe('2026-11-03T00:00:00.000Z')
     expect((await runImport(b.context, opened, mappings, requestsFor([key(S1)]))).outcomes[0].status).toBe('refused')
     expect(await readFile(dstFile)).toEqual(longer)

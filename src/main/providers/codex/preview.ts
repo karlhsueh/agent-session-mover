@@ -12,7 +12,7 @@ export async function previewRollout(file: TranscriptFile, budget?: ReadBudget):
     return await readPreview({ kind: 'stream', chunks: unzstd(createReadStream(file.absPath) as AsyncIterable<Buffer>) }, codexEntries(), budget)
   } catch (error) {
     if (!String((error as NodeJS.ErrnoException).code).startsWith('ZSTD_')) throw error
-    return { preview: { kind: 'unavailable', reason: 'The compressed transcript is damaged.' }, scannedBytes: 0 }
+    return { preview: { kind: 'unavailable', reason: 'The compressed transcript is damaged.' }, scannedBytes: 0, lines: 0 }
   }
 }
 

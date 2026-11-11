@@ -140,6 +140,8 @@ export interface CopyFacts {
   lastMessageAt: string | null
   /** User and assistant messages. A lower bound when `complete` is false. */
   messages: number
+  /** Every line of the transcript, conversation or not. A lower bound when `complete` is false. */
+  lines: number
   complete: boolean
 }
 

@@ -16,6 +16,8 @@ export interface TranscriptPreview {
   preview: SessionPreview
   /** Plain transcript bytes handed to the reader. */
   scannedBytes: number
+  /** Lines handed to the reader, conversation or not. */
+  lines: number
 }
 
 const RECENT = 24
@@ -25,12 +27,14 @@ const SUMMARY_LIMIT = 160
 export async function readPreview(source: TranscriptSource, reader: EntryReader, budget: ReadBudget = PREVIEW_BUDGET): Promise<TranscriptPreview> {
   const builder = previewBuilder()
   let scannedBytes = 0
+  let lines = 0
   for await (const line of readWindow(source, budget)) {
     if (line === GAP) {
       builder.gap()
       continue
     }
     scannedBytes += line.length + 1
+    lines += 1
     let entries: PreviewMessage[] = []
     try {
       entries = reader(line)
@@ -39,7 +43,7 @@ export async function readPreview(source: TranscriptSource, reader: EntryReader,
     }
     for (const entry of entries) builder.add(entry)
   }
-  return { preview: builder.finish(), scannedBytes }
+  return { preview: builder.finish(), scannedBytes, lines }
 }
 
 function previewBuilder() {

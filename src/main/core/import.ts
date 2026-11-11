@@ -19,7 +19,6 @@ import {
   type SessionInfo,
   type SessionKey,
   sessionKey,
-  type SessionPreview,
 } from '../../shared/sessions'
 import { type ArchiveLimits, DEFAULT_LIMITS, extractArchive } from '../archive/archive'
 import { ExecutionError, executePlan, type Fault } from './executor'
@@ -27,6 +26,7 @@ import type { CoreContext } from './export'
 import type { Manifest, ManifestSession, Sha256 } from './manifest'
 import { mapPath, resolveInside, type StorePath, UnsafePathError, unlessMissing } from './paths'
 import { changesFor, type ComparedFile, planSession, relate, type SessionPlan } from './planner'
+import type { TranscriptPreview } from './preview'
 import { type ContentTransform, type Provider, type ReadOnce, readFresh, shareReads, type TargetFile, type TargetInspection } from './provider'
 import { digest, readRange, sha256File } from './streams'
 
@@ -207,10 +207,10 @@ async function conflictCopies(planned: PlannedSession, blobDir: string): Promise
       provider.previewTranscript({ absPath: existing.absPath, path: existing.path }),
       provider.previewTranscript({ absPath: path.join(blobDir, archived[0]!.sha256), path: archived[0]!.path }),
     ])
-    const facts = (preview: SessionPreview): CopyFacts | null =>
-      preview.kind === 'ok' ? { lastMessageAt: lastAt([preview.first, ...preview.recent]), messages: preview.counts.messages, complete: preview.complete } : null
-    const hereFacts = facts(here.preview)
-    const archiveFacts = facts(archive.preview)
+    const facts = ({ preview, lines }: TranscriptPreview): CopyFacts | null =>
+      preview.kind === 'ok' ? { lastMessageAt: lastAt([preview.first, ...preview.recent]), messages: preview.counts.messages, lines, complete: preview.complete } : null
+    const hereFacts = facts(here)
+    const archiveFacts = facts(archive)
     return hereFacts && archiveFacts && { here: hereFacts, archive: archiveFacts }
   } catch {
     // The comparison only helps the user choose. Without it the conflict still plans and imports.
