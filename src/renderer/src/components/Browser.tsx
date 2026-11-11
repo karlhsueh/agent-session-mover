@@ -272,20 +272,23 @@ export function Browser({ list, scans, refreshing, onRefresh, storeRoots, now, a
         />
       </div>
       <footer className="statusbar">
-        <span className="status" aria-live="polite">
+        <span className="status">
           <ScanLine scans={scans} />
           <span className="dim">{filtered ? `${matches.length} of ${plural(list.sessions.length, 'session')}` : plural(list.sessions.length, 'session')}</span>
-          {selectedKeys.length > 0 ? (
-            <span className="selection-count">
-              {selectedKeys.length} selected
-              {outOfView > 0 && <span className="dim"> ({outOfView} not in this view)</span>}
-              <button type="button" className="button ghost small" onClick={() => dispatch({ type: 'clear' })}>
-                Clear
-              </button>
-            </span>
-          ) : (
-            <span className="dim">Select sessions to export</span>
-          )}
+          {/* Only the selection is announced. The match count would speak on every keystroke in the search field. */}
+          <span className="status" aria-live="polite">
+            {selectedKeys.length > 0 ? (
+              <span className="selection-count">
+                {selectedKeys.length} selected
+                {outOfView > 0 && <span className="dim"> ({outOfView} not in this view)</span>}
+                <button type="button" className="button ghost small" onClick={() => dispatch({ type: 'clear' })}>
+                  Clear
+                </button>
+              </span>
+            ) : (
+              <span className="dim">Select sessions to export</span>
+            )}
+          </span>
         </span>
         <span className="statusbar-actions">
           {update.kind === 'available' && (

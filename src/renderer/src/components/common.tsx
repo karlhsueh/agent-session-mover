@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ApiError } from '../../../shared/ipc'
 import type { AgentId, ClientKind } from '../../../shared/sessions'
 import { AGENT_LABEL, CLIENT_LABEL, MOD } from '../model/format'
@@ -120,22 +120,50 @@ export function Kbd({ children }: { children: ReactNode }) {
   return <kbd>{children}</kbd>
 }
 
+const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+
+/** Keeps Tab inside the sheet, and gives focus back to whatever had it when the sheet opened. */
 export function Sheet({ label, children, onClose }: { label: string; children: ReactNode; onClose?: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  // Read during the first render, before an autoFocus child inside the sheet takes the focus.
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null))
+
   useEffect(() => {
-    if (!onClose) return
-    const close = onClose
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus()
+    return () => {
+      if (opener?.isConnected) opener.focus()
+    }
+  }, [opener])
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      const sheet = ref.current
+      if (event.key === 'Escape' && onClose) {
         event.stopPropagation()
-        close()
+        onClose()
+      }
+      if (event.key !== 'Tab' || !sheet) return
+      const items = [...sheet.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((item) => item.getClientRects().length > 0)
+      const inside = sheet.contains(document.activeElement)
+      const first = items[0]
+      const last = items.at(-1)
+      if (!first || !last) {
+        event.preventDefault()
+      } else if (event.shiftKey && (!inside || document.activeElement === first || document.activeElement === sheet)) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (!inside || document.activeElement === last)) {
+        event.preventDefault()
+        first.focus()
       }
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [onClose])
+
   return (
     <div className="scrim">
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={label}>
+      <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
         {children}
       </div>
     </div>

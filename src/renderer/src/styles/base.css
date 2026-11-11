@@ -38,15 +38,15 @@
   --line-strong: #d6d6d1;
   --text: #1c1d1f;
   --muted: #505258;
-  --faint: #66686e;
+  --faint: #5f6167;
   --accent: #4f57d9;
   --accent-text: #ffffff;
   --selected: rgb(79 87 217 / 0.09);
   --selected-line: rgb(79 87 217 / 0.3);
   --focus: rgb(79 87 217 / 0.55);
-  --good: #23885a;
+  --good: #156842;
   --info: #1f7ea3;
-  --warn: #a8700f;
+  --warn: #805305;
   --bad: #c63d3d;
   --agent-claude-code: #c4622f;
   --agent-codex: #2b7fc4;
@@ -161,7 +161,15 @@ kbd {
 
 .button kbd {
   margin-left: 8px;
-  border-color: currentColor;
-  color: inherit;
-  opacity: 0.55;
+  color: var(--muted);
+}
+
+.button.primary kbd {
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent-text) 45%, transparent);
+}
+
+::placeholder {
+  color: var(--faint);
+  opacity: 1;
 }

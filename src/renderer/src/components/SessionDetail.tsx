@@ -96,17 +96,17 @@ function Tabs({ tab, onTab }: { tab: DetailTab; onTab: (tab: DetailTab) => void 
 
 function Overview({ session, home, now }: { session: SessionSummary; home: string; now: number }) {
   const otherCwds = session.cwds.filter((cwd) => cwd !== session.cwd)
-  const notes: string[] = []
-  if (session.live) notes.push('This session is running on this machine now. An export snapshots it up to the last complete line.')
-  if (session.hiddenFromPicker) notes.push(pickerNote(session.agent, session.clientDetail))
-  if (session.archived) notes.push(`Archived in ${AGENT_LABEL[session.agent]}.`)
+  const notes: { text: string; quiet?: boolean }[] = []
+  if (session.live) notes.push({ text: 'This session is running on this machine now. An export snapshots it up to the last complete line.', quiet: true })
+  if (session.hiddenFromPicker) notes.push({ text: pickerNote(session.agent, session.clientDetail) })
+  if (session.archived) notes.push({ text: `Archived in ${AGENT_LABEL[session.agent]}.` })
   const command = shortCommand(session.resumeCommand, home)
 
   return (
     <>
       {notes.map((note) => (
-        <p key={note} className="note">
-          {note}
+        <p key={note.text} className={note.quiet ? 'note quiet' : 'note'}>
+          {note.text}
         </p>
       ))}
 

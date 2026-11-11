@@ -85,6 +85,12 @@
   font-size: 12px;
 }
 
+/* A running session is normal, so its note carries no warning color. */
+.note.quiet {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
 .command-block {
   margin: 0;
   padding: 8px 10px;

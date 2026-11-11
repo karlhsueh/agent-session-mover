@@ -235,9 +235,13 @@ try {
   await help.waitFor()
   assert.match((await help.textContent()) ?? '', /Go to the projects or the sessions/, 'the shortcut overlay explains moving between panes')
   await shot(page, 'shortcuts-dark')
+  for (const key of ['Tab', 'Tab', 'Shift+Tab', 'Shift+Tab']) {
+    await page.keyboard.press(key)
+    assert.ok(await help.evaluate((el) => el.contains(el.ownerDocument.activeElement)), `${key} keeps focus inside the sheet`)
+  }
   await page.keyboard.press('Escape')
   await help.waitFor({ state: 'detached' })
-  await list(page).focus()
+  assert.equal(await focusedPane(page), 'Sessions', 'closing a sheet returns focus to where it was')
 
   await page.keyboard.press('ControlOrMeta+A')
   assert.equal(await selectedCount(page), fixtures.length, 'Cmd/Ctrl+A selects every session')

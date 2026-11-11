@@ -23,6 +23,10 @@
   animation: rise 140ms ease-out;
 }
 
+.sheet:focus {
+  outline: none;
+}
+
 .sheet h2 {
   font-size: 15px;
 }

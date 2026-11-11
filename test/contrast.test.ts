@@ -39,16 +39,27 @@ export function ratio(fg: Rgba, bg: Rgba): number {
   return (hi! + 0.05) / (lo! + 0.05)
 }
 
-/** Every surface text sits on, the selected-row tint included. */
+const tint = (color: Rgba, amount: number): Rgba => [color[0], color[1], color[2], amount]
+
+/** Every surface text sits on: the active sidebar scope (--line), and the selected and focused row tints. */
 function surfaces(theme: Record<string, string>): Record<string, Rgba> {
-  const base = Object.fromEntries(['bg', 'surface', 'raised', 'hover'].map((name) => [name, parse(theme[name]!)]))
-  return { ...base, selected: over(parse(theme.selected!), base.bg!) }
+  const base = Object.fromEntries(['bg', 'surface', 'raised', 'hover', 'line'].map((name) => [name, parse(theme[name]!)]))
+  return { ...base, selected: over(parse(theme.selected!), base.bg!), focused: over(tint(parse(theme.text!), 0.07), base.bg!) }
 }
 
 describe.each(Object.entries(THEMES))('%s theme contrast', (_name, theme) => {
   it.each(['text', 'muted', 'faint'])('--%s text reaches 4.5:1 on every surface', (token) => {
     for (const [surface, color] of Object.entries(surfaces(theme))) {
       expect(ratio(parse(theme[token]!), color), `--${token} on --${surface}`).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  // Badges and tone labels put the tone color on a 14% tint of itself (list.css). None sits on the active scope's --line.
+  it.each(['good', 'warn'])('--%s reaches 4.5:1 on every surface and on its own tint', (token) => {
+    const color = parse(theme[token]!)
+    for (const [surface, under] of Object.entries(surfaces(theme))) {
+      expect(ratio(color, under), `--${token} on --${surface}`).toBeGreaterThanOrEqual(4.5)
+      if (surface !== 'line') expect(ratio(color, over(tint(color, 0.14), under)), `--${token} badge on --${surface}`).toBeGreaterThanOrEqual(4.5)
     }
   })
 
