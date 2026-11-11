@@ -30,7 +30,11 @@ export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: 
         </code>
         <p>Next: move this file to the other computer and open it with Import… ({MOD}O).</p>
         {result.liveKeys.length > 0 && (
-          <p className="note">{plural(result.liveKeys.length, 'session was', 'sessions were')} running. Their snapshot ends at the last complete line.</p>
+          <p className="note">
+            {result.liveKeys.length === 1
+              ? '1 session was running. Its snapshot ends at the last complete line.'
+              : `${result.liveKeys.length} sessions were running. Their snapshots end at the last complete line.`}
+          </p>
         )}
         <div className="sheet-actions">
           <button type="button" className="button" onClick={() => void window.api.revealExport()}>

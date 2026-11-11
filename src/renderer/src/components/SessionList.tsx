@@ -9,13 +9,15 @@ export function rowId(key: SessionKey): string {
 }
 
 /** A plain click only previews. The checkbox, Cmd/Ctrl-click, and Shift-click change the selection. */
-export type ClickMode = 'focus' | 'toggle' | 'range'
+export type ClickMode = 'focus' | 'toggle' | 'check' | 'range'
 
 interface Props {
   sessions: readonly SessionSummary[]
   /** Set in the All scope, where each row names its project. */
   projects: ReadonlyMap<ProjectKey, Project> | null
   needle: string
+  /** Off when every session comes from one agent, where the mark tells nothing apart. */
+  showAgent: boolean
   selected: ReadonlySet<SessionKey>
   focus: SessionKey | null
   now: number
@@ -23,7 +25,7 @@ interface Props {
   listRef: React.RefObject<HTMLDivElement | null>
 }
 
-export function SessionList({ sessions, projects, needle, selected, focus, now, onClick, listRef }: Props) {
+export function SessionList({ sessions, projects, needle, showAgent, selected, focus, now, onClick, listRef }: Props) {
   useEffect(() => {
     if (focus) document.getElementById(rowId(focus))?.scrollIntoView({ block: 'nearest' })
   }, [focus])
@@ -44,6 +46,7 @@ export function SessionList({ sessions, projects, needle, selected, focus, now, 
           session={session}
           project={projects?.get(projectKeyOf(session)) ?? null}
           needle={needle}
+          showAgent={showAgent}
           selected={selected.has(session.key)}
           focused={focus === session.key}
           now={now}
@@ -63,6 +66,7 @@ const SessionRow = memo(function SessionRow({
   session,
   project,
   needle,
+  showAgent,
   selected,
   focused,
   now,
@@ -71,6 +75,7 @@ const SessionRow = memo(function SessionRow({
   session: SessionSummary
   project: Project | null
   needle: string
+  showAgent: boolean
   selected: boolean
   focused: boolean
   now: number
@@ -93,13 +98,13 @@ const SessionRow = memo(function SessionRow({
         aria-hidden="true"
         onClick={(event) => {
           event.stopPropagation()
-          onClick(session.key, event.shiftKey ? 'range' : 'toggle')
+          onClick(session.key, event.shiftKey ? 'range' : 'check')
         }}
       >
         <span className="check" />
       </span>
-      <AgentMark agent={session.agent} client={session.client} />
       <span className="row-title">
+        {showAgent && <AgentMark agent={session.agent} client={session.client} />}
         <span className="truncate">
           <Highlight text={sessionTitle(session)} needle={needle} />
         </span>

@@ -68,6 +68,7 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
   const sidebarRef = useRef<HTMLDivElement>(null)
 
   const projects = useMemo(() => projectsOf(list.sessions), [list.sessions])
+  const showAgent = useMemo(() => new Set(list.sessions.map((session) => session.agent)).size > 1, [list.sessions])
   const projectByKey = useMemo(() => new Map(projects.map((each) => [each.key, each])), [projects])
   const single = projects.length === 1 ? projects[0]! : null
   const sidebarOpen = single ? singleSidebar : sidebarPreferred
@@ -242,6 +243,7 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
               sessions={shown}
               projects={scope.kind === 'all' && !single ? projectByKey : null}
               needle={searchNeedle(query)}
+              showAgent={showAgent}
               selected={selection.keys}
               focus={focus}
               now={now}

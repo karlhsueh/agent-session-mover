@@ -55,7 +55,7 @@ describe.each(Object.entries(THEMES))('%s theme contrast', (_name, theme) => {
   })
 
   // Badges and tone labels put the tone color on a 14% tint of itself (list.css). None sits on the active scope's --line.
-  it.each(['good', 'warn'])('--%s reaches 4.5:1 on every surface and on its own tint', (token) => {
+  it.each(['good', 'warn', 'bad'])('--%s reaches 4.5:1 on every surface and on its own tint', (token) => {
     const color = parse(theme[token]!)
     for (const [surface, under] of Object.entries(surfaces(theme))) {
       expect(ratio(color, under), `--${token} on --${surface}`).toBeGreaterThanOrEqual(4.5)

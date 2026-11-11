@@ -7,9 +7,16 @@
   background: var(--surface);
 }
 
+.detail-empty {
+  justify-content: center;
+  text-align: center;
+  color: var(--faint);
+}
+
 .detail-head h2 {
   font-size: 15px;
   line-height: 1.35;
+  text-wrap: balance;
   user-select: text;
 }
 

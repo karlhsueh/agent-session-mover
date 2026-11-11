@@ -52,7 +52,13 @@ export function SessionDetail({ session, home, now, tab, onTab, preview, onPrevi
     if (key && tab === 'conversation') onPreview(key)
   }, [key, tab, onPreview])
 
-  if (!session) return <aside className="detail detail-empty" aria-label="Session details" />
+  // The list always focuses a row when it has one, so no session means nothing matched.
+  if (!session)
+    return (
+      <aside className="detail detail-empty" aria-label="Session details">
+        <p>Details show here when a session matches.</p>
+      </aside>
+    )
 
   return (
     <aside className="detail" aria-label="Session details">

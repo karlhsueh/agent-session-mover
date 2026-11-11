@@ -63,7 +63,7 @@ it('lists, exports, and imports Codex sessions through the app', { timeout: 120_
   await rows(laptop.page).first().waitFor()
   const listed = await rows(laptop.page).allTextContents()
   expect(listed.length, 'the list shows the Codex fixture sessions').toBeGreaterThanOrEqual(6)
-  expect(await laptop.page.locator('.row .mark-codex').count(), 'every row carries the Codex mark').toBe(listed.length)
+  expect(await laptop.page.locator('.row .mark').count(), 'a store with one agent leaves the agent mark off the rows').toBe(0)
   expect(listed.some((text) => text.includes('+3')), 'the parent session shows its 3 nested subagents').toBe(true)
   expect(listed.some((text) => text.includes('Renamed tokenizer work')), 'the session index name is the title').toBe(true)
   expect(await laptop.page.getByRole('listbox', { name: 'Projects' }).count(), 'a one-project store hides the sidebar').toBe(0)

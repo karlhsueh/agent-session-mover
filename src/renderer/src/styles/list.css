@@ -21,7 +21,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 16px 8px minmax(0, 1fr) minmax(0, 64px) 48px;
+  grid-template-columns: 16px minmax(0, 1fr) minmax(0, 64px) 48px;
   gap: 8px;
   align-items: center;
   height: 32px;
@@ -34,7 +34,7 @@
 }
 
 .list.with-project .row {
-  grid-template-columns: 16px 8px minmax(0, 1fr) minmax(0, 132px) 40px;
+  grid-template-columns: 16px minmax(0, 1fr) minmax(0, 132px) 40px;
 }
 
 .row:hover {
@@ -199,7 +199,7 @@ mark {
 
   .row,
   .list.with-project .row {
-    grid-template-columns: 16px 8px minmax(0, 1fr) minmax(0, 100px) 40px;
+    grid-template-columns: 16px minmax(0, 1fr) minmax(0, 100px) 40px;
   }
 
   .row-client {
@@ -207,6 +207,6 @@ mark {
   }
 
   .list:not(.with-project) .row {
-    grid-template-columns: 16px 8px minmax(0, 1fr) 48px;
+    grid-template-columns: 16px minmax(0, 1fr) 48px;
   }
 }

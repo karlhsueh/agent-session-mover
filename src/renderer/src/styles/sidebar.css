@@ -82,15 +82,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.scope-pill + .scope-count {
-  min-width: 0;
-  margin-left: -2px;
-}
-
-.scope-pill + .scope-count::before {
-  content: '/ ';
-}
-
 .scope-live {
   flex: none;
   width: 6px;

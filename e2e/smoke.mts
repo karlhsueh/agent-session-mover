@@ -165,6 +165,7 @@ try {
   assert.equal((await rowTitles(page)).length, 2, 'search matches folders')
   await scope(page, 'api').click()
   assert.match((await page.locator('.list-pane').textContent()) ?? '', /No sessions in api match/, 'a project scope searches only that project')
+  assert.match((await page.getByRole('complementary', { name: 'Session details' }).textContent()) ?? '', /Details show here when a session matches/, 'with no match the detail panel says why it is empty')
   await page.getByRole('button', { name: 'Show 2 matches in all projects' }).click()
   assert.equal((await rowTitles(page)).length, 2, 'the empty scope offers the matches elsewhere')
   await search.focus()
@@ -201,6 +202,10 @@ try {
   await row(page, fixtures[5]!.title).locator('.check-cell').click()
   assert.equal(await selectedCount(page), 4, 'the checkbox toggles the row')
   await row(page, fixtures[5]!.title).locator('.check-cell').click()
+  await row(page, fixtures[7]!.title).locator('.check-cell').click()
+  assert.equal(await selectedCount(page), 4, 'the checkbox toggles another row')
+  assert.match((await detail.textContent()) ?? '', new RegExp(fixtures[5]!.id), 'a checkbox click leaves the preview on the focused row')
+  await row(page, fixtures[7]!.title).locator('.check-cell').click()
 
   await row(page, fixtures[2]!.title).click({ modifiers: ['ControlOrMeta'] })
   assert.match((await detail.textContent()) ?? '', /claude --resume 5a000000-0000-4000-8000-000000000003/, 'detail shows the focused session and its resume command')

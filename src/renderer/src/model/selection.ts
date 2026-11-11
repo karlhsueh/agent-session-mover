@@ -12,10 +12,10 @@ export interface Selection {
 
 /**
  * `rows` is the visible list, top to bottom. Moves and ranges only cover visible rows.
- * A `focus` click previews the row and leaves the selection alone.
+ * A `focus` click previews the row and leaves the selection alone. A `check` click toggles the row and leaves the preview alone.
  */
 export type SelectionAction =
-  | { type: 'click'; key: SessionKey; mode: 'focus' | 'toggle' | 'range'; rows: readonly SessionKey[] }
+  | { type: 'click'; key: SessionKey; mode: 'focus' | 'toggle' | 'check' | 'range'; rows: readonly SessionKey[] }
   | { type: 'move'; to: 'next' | 'previous' | 'first' | 'last'; extend: boolean; rows: readonly SessionKey[] }
   | { type: 'toggle-focus'; rows: readonly SessionKey[] }
   | { type: 'all'; keys: readonly SessionKey[] }
@@ -58,6 +58,7 @@ export function selectionReducer(state: Selection, action: SelectionAction): Sel
     case 'click':
       if (action.mode === 'focus') return anchored(state.keys, action.key)
       if (action.mode === 'toggle') return anchored(toggled(state.keys, action.key), action.key)
+      if (action.mode === 'check') return { ...anchored(toggled(state.keys, action.key), action.key), focus: state.focus }
       return extended(state, action.rows, state.anchor ?? action.key, action.key)
     case 'move': {
       if (action.rows.length === 0) return state

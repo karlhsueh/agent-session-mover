@@ -103,6 +103,12 @@ describe('selection', () => {
     expect(state.focus).toBe(key('s4'))
   })
 
+  it('a checkbox click toggles the row and keeps the focus where it was', () => {
+    const state = apply({ type: 'click', key: key('s2'), mode: 'focus', rows }, { type: 'click', key: key('s4'), mode: 'check', rows })
+    expect([...state.keys]).toEqual([key('s4')])
+    expect(state.focus).toBe(key('s2'))
+  })
+
   it('cmd-click toggles one row without touching the others', () => {
     const state = apply({ type: 'click', key: key('s2'), mode: 'toggle', rows }, { type: 'click', key: key('s1'), mode: 'toggle', rows }, { type: 'click', key: key('s2'), mode: 'toggle', rows })
     expect([...state.keys]).toEqual([key('s1')])

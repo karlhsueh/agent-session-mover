@@ -9,7 +9,7 @@ const SHORTCUTS: [keys: string[], what: string][] = [
   [[`${MOD}A`], 'Select every session in the list'],
   [[`${MOD}\\`], 'Show or hide the projects'],
   [['Esc'], 'Clear the search, then the selection'],
-  [[`${MOD}F`], 'Search'],
+  [[`${MOD}F`, '/'], 'Search'],
   [[`${MOD}E`], 'Export the selection'],
   [[`${MOD}O`], 'Import an archive'],
   [[`${MOD}R`], 'Look for new and changed sessions'],
