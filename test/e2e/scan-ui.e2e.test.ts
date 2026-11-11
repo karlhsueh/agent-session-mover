@@ -68,7 +68,7 @@ it('shows each agent as it finishes, then refreshes on focus, the button, and Cm
 
   await line.waitFor({ state: 'detached', timeout: 30_000 })
   expect(await page.locator('.row .mark-codex').count(), 'Codex rows join the list').toBeGreaterThan(0)
-  await row(page, 'Claude session one').click({ modifiers: ['ControlOrMeta'] })
+  for (const title of ['Claude session one', 'Claude session two']) await row(page, title).click({ modifiers: ['ControlOrMeta'] })
   const selected = () => page.locator('.row[aria-selected=true] .row-title .truncate').allTextContents()
   expect((await selected()).sort()).toEqual(['Claude session one', 'Claude session two'])
 
