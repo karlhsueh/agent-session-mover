@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ArchiveToken, ImportPreview, PathMapping, SessionInfo } from '../../../shared/sessions'
+import { type ArchiveToken, type ImportPreview, isAtOrUnder, type PathMapping, type SessionInfo } from '../../../shared/sessions'
 import { useHomeDir } from '../hooks'
 import { branchesLabel, expandTilde, folderName, plural, tildePath } from '../model/format'
 
@@ -12,6 +12,8 @@ interface Props {
   checking: boolean
   /** The source machine's home folder, shown as ~ in source paths. */
   sourceHome: string
+  /** The source machine's path separator, for telling which folders sit inside a mapped one. */
+  sourceSep: string
   onChange: (source: string, target: string) => void
 }
 
@@ -19,14 +21,15 @@ const ABSOLUTE = /^(\/|[A-Za-z]:[\\/]|\\\\)/
 
 type FolderStatus = 'exists' | 'missing' | 'unknown'
 
-/** Main reports a missing folder only for a session's starting cwd, so other folders stay unknown. */
-function folderStatus(mapping: PathMapping, sessions: readonly SessionInfo[], preview: ImportPreview | null): FolderStatus {
-  if (!preview || !sessions.some((session) => session.cwd === mapping.source)) return 'unknown'
+/** Main reports a missing folder only for a session's starting cwd, so folders no session started in stay unknown. */
+function folderStatus(mapping: PathMapping, sessions: readonly SessionInfo[], preview: ImportPreview | null, sep: string): FolderStatus {
+  if (!preview || !sessions.some((session) => session.cwd !== null && isAtOrUnder(session.cwd, mapping.source, sep))) return 'unknown'
   const trimmed = mapping.target.replace(/[\\/]+$/, '')
-  const missing = preview.sessions.some((session) =>
-    session.warnings.some((warning) => warning.code === 'target-cwd-missing' && (warning.path === trimmed || warning.path.startsWith(`${trimmed}/`) || warning.path.startsWith(`${trimmed}\\`))),
-  )
-  return missing ? 'missing' : 'exists'
+  const missing = preview.sessions.flatMap((session) => session.warnings.flatMap((warning) => (warning.code === 'target-cwd-missing' ? [warning.path] : [])))
+  if (missing.includes(trimmed)) return 'missing'
+  // A missing subfolder belongs to its session's warning. Create folder here would only make this folder.
+  if (missing.some((path) => path.startsWith(`${trimmed}/`) || path.startsWith(`${trimmed}\\`))) return 'unknown'
+  return 'exists'
 }
 
 const STATUS_TEXT: Record<FolderStatus, string> = { exists: 'Folder exists', missing: 'Folder does not exist yet', unknown: '' }
@@ -34,7 +37,7 @@ const STATUS_TEXT: Record<FolderStatus, string> = { exists: 'Folder exists', mis
 type Creation = { kind: 'idle' } | { kind: 'creating' } | { kind: 'failed'; message: string }
 const IDLE: Creation = { kind: 'idle' }
 
-export function MappingEditor({ token, mappings, sessions, preview, checking, sourceHome, onChange }: Props) {
+export function MappingEditor({ token, mappings, sessions, preview, checking, sourceHome, sourceSep, onChange }: Props) {
   const home = useHomeDir()
   return (
     <section className="panel" aria-labelledby="mapping-heading">
@@ -44,7 +47,7 @@ export function MappingEditor({ token, mappings, sessions, preview, checking, so
       </header>
       <ul className="mappings">
         {mappings.map((mapping) => {
-          const users = sessions.filter((session) => session.cwds.includes(mapping.source))
+          const users = sessions.filter((session) => session.cwds.some((cwd) => isAtOrUnder(cwd, mapping.source, sourceSep)))
           return (
             <MappingRow
               key={mapping.source}
@@ -54,7 +57,7 @@ export function MappingEditor({ token, mappings, sessions, preview, checking, so
               home={home}
               uses={users.length}
               branches={branchesLabel(users)}
-              status={folderStatus(mapping, sessions, preview)}
+              status={folderStatus(mapping, sessions, preview, sourceSep)}
               checking={checking}
               onChange={onChange}
             />

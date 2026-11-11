@@ -1,5 +1,6 @@
 import { lstat, readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
+import { isAtOrUnder } from '../../shared/sessions'
 
 declare const storePathBrand: unique symbol
 /** A store-relative POSIX path that has passed `parseStorePath`. */
@@ -100,8 +101,7 @@ export function mapPath(
 ): string | null {
   let best: { source: string; target: string } | null = null
   for (const mapping of mappings) {
-    const under = value === mapping.source || value.startsWith(withTrailing(mapping.source, sourceSep))
-    if (under && (!best || mapping.source.length > best.source.length)) best = mapping
+    if (isAtOrUnder(value, mapping.source, sourceSep) && (!best || mapping.source.length > best.source.length)) best = mapping
   }
   if (!best) return null
   let rest = value.slice(best.source.length)

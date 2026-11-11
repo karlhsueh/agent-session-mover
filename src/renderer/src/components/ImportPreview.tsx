@@ -61,6 +61,7 @@ export function ImportPreview({ screen, onMappingChange, onToggle, onRun, onBack
           preview={preview}
           checking={state.status === 'loading'}
           sourceHome={archive.summary.source.homeDir}
+          sourceSep={archive.summary.source.sep}
           onChange={onMappingChange}
         />
 

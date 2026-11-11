@@ -8,6 +8,7 @@ import {
   type ImportAction,
   type ImportPreview,
   type ImportResult,
+  isAtOrUnder,
   type PathMapping,
   type ProgressEvent,
   type SessionImportOutcome,
@@ -19,7 +20,7 @@ import { type ArchiveLimits, DEFAULT_LIMITS, extractArchive } from '../archive/a
 import { ExecutionError, executePlan, type Fault } from './executor'
 import type { CoreContext } from './export'
 import type { Manifest, ManifestSession, Sha256 } from './manifest'
-import { resolveInside, type StorePath, UnsafePathError, unlessMissing } from './paths'
+import { mapPath, resolveInside, type StorePath, UnsafePathError, unlessMissing } from './paths'
 import { type ComparedFile, planSession, relate, type SessionPlan } from './planner'
 import { type ContentTransform, type Provider, type ReadOnce, readFresh, shareReads, type TargetFile, type TargetInspection } from './provider'
 import { digest, readRange, sha256File } from './streams'
@@ -60,7 +61,7 @@ export function summarizeArchive(opened: OpenedArchive): ArchiveSummary {
     fileName: opened.fileName,
     createdAt: manifest.createdAt,
     appVersion: manifest.appVersion,
-    source: { platform: manifest.source.platform, homeDir: manifest.source.homeDir },
+    source: { platform: manifest.source.platform, homeDir: manifest.source.homeDir, sep: manifest.source.sep },
     sessions: manifest.sessions.map(sessionInfo),
   }
 }
@@ -79,13 +80,19 @@ function sessionInfo(session: ManifestSession): SessionInfo {
 export function suggestMappings(manifest: Manifest, here: { homeDir: string; sep: string; exists: (target: string) => boolean }): PathMapping[] {
   const { homeDir, sep } = manifest.source
   const cwds = new Set(manifest.sessions.flatMap((session) => [...(session.cwd ? [session.cwd] : []), ...session.cwds]))
-  return [...cwds].map((source) => {
+  const suggest = (source: string): PathMapping => {
     if (here.exists(source)) return { source, target: source }
-    const underHome = source === homeDir || source.startsWith(homeDir.endsWith(sep) ? homeDir : homeDir + sep)
-    if (!underHome) return { source, target: source }
+    if (!isAtOrUnder(source, homeDir, sep)) return { source, target: source }
     const rest = source.slice(homeDir.length).split(sep).filter(Boolean)
     return { source, target: [here.homeDir, ...rest].join(here.sep) }
-  })
+  }
+  // A folder inside one already listed follows it, so it gets a row only when its own suggestion differs.
+  const listed: PathMapping[] = []
+  for (const source of [...cwds].sort((a, b) => a.length - b.length)) {
+    const mapping = suggest(source)
+    if (mapPath(source, listed, sep, here.sep) !== mapping.target) listed.push(mapping)
+  }
+  return listed
 }
 
 export function defaultExists(target: string): boolean {

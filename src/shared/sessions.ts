@@ -93,7 +93,7 @@ export interface ArchiveSummary {
   fileName: string
   createdAt: string
   appVersion: string
-  source: { platform: string; homeDir: string }
+  source: { platform: string; homeDir: string; sep: '/' | '\\' }
   sessions: SessionInfo[]
 }
 
@@ -101,6 +101,11 @@ export interface ArchiveSummary {
 export interface PathMapping {
   source: string
   target: string
+}
+
+/** True when `value` is `root` or a path inside it. `/a/app-two` is not inside `/a/app`. */
+export function isAtOrUnder(value: string, root: string, sep: string): boolean {
+  return value === root || value.startsWith(root.endsWith(sep) ? root : root + sep)
 }
 
 export type ConflictReason = 'diverged' | 'target-newer' | 'multiple-copies'
