@@ -13,6 +13,7 @@ The Release workflow in `.github/workflows/release.yml` raises the version, tags
 | File | Platform |
 | --- | --- |
 | `agent-sessions-mac-arm64.dmg`, `.zip` | macOS on Apple silicon |
+| `agent-sessions-mac-x64.dmg`, `.zip` | macOS on Intel. Built on the same Apple silicon runner and never run on an Intel Mac in CI. |
 | `agent-sessions-win-x64.exe` | Windows x64 (NSIS installer) |
 | `agent-sessions-linux-x86_64.AppImage` | Linux x64 |
 | `agent-sessions-linux-amd64.deb` | Debian and Ubuntu x64 |
@@ -22,7 +23,7 @@ The Release workflow in `.github/workflows/release.yml` raises the version, tags
 
 electron-builder names the Linux arch the way each format expects, so the AppImage says `x86_64` and the deb says `amd64`.
 
-When the five secrets below are set, the workflow signs the macOS app with the Developer ID certificate and notarizes it. With none set, it builds an ad-hoc signed app that is not notarized, and only a draft release is allowed, since installed apps refuse an update signed by anyone else. With only some set, the job fails, so a typo cannot ship an unsigned build by accident. Windows and Linux builds are unsigned.
+When the five secrets below are set, the workflow signs both macOS apps with the Developer ID certificate, notarizes them, and checks each with `spctl`. With none set, it builds an ad-hoc signed app that is not notarized, and only a draft release is allowed, since installed apps refuse an update signed by anyone else. With only some set, the job fails, so a typo cannot ship an unsigned build by accident. Windows and Linux builds are unsigned.
 
 To build the installers for your own OS locally, run `pnpm dist`. On a Mac without the certificate, run `CSC_IDENTITY_AUTO_DISCOVERY=false pnpm dist`. The files land in `dist/`.
 
@@ -47,7 +48,7 @@ The workflow runs these jobs in order. Each one stops the release if it fails.
 | Bump the version and tag | Runs `npm version` on `package.json`, commits it, tags `v<version>`, and pushes both together. If `main` moved after the run started, it pushes neither. |
 | Build | Builds each platform from the tag. On macOS it checks that Gatekeeper reports the app as `Notarized Developer ID`. |
 | Publish the GitHub release | Checks that every file in the table above is present and that each `latest*.yml` names the new version. Uploads them to a draft with notes from `scripts/release-notes.sh`, writes `SHA256SUMS`, then publishes it as the latest release. |
-| Update the Homebrew tap | Runs `.github/workflows/tap.yml`, which writes the new version and dmg hash into `Casks/agent-sessions.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. |
+| Update the Homebrew tap | Runs `.github/workflows/tap.yml`, which renders `packaging/homebrew/agent-sessions.rb` with the new version and both dmg hashes into `Casks/agent-sessions.rb` in [karlhsueh/homebrew-tap](https://github.com/karlhsueh/homebrew-tap) and pushes it. |
 
 Publishing offers the update. Installed apps from 0.1.4 on read the update metadata of the latest published release and show an Update button.
 
@@ -55,7 +56,7 @@ To look over a release before anyone can see it, run with `-f draft=true`. The w
 
 If a build fails, fix the cause and run `gh run rerun <run-id> --failed`. The version commit and tag stay, and the rerun builds the same tag. The workflow never replaces the files of a published release. To fix a published release, run the workflow again for the next version.
 
-`packaging/homebrew/agent-sessions.rb` is the template the tap's copy started from. Keep the two in step when the cask's shape changes.
+`packaging/homebrew/agent-sessions.rb` is the cask template. Each release overwrites the tap's copy with it, so change the cask here, never in the tap.
 
 Users can check a download with `shasum -a 256 -c SHA256SUMS --ignore-missing`.
 

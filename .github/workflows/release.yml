@@ -133,9 +133,13 @@ jobs:
             (umask 077 && printf '%s\n' "$APPLE_API_KEY" > "$key_path")
             export APPLE_API_KEY="$key_path"
             pnpm exec electron-builder --mac --publish never
-            app="$(find dist -maxdepth 2 -name 'Agent Sessions.app' | head -1)"
-            spctl -a -vv "$app" 2>&1 | tee "$RUNNER_TEMP/spctl.txt"
-            grep -q 'source=Notarized Developer ID' "$RUNNER_TEMP/spctl.txt"
+            # One app per chip. Each must be notarized on its own.
+            apps="$(find dist -maxdepth 2 -name 'Agent Sessions.app')"
+            [[ "$(wc -l <<<"$apps")" -eq 2 ]] || { echo "::error::Expected an arm64 and an x64 app, found: $apps"; exit 1; }
+            while IFS= read -r app; do
+              spctl -a -vv "$app" 2>&1 | tee "$RUNNER_TEMP/spctl.txt"
+              grep -q 'source=Notarized Developer ID' "$RUNNER_TEMP/spctl.txt"
+            done <<<"$apps"
           elif [[ "$present" -eq 0 ]]; then
             # Installed apps refuse an update signed by anyone else, so an unsigned build must not be published.
             if [[ "$DRAFT" != "true" ]]; then
@@ -206,6 +210,8 @@ jobs:
           for file in \
             agent-sessions-mac-arm64.dmg agent-sessions-mac-arm64.dmg.blockmap \
             agent-sessions-mac-arm64.zip agent-sessions-mac-arm64.zip.blockmap \
+            agent-sessions-mac-x64.dmg agent-sessions-mac-x64.dmg.blockmap \
+            agent-sessions-mac-x64.zip agent-sessions-mac-x64.zip.blockmap \
             agent-sessions-win-x64.exe agent-sessions-win-x64.exe.blockmap \
             agent-sessions-linux-x86_64.AppImage agent-sessions-linux-amd64.deb \
             latest-mac.yml latest.yml latest-linux.yml; do

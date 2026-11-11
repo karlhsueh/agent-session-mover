@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Usage: scripts/update-cask.sh <version> <SHA256SUMS path> [cask path]
-# Writes the version and the Apple silicon dmg hash into a Homebrew cask.
+# Usage: scripts/update-cask.sh <version> <SHA256SUMS path> <cask path>
+# Writes packaging/homebrew/agent-sessions.rb to <cask path> with the version and both dmg hashes filled in.
 set -euo pipefail
 
-if [[ $# -lt 2 || $# -gt 3 ]]; then
-  echo "usage: $0 <version> <SHA256SUMS path> [cask path]" >&2
+if [[ $# -ne 3 ]]; then
+  echo "usage: $0 <version> <SHA256SUMS path> <cask path>" >&2
   exit 2
 fi
 
 version="${1#v}"
 sums="$2"
-cask="${3:-$(dirname "$0")/../packaging/homebrew/agent-sessions.rb}"
+cask="$3"
+template="$(dirname "$0")/../packaging/homebrew/agent-sessions.rb"
 
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
   echo "error: '$1' is not a version like 1.2.3" >&2
@@ -27,22 +28,24 @@ hash_for() {
   printf '%s' "$hash"
 }
 
-sha="$(hash_for agent-sessions-mac-arm64.dmg)"
+arm="$(hash_for agent-sessions-mac-arm64.dmg)"
+intel="$(hash_for agent-sessions-mac-x64.dmg)"
 
-tmp="$(mktemp "${cask}.XXXXXX")"
-trap 'rm -f "$tmp"' EXIT
-sed -E \
+rendered="$(sed -E \
   -e "s/^( *version )\"[^\"]*\"/\\1\"$version\"/" \
-  -e "s/^( *sha256 )\"[0-9a-f]{64}\"/\\1\"$sha\"/" \
-  "$cask" > "$tmp"
+  -e "s/^( *sha256 arm: +)\"[0-9a-f]{64}\"/\\1\"$arm\"/" \
+  -e "s/^( +intel: +)\"[0-9a-f]{64}\"/\\1\"$intel\"/" \
+  "$template")"
 
-for expected in "version \"$version\"" "\"$sha\""; do
-  if ! grep -qF "$expected" "$tmp"; then
-    echo "error: $cask has no line to take $expected" >&2
+for expected in "version \"$version\"" "arm:   \"$arm\"" "intel: \"$intel\""; do
+  if ! grep -qF "$expected" <<<"$rendered"; then
+    echo "error: $template has no line to take $expected" >&2
     exit 1
   fi
 done
 
-cat "$tmp" > "$cask"
-echo "Updated $cask to $version"
-echo "  sha256: $sha"
+mkdir -p "$(dirname "$cask")"
+printf '%s\n' "$rendered" > "$cask"
+echo "Wrote $cask for $version"
+echo "  arm64: $arm"
+echo "  x64:   $intel"
