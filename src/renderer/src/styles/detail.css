@@ -185,16 +185,34 @@
   font-weight: 500;
 }
 
+.sheet:has(.shortcut-columns) {
+  width: min(760px, calc(100% - 48px));
+}
+
+.shortcut-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 32px;
+}
+
+.shortcut-group + .shortcut-group {
+  margin-top: 18px;
+}
+
+.shortcut-group h3 {
+  margin-bottom: 8px;
+}
+
 .shortcuts {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .shortcuts div {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: 84px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
 }

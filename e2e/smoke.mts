@@ -248,6 +248,8 @@ try {
   const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
   await help.waitFor()
   assert.match((await help.textContent()) ?? '', /Go to the projects or the sessions/, 'the shortcut overlay explains moving between panes')
+  assert.match((await help.textContent()) ?? '', /Start the import.*Leave the import/, 'the overlay lists the import keys')
+  assert.equal(await help.getByRole('region', { name: 'Mouse' }).locator('dt').count(), 3, 'and the click modifiers for the list')
   await shot(page, 'shortcuts-dark')
   for (const key of ['Tab', 'Tab', 'Shift+Tab', 'Shift+Tab']) {
     await page.keyboard.press(key)
