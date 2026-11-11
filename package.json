@@ -1,7 +1,7 @@
 {
   "name": "agent-sessions",
   "productName": "Agent Sessions",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": true,
   "description": "Export and import Claude Code and Codex sessions between computers.",
   "license": "MIT",
