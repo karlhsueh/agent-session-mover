@@ -60,12 +60,14 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           BOT: ${{ steps.app.outputs.app-slug }}[bot]
         run: |
-          if git diff --quiet; then
+          # Staged first, so a cask file that is new to the tap counts as a change.
+          git add -A
+          if git diff --cached --quiet; then
             echo "The cask already matches $TAG."
             git push --dry-run origin HEAD
             exit 0
           fi
           git config user.name "$BOT"
           git config user.email "$(gh api "users/$BOT" --jq .id)+$BOT@users.noreply.github.com"
-          git commit -am "feat(cask): agent-session-mover ${TAG#v}"
+          git commit -m "feat(cask): agent-session-mover ${TAG#v}"
           git push origin HEAD
