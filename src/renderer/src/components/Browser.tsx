@@ -83,7 +83,10 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
   const rows = useMemo(() => shown.map((session) => session.key), [shown])
   const matchCounts = useMemo(() => (filtered ? countByProject(matches) : null), [filtered, matches])
   // While searching, each sidebar count reads as 'selected of matching', so both numbers cover the same sessions.
-  const selectedInSidebar = useMemo(() => (filtered ? matches : list.sessions).filter((session) => selection.keys.has(session.key)), [filtered, matches, list.sessions, selection.keys])
+  const selectedInSidebar = useMemo(
+    () => (filtered ? matches : list.sessions).filter((session) => selection.keys.has(session.key)),
+    [filtered, matches, list.sessions, selection.keys],
+  )
   const selectedCounts = useMemo(() => countByProject(selectedInSidebar), [selectedInSidebar])
   const focus = focusedKey(selection, rows)
   const focused = shown.find((session) => session.key === focus) ?? null
@@ -301,7 +304,9 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
                 </button>
               </span>
             ) : (
-              <span className={nudge ? 'hint nudge' : 'hint dim'}>{nudge ? 'Nothing selected. Tick sessions to export, or press Space' : 'Tick sessions to export, or press Space'}</span>
+              <span className={nudge ? 'hint nudge' : 'hint dim'}>
+                {nudge ? 'Nothing selected. Tick sessions to export, or press Space' : 'Tick sessions to export, or press Space'}
+              </span>
             )}
           </span>
         </span>
