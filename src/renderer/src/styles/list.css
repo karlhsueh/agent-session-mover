@@ -45,25 +45,33 @@
   background: var(--selected);
 }
 
+.row.focused:not(.selected) {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
 .list:focus .focused {
   box-shadow: inset 0 0 0 1px var(--selected-line);
+}
+
+/* The whole cell takes the click, so the box is easier to hit than its 14px. */
+.check-cell {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  margin: 0 -6px 0 -12px;
+  padding: 0 6px 0 12px;
 }
 
 .check {
   position: relative;
   width: 14px;
   height: 14px;
-  border: 1.4px solid var(--line-strong);
+  border: 1.4px solid color-mix(in srgb, var(--muted) 60%, transparent);
   border-radius: 4px;
-  opacity: 0;
-  transition: opacity 80ms;
 }
 
-.row:hover .check,
-.list:focus .focused .check,
-.row.selected .check,
-.list.has-selection .check {
-  opacity: 1;
+.check-cell:hover .check {
+  border-color: var(--muted);
 }
 
 .row.selected .check {

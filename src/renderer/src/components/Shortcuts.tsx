@@ -4,7 +4,7 @@ import { Kbd, Sheet } from './common'
 const SHORTCUTS: [keys: string[], what: string][] = [
   [['↑', '↓'], 'Move through projects or sessions'],
   [['←', '→'], 'Go to the projects or the sessions'],
-  [['Space'], 'Select the focused session'],
+  [['Space'], 'Select or unselect the focused session'],
   [['Shift', '↑↓'], 'Extend the selection'],
   [[`${MOD}A`], 'Select every session in the list'],
   [[`${MOD}\\`], 'Show or hide the projects'],

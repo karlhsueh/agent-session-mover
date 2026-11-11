@@ -164,9 +164,10 @@ try {
     await d.click(detail.getByRole('tab', { name: 'Conversation' }))
     await d.hold(1400)
     await d.caption('Pick the ones to take with you')
-    await d.click(row(page, PICKED[1]!), ['ControlOrMeta'])
-    await d.hold(350)
-    await d.click(row(page, PICKED[2]!), ['ControlOrMeta'])
+    for (const title of PICKED.slice(0, 3)) {
+      await d.click(row(page, title).locator('.check-cell'))
+      await d.hold(350)
+    }
     await d.hold(800)
     await d.click(page.getByRole('button', { name: /^Export 3 sessions/ }))
     const confirm = page.getByRole('dialog', { name: 'Export 3 sessions' })

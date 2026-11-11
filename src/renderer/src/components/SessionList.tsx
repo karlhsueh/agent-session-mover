@@ -8,7 +8,8 @@ export function rowId(key: SessionKey): string {
   return `row-${encodeURIComponent(key)}`
 }
 
-export type ClickMode = 'only' | 'toggle' | 'range'
+/** A plain click only previews. The checkbox, Cmd/Ctrl-click, and Shift-click change the selection. */
+export type ClickMode = 'focus' | 'toggle' | 'range'
 
 interface Props {
   sessions: readonly SessionSummary[]
@@ -30,7 +31,7 @@ export function SessionList({ sessions, projects, needle, selected, focus, now, 
   return (
     <div
       ref={listRef}
-      className={`list${projects ? ' with-project' : ''}${selected.size > 0 ? ' has-selection' : ''}`}
+      className={`list${projects ? ' with-project' : ''}`}
       role="listbox"
       aria-label="Sessions"
       aria-multiselectable="true"
@@ -55,7 +56,7 @@ export function SessionList({ sessions, projects, needle, selected, focus, now, 
 
 function modeOf(event: MouseEvent): ClickMode {
   if (event.shiftKey) return 'range'
-  return event.metaKey || event.ctrlKey ? 'toggle' : 'only'
+  return event.metaKey || event.ctrlKey ? 'toggle' : 'focus'
 }
 
 const SessionRow = memo(function SessionRow({
@@ -88,13 +89,15 @@ const SessionRow = memo(function SessionRow({
       onClick={(event) => onClick(session.key, modeOf(event))}
     >
       <span
-        className="check"
+        className="check-cell"
         aria-hidden="true"
         onClick={(event) => {
           event.stopPropagation()
           onClick(session.key, event.shiftKey ? 'range' : 'toggle')
         }}
-      />
+      >
+        <span className="check" />
+      </span>
       <AgentMark agent={session.agent} client={session.client} />
       <span className="row-title">
         <span className="truncate">

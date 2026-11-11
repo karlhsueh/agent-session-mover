@@ -42,8 +42,7 @@ async function visibleRows(page: Page, container: string, rowSelector: string): 
 }
 
 async function selectAcrossProjects(page: Page) {
-  await row(page, SELECTED_TITLES[0]!).click()
-  for (const title of SELECTED_TITLES.slice(1)) await row(page, title).click({ modifiers: ['ControlOrMeta'] })
+  for (const title of SELECTED_TITLES) await row(page, title).locator('.check-cell').click()
 }
 
 type State = (page: Page) => Promise<void>
@@ -108,6 +107,14 @@ async function shoot(page: Page, name: string) {
   console.log(path)
 }
 
+/** A sheet covers the theme toggle, so this flips the theme attribute directly. */
+async function shootBothThemes(page: Page, name: string) {
+  await shoot(page, `${name}-dark`)
+  await page.evaluate("document.documentElement.dataset.theme = 'light'")
+  await shoot(page, `${name}-light`)
+  await page.evaluate("document.documentElement.dataset.theme = 'dark'")
+}
+
 try {
   const page = await app.firstWindow()
   await sizeWindow(app, page, 1200, 760)
@@ -131,7 +138,10 @@ try {
 
   await selectAcrossProjects(page)
   await page.keyboard.press('ControlOrMeta+E')
+  await shootBothThemes(page, 'export-confirm')
   await page.getByRole('button', { name: 'Choose location…' }).click()
+  await page.getByRole('dialog', { name: 'Archive saved' }).waitFor()
+  await shootBothThemes(page, 'export-done')
   await page.getByRole('dialog', { name: 'Archive saved' }).getByRole('button', { name: 'Done' }).click()
   await page.keyboard.press('ControlOrMeta+O')
   await page.locator('.plan:not(.stale) .badge').first().waitFor()

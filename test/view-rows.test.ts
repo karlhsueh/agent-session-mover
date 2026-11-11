@@ -97,14 +97,47 @@ describe('selection', () => {
     expect([...selectionReducer(state, { type: 'toggle-focus', rows }).keys]).toEqual([key('s2')])
   })
 
-  it('shift-arrow selects the range from the anchor', () => {
-    const state = apply({ type: 'click', key: key('s3'), mode: 'only', rows }, { type: 'move', to: 'next', extend: true, rows }, { type: 'move', to: 'next', extend: true, rows })
-    expect([...state.keys]).toEqual([key('s3'), key('s1'), key('s4')])
+  it('a plain click moves the focus and keeps the selection', () => {
+    const state = apply({ type: 'click', key: key('s2'), mode: 'toggle', rows }, { type: 'click', key: key('s1'), mode: 'toggle', rows }, { type: 'click', key: key('s4'), mode: 'focus', rows })
+    expect([...state.keys]).toEqual([key('s2'), key('s1')])
+    expect(state.focus).toBe(key('s4'))
+  })
+
+  it('cmd-click toggles one row without touching the others', () => {
+    const state = apply({ type: 'click', key: key('s2'), mode: 'toggle', rows }, { type: 'click', key: key('s1'), mode: 'toggle', rows }, { type: 'click', key: key('s2'), mode: 'toggle', rows })
+    expect([...state.keys]).toEqual([key('s1')])
+  })
+
+  it('shift-click adds the range from the anchor to what is already selected', () => {
+    const state = apply({ type: 'click', key: key('s4'), mode: 'toggle', rows }, { type: 'click', key: key('s2'), mode: 'focus', rows }, { type: 'click', key: key('s3'), mode: 'range', rows })
+    expect([...state.keys].sort()).toEqual([key('s2'), key('s3'), key('s4')])
+  })
+
+  it('a second shift-click moves the end of the range', () => {
+    const state = apply({ type: 'click', key: key('s2'), mode: 'focus', rows }, { type: 'click', key: key('s4'), mode: 'range', rows }, { type: 'click', key: key('s3'), mode: 'range', rows })
+    expect([...state.keys]).toEqual([key('s2'), key('s3')])
+  })
+
+  it('shift-arrow selects the range from the anchor, and shrinks it going back', () => {
+    const forward = apply({ type: 'click', key: key('s3'), mode: 'focus', rows }, { type: 'move', to: 'next', extend: true, rows }, { type: 'move', to: 'next', extend: true, rows })
+    expect([...forward.keys]).toEqual([key('s3'), key('s1'), key('s4')])
+    expect([...selectionReducer(forward, { type: 'move', to: 'previous', extend: true, rows }).keys]).toEqual([key('s3'), key('s1')])
+  })
+
+  it('shift-arrow keeps rows selected before the range started', () => {
+    const state = apply({ type: 'toggle-focus', rows }, { type: 'move', to: 'next', extend: false, rows }, { type: 'move', to: 'next', extend: false, rows }, { type: 'move', to: 'next', extend: true, rows })
+    expect([...state.keys].sort()).toEqual([key('s1'), key('s2'), key('s4')])
   })
 
   it('select all adds the shown rows to what is already selected', () => {
-    const state = apply({ type: 'click', key: key('s4'), mode: 'only', rows }, { type: 'all', keys: [key('s2'), key('s1')] })
+    const state = apply({ type: 'click', key: key('s4'), mode: 'toggle', rows }, { type: 'all', keys: [key('s2'), key('s1')] })
     expect([...state.keys].sort()).toEqual([key('s1'), key('s2'), key('s4')])
+  })
+
+  it('clear empties the selection and keeps the focus', () => {
+    const state = apply({ type: 'click', key: key('s3'), mode: 'toggle', rows }, { type: 'clear' })
+    expect(state.keys.size).toBe(0)
+    expect(state.focus).toBe(key('s3'))
   })
 })
 
