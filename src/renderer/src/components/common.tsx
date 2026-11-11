@@ -64,7 +64,7 @@ export function CommandText({ command }: { command: string }) {
         <Fragment key={index}>
           {index > 0 && ' '}
           <span className="command-step">
-            {`${step}${index < steps.length - 1 ? ' &&' : ''}`.split(' ').map((word, at) => (
+            {joinLast(step.split(' '), index < steps.length - 1 ? ' &&' : '').map((word, at) => (
               <Fragment key={at}>
                 {at > 0 && ' '}
                 <span className="nowrap">{word}</span>
@@ -75,6 +75,11 @@ export function CommandText({ command }: { command: string }) {
       ))}
     </code>
   )
+}
+
+/** `&&` stays on the line of the word before it, so it never starts a line of its own. */
+function joinLast(words: string[], tail: string): string[] {
+  return tail ? [...words.slice(0, -1), `${words.at(-1)}${tail}`] : words
 }
 
 /** A path that wraps only after a separator, never inside a folder name. */
