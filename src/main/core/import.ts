@@ -145,7 +145,8 @@ async function planOne(context: CoreContext, opened: OpenedArchive, session: Man
   const provider = context.providers[session.agent]
   const root = path.resolve(provider.storeRoot(context.env))
   const inspection = await provider.inspectTarget(root, session, { env: context.env, once, source: opened.manifest.source, mappings, sep: path.sep, readBlob })
-  if (inspection.kind === 'refused') return { session, key, provider, root, inspection, plan: planSession(inspection, []) }
+  // A live session is blocked whatever its files hold, so skip hashing them; a large one took seconds.
+  if (inspection.kind === 'refused' || inspection.live) return { session, key, provider, root, inspection, plan: planSession(inspection, []) }
   try {
     const compared = await Promise.all(inspection.files.map((file) => compare(root, readBlob, file)))
     return { session, key, provider, root, inspection, plan: planSession(inspection, compared) }

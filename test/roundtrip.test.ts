@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, stat, symlink, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { listSessions } from '../src/main/core/discovery'
@@ -279,6 +279,15 @@ describe('import into a populated store', () => {
     const [outcome] = (await runImport(b.context, opened, mappings, requestsFor([key(S1)]))).outcomes
     expect(outcome).toMatchObject({ status: 'refused', action: { kind: 'blocked', reason: 'live' } })
     expect(await treeHash(b.root)).toBe(before)
+  })
+
+  it('blocks a live session without reading the archive files', async () => {
+    const { archive, mappings } = await importOnce()
+    await writeLiveEntry(b.root, process.pid, S1)
+    const { opened } = await openIn(b, archive)
+    for (const blob of await readdir(opened.blobDir)) await rm(path.join(opened.blobDir, blob))
+    const preview = await previewImport(b.context, opened, mappings)
+    expect(preview.sessions.find((session) => session.key === key(S1))?.action).toMatchObject({ kind: 'blocked', reason: 'live' })
   })
 
   it('refuses when the store already holds the session in two project folders', async () => {
