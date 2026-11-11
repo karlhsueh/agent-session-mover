@@ -99,16 +99,10 @@ function Entry({
         {parent && <span className="scope-parent"> {parent}</span>}
       </span>
       {live && <span className="scope-live" aria-hidden="true" />}
-      {/* The pill takes the count's place, so a selection costs the name no width. */}
-      {selected > 0 ? (
-        <span className="scope-pill" aria-hidden="true" title={`${selected} selected of ${count}`}>
-          {selected}
-        </span>
-      ) : (
-        <span className="scope-count" aria-hidden="true">
-          {count}
-        </span>
-      )}
+      <span className="scope-tally" aria-hidden="true" title={selected > 0 ? `${selected} selected of ${count}` : undefined}>
+        {selected > 0 && <span className="scope-pill">{selected}</span>}
+        <span className="scope-count">{count}</span>
+      </span>
     </div>
   )
 }

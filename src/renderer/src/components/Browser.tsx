@@ -82,7 +82,9 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
   const shown = useMemo(() => matches.filter((session) => inScope(session, scope)), [matches, scope])
   const rows = useMemo(() => shown.map((session) => session.key), [shown])
   const matchCounts = useMemo(() => (filtered ? countByProject(matches) : null), [filtered, matches])
-  const selectedCounts = useMemo(() => countByProject(list.sessions.filter((session) => selection.keys.has(session.key))), [list.sessions, selection.keys])
+  // While searching, each sidebar count reads as 'selected of matching', so both numbers cover the same sessions.
+  const selectedInSidebar = useMemo(() => (filtered ? matches : list.sessions).filter((session) => selection.keys.has(session.key)), [filtered, matches, list.sessions, selection.keys])
+  const selectedCounts = useMemo(() => countByProject(selectedInSidebar), [selectedInSidebar])
   const focus = focusedKey(selection, rows)
   const focused = shown.find((session) => session.key === focus) ?? null
   const selectedKeys = list.sessions.filter((session) => selection.keys.has(session.key)).map((session) => session.key)
@@ -229,7 +231,7 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
             matches={matchCounts}
             matchTotal={matches.length}
             selected={selectedCounts}
-            selectedTotal={selectedKeys.length}
+            selectedTotal={selectedInSidebar.length}
             home={home}
             onScope={(next) => {
               setScope(next)

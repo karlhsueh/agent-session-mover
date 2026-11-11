@@ -1,5 +1,5 @@
 .browse.with-sidebar {
-  grid-template-columns: 220px minmax(0, 1fr) 340px;
+  grid-template-columns: 236px minmax(0, 1fr) 340px;
 }
 
 .sidebar {
@@ -60,26 +60,41 @@
   font-size: 12px;
 }
 
-.scope-count {
-  min-width: 18px;
-  text-align: right;
+.scope-tally {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
   font-size: 12px;
   font-weight: 400;
   color: var(--faint);
   font-variant-numeric: tabular-nums;
 }
 
-.scope-pill {
+.scope-count {
   min-width: 18px;
-  padding: 0 5px;
+  text-align: right;
+}
+
+.scope-pill {
+  min-width: 16px;
+  padding: 0 4px;
   font-size: 11px;
   font-weight: 600;
-  line-height: 16px;
+  line-height: 15px;
   text-align: center;
   color: var(--accent-text);
   background: var(--accent);
   border-radius: 8px;
-  font-variant-numeric: tabular-nums;
+}
+
+.scope-pill + .scope-count {
+  min-width: 0;
+}
+
+.scope-pill + .scope-count::before {
+  content: '/';
+  margin-right: 2px;
 }
 
 .scope-live {
