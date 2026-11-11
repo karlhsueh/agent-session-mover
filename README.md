@@ -47,7 +47,7 @@ brew install --cask karlhsueh/tap/agent-sessions
 
 Or download the installer for your system. These links always fetch the latest release:
 
-- macOS 13 or later on Apple silicon: [dmg](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-arm64.dmg)
+- macOS 13 or later: [Apple silicon](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-arm64.dmg) · [Intel](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-x64.dmg). The Intel build has not been tested on an Intel Mac yet.
 - Windows: [x64 installer](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-win-x64.exe)
 - Linux: [AppImage](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-linux-x86_64.AppImage) · [deb](https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-linux-amd64.deb) for Debian and Ubuntu
 

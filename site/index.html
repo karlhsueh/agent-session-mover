@@ -435,6 +435,7 @@ footer a:hover { color: var(--text); }
     <ul class="files">
       <li><div class="os">macOS</div><div class="links">
         <a data-key="mac-arm64" href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-arm64.dmg">Apple silicon</a>
+        <a data-key="mac-x64" href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-mac-x64.dmg">Intel</a>
       </div></li>
       <li><div class="os">Windows</div><div class="links">
         <a data-key="win-x64" href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-win-x64.exe">x64 installer</a>
@@ -444,7 +445,7 @@ footer a:hover { color: var(--text); }
         <a data-key="linux-deb" href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/agent-sessions-linux-amd64.deb">.deb for Debian and Ubuntu</a>
       </div></li>
     </ul>
-    <p class="note">The macOS app needs an Apple silicon Mac with macOS 13 or later. Windows and Linux builds are not code-signed yet, so SmartScreen asks you to confirm the first launch. On Linux, run <code>chmod +x</code> on the AppImage before you open it. Check any download against <a href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/SHA256SUMS">SHA256SUMS</a> with <code>shasum -a 256 -c SHA256SUMS --ignore-missing</code>.</p>
+    <p class="note">The macOS app needs macOS 13 or later. The Intel build has not been tested on an Intel Mac yet, so please report what breaks. Windows and Linux builds are not code-signed yet, so SmartScreen asks you to confirm the first launch. On Linux, run <code>chmod +x</code> on the AppImage before you open it. Check any download against <a href="https://github.com/karlhsueh/agent-sessions/releases/latest/download/SHA256SUMS">SHA256SUMS</a> with <code>shasum -a 256 -c SHA256SUMS --ignore-missing</code>.</p>
   </section>
 
   <section class="wrap closing">
@@ -475,7 +476,8 @@ footer a:hover { color: var(--text); }
 (() => {
   const base = 'https://github.com/karlhsueh/agent-sessions/releases/latest/download/';
   const builds = {
-    'mac-arm64': { file: 'agent-sessions-mac-arm64.dmg', title: 'Download for macOS', detail: 'Apple silicon · .dmg' },
+    'mac-arm64': { file: 'agent-sessions-mac-arm64.dmg', title: 'Download for macOS', detail: 'Apple silicon · .dmg', alt: ['mac-x64', 'Intel Mac? Get the Intel build'] },
+    'mac-x64': { file: 'agent-sessions-mac-x64.dmg', title: 'Download for macOS', detail: 'Intel · .dmg', alt: ['mac-arm64', 'Apple silicon? Get that build'] },
     'win-x64': { file: 'agent-sessions-win-x64.exe', title: 'Download for Windows', detail: 'x64 · .exe installer' },
     'linux-appimage': { file: 'agent-sessions-linux-x86_64.AppImage', title: 'Download for Linux', detail: 'x64 · AppImage', alt: ['linux-deb', 'Debian or Ubuntu? Get the .deb'] },
     'linux-deb': { file: 'agent-sessions-linux-amd64.deb', title: 'Download for Linux', detail: 'x64 · .deb' }
@@ -498,6 +500,11 @@ footer a:hover { color: var(--text); }
     if (os === 'win') return 'win-x64';
     if (os === 'linux') return 'linux-appimage';
     if (os !== 'mac') return null;
+    // Only Chromium browsers report the chip. Safari and Firefox get the Apple silicon build and a link to the Intel one.
+    try {
+      const { architecture } = (await uad?.getHighEntropyValues(['architecture'])) ?? {};
+      if (architecture === 'x86') return 'mac-x64';
+    } catch {}
     return 'mac-arm64';
   }
 
