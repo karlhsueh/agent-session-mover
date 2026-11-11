@@ -49,8 +49,13 @@
   background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 
-.list:focus .focused {
-  box-shadow: inset 0 0 0 1px var(--selected-line);
+/* The previewed row wears a ring and selected rows a fill, so a row that is both still reads as both. */
+.row.focused {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent);
+}
+
+.list:focus .row.focused {
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 /* The whole cell takes the click, so the box is easier to hit than its 14px. */

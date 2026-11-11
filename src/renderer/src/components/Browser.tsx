@@ -57,6 +57,8 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
   const [singleSidebar, setSingleSidebar] = useState(false)
   const [selection, dispatch] = useReducer(selectionReducer, NO_SELECTION)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  // Export with nothing selected points at the hint for a moment instead of doing nothing.
+  const [nudge, setNudge] = useState(false)
   // Conversation text stays off screen until the viewer asks for it once.
   const [detailTab, setDetailTab] = useStored('agent-sessions.detail-tab', parseDetailTab, keepTab)
   const versions = useMemo(() => new Map(list.sessions.map((session) => [session.key, `${session.lastActivity} ${session.sizeBytes}`])), [list.sessions])
@@ -100,6 +102,12 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
     if (!hidden) listRef.current?.focus()
   }, [hidden])
 
+  useEffect(() => {
+    if (!nudge) return
+    const timer = setTimeout(() => setNudge(false), 2400)
+    return () => clearTimeout(timer)
+  }, [nudge])
+
   const onClick = (key: SessionKey, mode: ClickMode) => {
     dispatch({ type: 'click', key, mode, rows })
     listRef.current?.focus()
@@ -127,6 +135,7 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
       } else if (mod && key === 'e') {
         event.preventDefault()
         if (selectedKeys.length > 0) onExport(selectedKeys)
+        else setNudge(true)
       } else if (mod && key === 'o') {
         event.preventDefault()
         onImport()
@@ -290,7 +299,7 @@ export function Browser({ list, hidden, scans, refreshing, onRefresh, storeRoots
                 </button>
               </span>
             ) : (
-              <span className="dim">Select sessions to export</span>
+              <span className={nudge ? 'hint nudge' : 'hint dim'}>{nudge ? 'Nothing selected. Tick sessions to export, or press Space' : 'Tick sessions to export, or press Space'}</span>
             )}
           </span>
         </span>

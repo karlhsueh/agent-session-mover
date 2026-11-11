@@ -142,6 +142,9 @@ try {
   assert.match((await page.locator('.statusbar').textContent()) ?? '', /3 selected \(1 not in this view\)/, 'the footer counts the selection globally')
   await page.keyboard.press('Escape')
   assert.equal(await sidebar(page).locator('.scope-pill').count(), 0, 'Escape clears the selection everywhere')
+  await page.keyboard.press('ControlOrMeta+E')
+  assert.equal(await page.locator('.statusbar .hint').textContent(), 'Nothing selected. Tick sessions to export, or press Space', 'Cmd/Ctrl+E with nothing selected points at the hint')
+  assert.equal(await page.getByRole('dialog').count(), 0, 'and opens no export sheet')
 
   await scope(page, 'local-job-manager').click()
   await row(page, fanout.title).click()

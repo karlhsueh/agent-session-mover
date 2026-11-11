@@ -63,6 +63,13 @@ describe.each(Object.entries(THEMES))('%s theme contrast', (_name, theme) => {
     }
   })
 
+  // The focus ring on the previewed row is drawn in --accent, over the selected and focused fills too (list.css).
+  it('the row focus ring reaches 3:1 on every surface', () => {
+    for (const [surface, color] of Object.entries(surfaces(theme))) {
+      expect(ratio(parse(theme.accent!), color), `--accent on --${surface}`).toBeGreaterThanOrEqual(3)
+    }
+  })
+
   it('primary button text reaches 4.5:1 on the accent', () => {
     expect(ratio(parse(theme['accent-text']!), parse(theme.accent!))).toBeGreaterThanOrEqual(4.5)
   })

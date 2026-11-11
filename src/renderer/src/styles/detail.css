@@ -169,6 +169,15 @@
   gap: 8px;
 }
 
+.hint {
+  transition: color 200ms ease-out;
+}
+
+.hint.nudge {
+  color: var(--text);
+  font-weight: 500;
+}
+
 .selection-count {
   display: flex;
   align-items: center;

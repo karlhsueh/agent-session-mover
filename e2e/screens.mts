@@ -81,6 +81,10 @@ const SIDEBAR: Record<string, State> = {
     await selectAcrossProjects(page)
     await sidebarScope(page, 'web').first().click()
   },
+  'focused-selected': async (page) => {
+    await sidebarScope(page, 'All sessions').click()
+    await row(page, SELECTED_TITLES[0]!).click()
+  },
   search: async (page) => {
     await sidebarScope(page, 'All sessions').click()
     await page.getByRole('searchbox', { name: 'Search sessions' }).fill('queue')
@@ -92,12 +96,20 @@ const SIDEBAR: Record<string, State> = {
     await page.getByRole('tab', { name: 'Conversation' }).click()
     await page.getByRole('list', { name: 'Conversation' }).waitFor()
   },
-  light: async (page) => {
+  'export-nothing': async (page) => {
     await page.getByRole('tab', { name: 'Overview' }).click()
+    await list(page).focus()
+    await page.keyboard.press('ControlOrMeta+E')
+  },
+  light: async (page) => {
     await sidebarScope(page, 'All sessions').click()
     await list(page).focus()
     await page.keyboard.press('Home')
     await page.getByRole('button', { name: 'Use light theme' }).click()
+  },
+  'focused-selected-light': async (page) => {
+    await selectAcrossProjects(page)
+    await row(page, SELECTED_TITLES[0]!).click()
   },
 }
 
@@ -137,6 +149,7 @@ try {
     console.log(`${path}: ${listRows} list rows visible (${sessionRows} sessions)${sidebar ? `, ${scopes} sidebar entries` : ''}`)
   }
   await page.getByRole('button', { name: 'Use dark theme' }).click()
+  if (sidebar) await page.getByRole('button', { name: 'Clear', exact: true }).click()
 
   await selectAcrossProjects(page)
   await page.keyboard.press('ControlOrMeta+E')
