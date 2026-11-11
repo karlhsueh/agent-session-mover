@@ -4,3 +4,5 @@ artifacts/
 .DS_Store
 dist/
 .claude/
+.impeccable/config.local.json
+.github/hooks/impeccable.json
