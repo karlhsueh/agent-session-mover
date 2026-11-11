@@ -2,7 +2,7 @@ import type { ProgressEvent, SessionSummary } from '../../../shared/sessions'
 import type { Screen } from '../state'
 import { useHomeDir } from '../hooks'
 import { formatBytes, MOD, plural, REVEAL_LABEL, sessionTitle, tildePath } from '../model/format'
-import { projectsOf } from '../model/scope'
+import { type ProjectLabel, projectLabels, projectsOf } from '../model/scope'
 import { ErrorBanner, PathText, ProgressBar, Sheet } from './common'
 
 type ExportScreen = Extract<Screen, { kind: 'export-confirm' | 'exporting' | 'export-done' }>
@@ -73,7 +73,7 @@ export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: 
     <Sheet label={`Export ${plural(chosen.length, 'session')}`} onClose={onClose}>
       <h2>Export {plural(chosen.length, 'session')}</h2>
       {screen.error && <ErrorBanner error={screen.error} />}
-      <Contents sessions={chosen} />
+      <Contents sessions={chosen} labels={projectLabels(sessions)} />
       <p>The archive holds each full transcript, unredacted. Anyone with the file can read:</p>
       <ul className="bullets">
         <li>the account email and account ids recorded in the session</li>
@@ -101,7 +101,7 @@ export function ExportSheet({ screen, sessions, progress, onConfirm, onClose }: 
 }
 
 /** What leaves this computer, by project, so the user can check the pick before saving. */
-function Contents({ sessions }: { sessions: readonly SessionSummary[] }) {
+function Contents({ sessions, labels }: { sessions: readonly SessionSummary[]; labels: ReadonlyMap<string | null, ProjectLabel> }) {
   const projects = projectsOf(sessions)
   const byKey = new Map(sessions.map((session) => [session.key, session]))
   const subagents = sessions.reduce((sum, session) => sum + session.subagents.length, 0)
@@ -116,7 +116,7 @@ function Contents({ sessions }: { sessions: readonly SessionSummary[] }) {
           <div key={project.key} className="export-project">
             <div className="export-project-name truncate" title={project.path ?? undefined}>
               {project.name}
-              {project.parent && <span className="scope-parent"> {project.parent}</span>}
+              {labels.get(project.path)?.parent && <span className="scope-parent"> {labels.get(project.path)?.parent}</span>}
             </div>
             <ul>
               {project.sessions.map((key) => {

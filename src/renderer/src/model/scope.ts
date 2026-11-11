@@ -56,12 +56,27 @@ export function projectsOf(sessions: readonly SessionSummary[]): Project[] {
       live: project.live || session.live,
     })
   }
-  const projects = [...byKey.values()]
-  const nameCount = new Map<string, number>()
-  for (const project of projects) nameCount.set(project.name, (nameCount.get(project.name) ?? 0) + 1)
-  return projects
-    .map((project) => (nameCount.get(project.name)! > 1 ? { ...project, parent: parentName(project.path) } : project))
+  const labels = projectLabels(sessions)
+  return [...byKey.values()]
+    .map((project) => ({ ...project, parent: labels.get(project.path)?.parent ?? null }))
     .sort((a, b) => b.newest.localeCompare(a.newest) || a.name.localeCompare(b.name))
+}
+
+export interface ProjectLabel {
+  name: string
+  /** The parent folder's name, set only when another project has the same name. */
+  parent: string | null
+}
+
+/**
+ * The label browse shows for each starting folder: its name, and its parent's name when two folders
+ * share a name, as in `api code` and `api work`. Every screen that names a project uses it.
+ */
+export function projectLabels(sessions: readonly Pick<SessionSummary, 'cwd'>[]): Map<string | null, ProjectLabel> {
+  const paths = [...new Set(sessions.map((session) => session.cwd))]
+  const nameCount = new Map<string, number>()
+  for (const path of paths) nameCount.set(folderName(path), (nameCount.get(folderName(path)) ?? 0) + 1)
+  return new Map(paths.map((path) => [path, { name: folderName(path), parent: nameCount.get(folderName(path))! > 1 ? parentName(path) : null }]))
 }
 
 /** How many of `sessions` fall in each project. */
