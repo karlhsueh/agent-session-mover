@@ -51,6 +51,8 @@ Or download the installer for your system. These links always fetch the latest r
 - Windows: [x64 installer](https://github.com/karlhsueh/agent-session-mover/releases/latest/download/agent-session-mover-win-x64.exe)
 - Linux: [AppImage](https://github.com/karlhsueh/agent-session-mover/releases/latest/download/agent-session-mover-linux-x86_64.AppImage) · [deb](https://github.com/karlhsueh/agent-session-mover/releases/latest/download/agent-session-mover-linux-amd64.deb) for Debian and Ubuntu
 
+Windows and Linux have not been tried on real computers yet, and neither has moving sessions between them and a Mac. Automated tests run on all three systems, including importing an archive made on another one. Please [report what breaks](https://github.com/karlhsueh/agent-session-mover/issues).
+
 The macOS app is signed and notarized. The Windows and Linux builds are not code-signed yet, so Windows SmartScreen asks you to confirm the first launch. On Linux, run `chmod +x` on the AppImage before you open it. Each [release](https://github.com/karlhsueh/agent-session-mover/releases/latest) lists the SHA-256 of every file in `SHA256SUMS`.
 
 ### Updates

@@ -167,5 +167,5 @@ Codex opens its databases in WAL mode and writes them while any Codex process ru
 
 - Does the Claude desktop sidebar show an imported transcript that has no `local_*.json`?
 - Does the Codex desktop list show an imported row whose `updated_at` is older than its sync watermark?
-- How do Windows paths, folder names, and file locks behave? Nothing here has run on Windows or Linux.
+- How do Windows paths, folder names, and file locks behave? Nothing here has run on a real Windows or Linux computer. CI runs every test on both, and `test/cross-os.test.ts` imports an archive made on the other kind of system, but it assumes Claude Code on Windows records `C:\...` paths and names project folders with the same encoding.
 - Do subagent resume and `/rewind` work after import?
