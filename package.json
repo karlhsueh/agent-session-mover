@@ -1,7 +1,7 @@
 {
   "name": "agent-session-mover",
   "productName": "Agent Session Mover",
-  "version": "0.1.11",
+  "version": "0.2.0",
   "private": true,
   "description": "Export and import Claude Code and Codex sessions between computers.",
   "license": "MIT",
