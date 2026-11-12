@@ -87,19 +87,27 @@ function sessionInfo(session: ManifestSession): SessionInfo {
   }
 }
 
-/** Same path when it exists here, else the source home swapped for this home with separators converted. */
+/**
+ * Same path when it exists here, else the source home swapped for this home with separators converted.
+ * Between Windows and macOS or Linux, a folder outside the source home has no counterpart to guess,
+ * so its target is empty and the user chooses one.
+ */
 export function suggestMappings(manifest: Manifest, here: { homeDir: string; sep: string; exists: (target: string) => boolean }): PathMapping[] {
   const { homeDir, sep } = manifest.source
+  const sameKind = sep === here.sep
+  // Windows paths ignore case, and a session can record `c:\users\me` for the home `C:\Users\me`.
+  const fold = (value: string) => (sep === '\\' ? value.toLowerCase() : value)
   const cwds = new Set(manifest.sessions.flatMap((session) => [...(session.cwd ? [session.cwd] : []), ...session.cwds]))
   const suggest = (source: string): PathMapping => {
-    if (here.exists(source)) return { source, target: source }
-    if (!isAtOrUnder(source, homeDir, sep)) return { source, target: source }
+    if (sameKind && here.exists(source)) return { source, target: source }
+    if (!isAtOrUnder(fold(source), fold(homeDir), sep)) return { source, target: sameKind ? source : '' }
     const rest = source.slice(homeDir.length).split(sep).filter(Boolean)
     return { source, target: [here.homeDir, ...rest].join(here.sep) }
   }
   // A folder inside one already listed follows it, so it gets a row only when its own suggestion differs.
   const listed: PathMapping[] = []
   for (const source of [...cwds].sort((a, b) => a.length - b.length)) {
+    if (listed.some((mapping) => mapping.target === '' && isAtOrUnder(fold(source), fold(mapping.source), sep))) continue
     const mapping = suggest(source)
     if (mapPath(source, listed, sep, here.sep) !== mapping.target) listed.push(mapping)
   }

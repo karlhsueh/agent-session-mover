@@ -108,6 +108,7 @@ export interface ArchiveSummary {
 /** Rewrites the source path and everything under it to the target path. */
 export interface PathMapping {
   source: string
+  /** Empty until the user chooses a folder. `mapPath` skips such a mapping. */
   target: string
 }
 
@@ -120,7 +121,7 @@ export function isAtOrUnder(value: string, root: string, sep: string): boolean {
 export function mapPath(value: string, mappings: readonly PathMapping[], sourceSep: string, targetSep: string): string | null {
   let best: PathMapping | null = null
   for (const mapping of mappings) {
-    if (isAtOrUnder(value, mapping.source, sourceSep) && (!best || mapping.source.length > best.source.length)) best = mapping
+    if (mapping.target !== '' && isAtOrUnder(value, mapping.source, sourceSep) && (!best || mapping.source.length > best.source.length)) best = mapping
   }
   if (!best) return null
   let rest = value.slice(best.source.length)

@@ -46,12 +46,19 @@ export function parseKey(input: unknown): NonNullable<ReturnType<typeof parseSes
   return parsed
 }
 
-/** Targets are folders on this machine and must be absolute. Sources are matched as text against the archive. */
+/**
+ * Targets are folders on this machine and must be absolute. Sources are matched as text against the archive.
+ * A mapping with an empty target is one the user has not chosen yet, so it is dropped and its sessions stay unmapped.
+ */
 export function parseMappings(input: unknown, isAbsolute: (target: string) => boolean = path.isAbsolute): PathMapping[] {
   if (!Array.isArray(input) || input.length > MAX_MAPPINGS) throw new InputError('Expected a list of path mappings.')
   const sources = new Set<string>()
-  return input.map((value) => {
+  return input.flatMap((value) => {
     const { source, target } = (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>
+    if (isPathText(source) && target === '' && !sources.has(source)) {
+      sources.add(source)
+      return []
+    }
     if (!isPathText(source) || !isPathText(target)) throw new InputError('Each mapping needs a source and a target path.')
     if (!isAbsolute(target)) throw new InputError(`Target ${JSON.stringify(target)} is not an absolute path.`)
     if (sources.has(source)) throw new InputError(`Source ${JSON.stringify(source)} is mapped twice.`)

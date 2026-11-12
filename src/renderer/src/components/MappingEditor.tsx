@@ -24,10 +24,11 @@ interface Props {
 
 const ABSOLUTE = /^(\/|[A-Za-z]:[\\/]|\\\\)/
 
-type FolderStatus = 'exists' | 'missing' | 'unknown'
+type FolderStatus = 'unchosen' | 'exists' | 'missing' | 'unknown'
 
 /** Main reports a missing folder only for a session's starting cwd, so folders no session started in stay unknown. */
 function folderStatus(mapping: PathMapping, sessions: readonly SessionInfo[], preview: ImportPreview | null, sep: string): FolderStatus {
+  if (mapping.target === '') return 'unchosen'
   if (!preview || !sessions.some((session) => session.cwd !== null && isAtOrUnder(session.cwd, mapping.source, sep))) return 'unknown'
   const trimmed = mapping.target.replace(/[\\/]+$/, '')
   const missing = preview.sessions.flatMap((session) => session.warnings.flatMap((warning) => (warning.code === 'target-cwd-missing' ? [warning.path] : [])))
@@ -37,7 +38,7 @@ function folderStatus(mapping: PathMapping, sessions: readonly SessionInfo[], pr
   return 'exists'
 }
 
-const STATUS_TEXT: Record<FolderStatus, string> = { exists: 'Folder exists', missing: 'Folder does not exist yet', unknown: '' }
+const STATUS_TEXT: Record<FolderStatus, string> = { unchosen: 'Choose a folder on this computer', exists: 'Folder exists', missing: 'Folder does not exist yet', unknown: '' }
 
 type Creation = { kind: 'idle' } | { kind: 'creating' } | { kind: 'failed'; message: string }
 const IDLE: Creation = { kind: 'idle' }
@@ -47,7 +48,7 @@ export function MappingEditor({ token, mappings, sessions, preview, choices, che
   const [showAll, setShowAll] = useState(false)
   const rows = mappings.map((mapping) => {
     const users = sessions.filter((session) => session.cwds.some((cwd) => isAtOrUnder(cwd, mapping.source, sourceSep)))
-    return { mapping, users, needed: needsMapping(users, preview, choices) }
+    return { mapping, users, needed: mapping.target === '' || needsMapping(users, preview, choices) }
   })
   const needed = rows.filter((row) => row.needed)
   const announcement = useNewlyNeeded(preview ? needed.map((row) => row.mapping.source) : null)
@@ -177,7 +178,7 @@ function MappingRow({
   }
   const failed = creation.kind === 'failed' ? creation.message : null
   const offerCreate = status === 'missing' && !invalid && next === mapping.target
-  const warn = invalid || failed !== null || status === 'missing'
+  const warn = invalid || failed !== null || status === 'missing' || status === 'unchosen'
 
   return (
     <li className="mapping">
@@ -207,6 +208,7 @@ function MappingRow({
           id={inputId}
           className={invalid ? 'mono invalid' : 'mono'}
           value={draft}
+          placeholder="Folder on this computer"
           title={mapping.target}
           spellCheck={false}
           autoComplete="off"
